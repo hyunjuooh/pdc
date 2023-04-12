@@ -246,7 +246,7 @@ PDC Object APIs
 	* Read data from an object.
 	* For developers: see pdc_client_connect.c. Use ``PDC_obj_get_info`` to retrieve name. Then forward name to servers to fulfill requests.
 
-* ``perr_t PDCobj_del_data(pdcid_t obj_id)``
+* ``perr_t PDCobj_del(pdcid_t obj_id)``
 	* Input:
 		* ``obj_id``: Local object ID
 	* Output:
