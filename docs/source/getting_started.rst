@@ -211,6 +211,14 @@ You can also specify a timeout (e.g., 2 minutes) for the tests by specifying the
 
 	If you are using PDC on an HPC system, e.g. Perlmutter@NERSC, ``ctest`` should be run on a compute node, you can submit an interactive job on Perlmutter: ``salloc --nodes 1 --qos interactive --time 01:00:00 --constraint cpu --account=mxxxx``
 
+.. note::
+	
+	In MacOS, you may have to create a hostname(ex. PDC_Host) that would point to localhost ipv4 and use that host for PDC execution when encountering error with Mercury init. 
+
+.. code-block:: Bash
+	
+	sudo sh -c 'echo "`ipconfig getifaddr en0` PDC_Host" >> /etc/hosts'
+	sudo scutil --set HostName PDC_Host
 
 Install/Configure Julia Support for PDC
 ---------------------------------------
