@@ -41,6 +41,7 @@ struct pdc_region_info {
     int                   registered_op;
     void *                buf;
     size_t                unit;
+    int                   local_prefetched;
 };
 
 typedef enum {

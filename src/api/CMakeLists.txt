@@ -80,6 +80,7 @@ set(PDC_SRCS
   ${PDC_SOURCE_DIR}/src/api/pdc_query/pdc_query.c
   ${PDC_SOURCE_DIR}/src/api/pdc_region/pdc_region.c
   ${PDC_SOURCE_DIR}/src/api/pdc_region/pdc_region_transfer.c
+  ${PDC_SOURCE_DIR}/src/api/pdc_region/pdc_region_prefetch.c
   ${PDC_SOURCE_DIR}/src/api/pdc_transform/pdc_transform.c
   ${PDC_SOURCE_DIR}/src/api/pdc_transform/pdc_transforms_common.c
   ${PDC_SOURCE_DIR}/src/server/pdc_client_server_common.c
