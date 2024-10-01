@@ -239,7 +239,7 @@ pdc_region_cache_insert(pdcid_t obj_id, int ndim, uint64_t *offset, uint64_t *si
         DL_PREPEND(obj_cache_item->reg_cache_list, reg_cache_item);
     }
 
-    total_buffer_size += sizeof(buf);
+    total_buf_size += sizeof(buf);
 
 done:
     fflush(stdout);
