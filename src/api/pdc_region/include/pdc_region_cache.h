@@ -34,11 +34,11 @@
 
 typedef struct pdc_object_cache {
     // PDC Object information
-    pdcid_t     obj_id;
+    pdcid_t obj_id;
     // int         obj_ndim;
 
     // Cached region list for this object
-    struct pdc_region_cache     *reg_cache_list, *reg_cache_list_end;
+    struct pdc_region_cache *reg_cache_list, *reg_cache_list_end;
 
     // Double linked list for cached object list
     struct pdc_object_cache *prev;
@@ -47,21 +47,20 @@ typedef struct pdc_object_cache {
 
 typedef struct pdc_region_cache {
     // Region information(remote region)
-    int         reg_ndim;
-    uint64_t    *reg_offset;
-    uint64_t    *reg_size;
+    int       reg_ndim;
+    uint64_t *reg_offset;
+    uint64_t *reg_size;
 
     // Region Buffer
-    char        *buf;
+    char *buf;
 
-    struct pdc_region_cache   *prev;
-    struct pdc_region_cache   *next;
+    struct pdc_region_cache *prev;
+    struct pdc_region_cache *next;
 } pdc_region_cache;
 
 /****************************************************/
 /* Private Functions for Client-side Region Caching */
 /****************************************************/
-
 
 perr_t pdc_region_cache_init();
 
