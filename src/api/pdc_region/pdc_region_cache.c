@@ -110,9 +110,9 @@ pdc_region_cache_search(pdcid_t obj_id, int ndim, size_t unit, uint64_t *offset,
 
     return region_contained;
 
-// done:
-//     fflush(stdout);
-//     FUNC_LEAVE(ret_value);
+    // done:
+    //     fflush(stdout);
+    //     FUNC_LEAVE(ret_value);
 }
 
 // Insert the region to the list
