@@ -32,6 +32,7 @@
 #include "pdc_cont_pkg.h"
 #include "pdc_obj_pkg.h"
 #include "pdc_region_pkg.h"
+#include "pdc_region_cache.h"
 #include "pdc_analysis_pkg.h"
 #include "pdc_interface.h"
 #include "pdc_client_connect.h"
@@ -106,6 +107,8 @@ PDCinit(const char *pdc_name)
         PGOTO_ERROR(FAIL, "PDC region init error");
     if (PDC_transfer_request_init() < 0)
         PGOTO_ERROR(FAIL, "PDC region transfer init error");
+    if (pdc_region_cache_init() < 0)
+        PGOTO_ERROR(FAIL, "PDC region cache init error");
 
     // PDC Client Server connection init
     PDC_Client_init();
