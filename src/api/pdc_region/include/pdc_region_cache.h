@@ -64,9 +64,9 @@ typedef struct pdc_region_cache {
 
 perr_t pdc_region_cache_init();
 
-perr_t pdc_region_cache_search(pdcid_t obj_id, int ndim, uint64_t *offset, uint64_t *size, void *buf);
+perr_t pdc_region_cache_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size, void *buf);
 
-perr_t pdc_region_cache_insert(pdcid_t obj_id, int ndim, uint64_t *offset, uint64_t *size, void *buf);
+perr_t pdc_region_cache_insert(pdcid_t obj_id, int ndim, uint64_t *offset, uint64_t *size, void *buf, size_t buf_size);
 
 perr_t pdc_region_cache_evict(size_t required_size);
 

@@ -21,32 +21,6 @@
 // Temporary defined variable
 #define MAX_CACHE_SIZE 34359738368
 
-// typedef struct pdc_object_cache {
-//     // PDC Object information
-//     pdcid_t     obj_id;
-//     // int         obj_ndim;
-
-//     // Cached region list for this object
-//     struct pdc_region_cache     *reg_cache_list, *reg_cache_list_end;
-
-//     // Double linked list for cached object list
-//     struct pdc_object_cache *prev;
-//     struct pdc_object_cache *next;
-// } pdc_object_cache;
-
-// typedef struct pdc_region_cache {
-//     // Region information(remote region)
-//     int         reg_ndim;
-//     uint64_t    *reg_offset;
-//     uint64_t    *reg_size;
-
-//     // Region Buffer
-//     char        *buf;
-
-//     struct pdc_region_cache   *prev;
-//     struct pdc_region_cache   *next;
-// } pdc_region_cache;
-
 static size_t                   total_buf_size;
 static struct pdc_object_cache *obj_cache_list, *obj_cache_list_end;
 
@@ -67,7 +41,7 @@ done:
 }
 
 // TODO:
-// Implement when the region is overlapping
+// Implement when the region is overlapping - partially containing
 // Need to manage the object's offset cache information
 // Currently considering fully contained case
 perr_t
@@ -77,7 +51,7 @@ pdc_region_cache_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offse
     struct pdc_object_cache *obj_cache_iter;
     struct pdc_region_cache *reg_cache_iter;
     uint64_t *               overlap_offset, *overlap_size;
-    int                      i;
+    int                      i, region_contained;
 
     obj_cache_iter = obj_cache_list;
 
@@ -103,7 +77,7 @@ pdc_region_cache_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offse
 
                     // Copy the overlapped part into the provided transfer_request buffer
                     memcpy_overlap_subregion(reg_cache_iter->reg_ndim, unit, reg_cache_iter->buf,
-                                             reg_cache_iter->offset, reg_cache_iter->size, buf, offset, size,
+                                             reg_cache_iter->reg_offset, reg_cache_iter->reg_size, buf, offset, size,
                                              overlap_offset, overlap_size);
 
                     // Move the recently searched region into the front of the list
@@ -115,31 +89,6 @@ pdc_region_cache_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offse
 
                     break;
                 }
-                // if (reg_cache_iter->reg_ndim == 1) {
-                //     if (offset[0] >= reg_cache_iter->reg_offset[0] &&
-                //         (offset[0] + size[0]) <= (reg_cache_iter->offset[0] + reg_cache_iter->size[0])){
-
-                //         // Copy the part of the region into buf
-                //         memcpy(buf, reg_cache_iter->buf+offset[0], size[0]);
-
-                //         // Update the region_cache_list_end information
-                //         if (obj_cache_iter->reg_cache_list == obj_cache_iter->reg_cache_list_end) {
-                //             obj_cache_iter->reg_cache_list_end = obj_cache_iter->reg_cache_list_end->prev;
-                //         }
-
-                //         // Move the recently searched region into the front of the list
-                //         DL_DELETE(obj_cache_iter->reg_cache_list, reg_cache_iter);
-                //         DL_PREPEND(obj_cache_iter->reg_cache_list, reg_cache_iter);
-
-                //         break;
-                //     }
-                // }
-                // else if (reg_cache_iter->reg_ndim == 2) {
-                //     print("pdc_region_cache: ndim=2\n");
-                // }
-                // else {
-                //     print("pdc_region_cache: ndim>=3\n");
-                // }
 
                 reg_cache_iter = reg_cache_iter->next;
             }
@@ -166,7 +115,7 @@ done:
 
 // Insert the region to the list
 perr_t
-pdc_region_cache_insert(pdcid_t obj_id, int ndim, uint64_t *offset, uint64_t *size, void *buf)
+pdc_region_cache_insert(pdcid_t obj_id, int ndim, uint64_t *offset, uint64_t *size, void *buf, size_t buf_size)
 {
     perr_t ret_value = SUCCEED;
 
@@ -183,7 +132,9 @@ pdc_region_cache_insert(pdcid_t obj_id, int ndim, uint64_t *offset, uint64_t *si
 
     // If there is no object list, generate the list and insert the item
     if (obj_cache_list == NULL) {
-        obj_cache_item = (struct pdc_object_cache *)malloc(sizeof(struct pdc_object_cache));
+        obj_cache_item = (struct pdc_object_cache *)PDC_malloc(sizeof(struct pdc_object_cache));
+        if (!obj_cache_item)
+            PGOTO_ERROR(0, "PDC region cache - obj_cache_item memory allocation failed");
 
         obj_cache_item->obj_id         = obj_id;
         obj_cache_item->reg_cache_list = NULL;
@@ -205,7 +156,9 @@ pdc_region_cache_insert(pdcid_t obj_id, int ndim, uint64_t *offset, uint64_t *si
 
         // If it does not exists create the list prior to insertion
         if (obj_cache_item == NULL) {
-            obj_cache_item = (struct pdc_object_cache *)malloc(sizeof(struct pdc_object_cache));
+            obj_cache_item = (struct pdc_object_cache *)PDC_malloc(sizeof(struct pdc_object_cache));
+            if (!obj_cache_item)
+                PGOTO_ERROR(0, "PDC region cache - obj_cache_item memory allocation failed");
 
             obj_cache_item->obj_id         = obj_id;
             obj_cache_item->reg_cache_list = NULL;
@@ -219,13 +172,25 @@ pdc_region_cache_insert(pdcid_t obj_id, int ndim, uint64_t *offset, uint64_t *si
     // Insert the region to the list
     // Check if the region cache list exists for the obj_id
     // If it does not exists create the list and insert the region
-    reg_cache_item           = (struct pdc_region_cache *)malloc(sizeof(struct pdc_region_cache));
+
+    // pdc_malloc
+    // check if allocation is successful or not
+    reg_cache_item           = (struct pdc_region_cache *)PDC_malloc(sizeof(struct pdc_region_cache));
+    if (!reg_cache_item)
+        PGOTO_ERROR(0, "PDC region cache - reg_cache_item memory allocation failed");
+
     reg_cache_item->reg_ndim = ndim;
 
     // memcpy offset and size continuously
-    reg_cache_item->reg_offset = (uint64_t *)malloc(sizeof(uint64_t) * ndim * 2);
+    reg_cache_item->reg_offset = (uint64_t *)PDC_malloc(sizeof(uint64_t) * ndim * 2);
+    if (!reg_cache_item->reg_offset)
+        PGOTO_ERROR(0, "PDC region cache - reg_cache_item->reg_offset memory allocation failed");
+
     reg_cache_item->reg_size   = reg_cache_item->reg_offset + ndim;
-    reg_cache_item->buf        = (char *)malloc(sizeof(char) * sizeof(buf));
+
+    reg_cache_item->buf        = (char *)PDC_malloc(sizeof(char) * sizeof(buf));
+    if (!reg_cache_item->reg_offset)
+        PGOTO_ERROR(0, "PDC region cache - reg_cache_item->reg_size memory allocation failed");
 
     memcpy(reg_cache_item->reg_offset, offset, sizeof(uint64_t) * ndim);
     memcpy(reg_cache_item->reg_size, size, sizeof(uint64_t) * ndim);
@@ -233,7 +198,7 @@ pdc_region_cache_insert(pdcid_t obj_id, int ndim, uint64_t *offset, uint64_t *si
 
     if (obj_cache_item->reg_cache_list == NULL) {
         DL_PREPEND(obj_cache_item->reg_cache_list, reg_cache_item);
-        reg_cache_list_end = obj_cache_item->reg_cache_list;
+        obj_cache_item->reg_cache_list_end = obj_cache_item->reg_cache_list;
     }
     else {
         DL_PREPEND(obj_cache_item->reg_cache_list, reg_cache_item);
