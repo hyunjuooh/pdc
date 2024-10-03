@@ -77,8 +77,8 @@ pdc_region_cache_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offse
 
                     // Copy the overlapped part into the provided transfer_request buffer
                     memcpy_overlap_subregion(reg_cache_iter->reg_ndim, unit, reg_cache_iter->buf,
-                                             reg_cache_iter->reg_offset, reg_cache_iter->reg_size, buf, offset, size,
-                                             overlap_offset, overlap_size);
+                                             reg_cache_iter->reg_offset, reg_cache_iter->reg_size, buf,
+                                             offset, size, overlap_offset, overlap_size);
 
                     // Move the recently searched region into the front of the list
                     DL_DELETE(obj_cache_iter->reg_cache_list, reg_cache_iter);
@@ -115,7 +115,8 @@ done:
 
 // Insert the region to the list
 perr_t
-pdc_region_cache_insert(pdcid_t obj_id, int ndim, uint64_t *offset, uint64_t *size, void *buf, size_t buf_size)
+pdc_region_cache_insert(pdcid_t obj_id, int ndim, uint64_t *offset, uint64_t *size, void *buf,
+                        size_t buf_size)
 {
     perr_t ret_value = SUCCEED;
 
@@ -175,7 +176,7 @@ pdc_region_cache_insert(pdcid_t obj_id, int ndim, uint64_t *offset, uint64_t *si
 
     // pdc_malloc
     // check if allocation is successful or not
-    reg_cache_item           = (struct pdc_region_cache *)PDC_malloc(sizeof(struct pdc_region_cache));
+    reg_cache_item = (struct pdc_region_cache *)PDC_malloc(sizeof(struct pdc_region_cache));
     if (!reg_cache_item)
         PGOTO_ERROR(0, "PDC region cache - reg_cache_item memory allocation failed");
 
@@ -186,9 +187,9 @@ pdc_region_cache_insert(pdcid_t obj_id, int ndim, uint64_t *offset, uint64_t *si
     if (!reg_cache_item->reg_offset)
         PGOTO_ERROR(0, "PDC region cache - reg_cache_item->reg_offset memory allocation failed");
 
-    reg_cache_item->reg_size   = reg_cache_item->reg_offset + ndim;
+    reg_cache_item->reg_size = reg_cache_item->reg_offset + ndim;
 
-    reg_cache_item->buf        = (char *)PDC_malloc(sizeof(char) * sizeof(buf));
+    reg_cache_item->buf = (char *)PDC_malloc(sizeof(char) * sizeof(buf));
     if (!reg_cache_item->reg_offset)
         PGOTO_ERROR(0, "PDC region cache - reg_cache_item->reg_size memory allocation failed");
 
