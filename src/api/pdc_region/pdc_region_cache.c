@@ -44,18 +44,18 @@ done:
 // Implement when the region is overlapping - partially containing
 // Need to manage the object's offset cache information
 // Currently considering fully contained case
-perr_t
-pdc_region_cache_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size, void *buf)
+int
+pdc_region_cache_search(pdcid_t obj_id, int ndim, size_t unit, uint64_t *offset, uint64_t *size, void *buf)
 {
-    perr_t                   ret_value = SUCCEED;
+    // perr_t                   ret_value = SUCCEED;
     struct pdc_object_cache *obj_cache_iter;
     struct pdc_region_cache *reg_cache_iter;
     uint64_t *               overlap_offset, *overlap_size;
-    int                      i, region_contained;
+    int                      region_contained = 0;
 
     obj_cache_iter = obj_cache_list;
 
-    FUNC_ENTER(NULL);
+    // FUNC_ENTER(NULL);
 
     // Navigate through the object list
     while (obj_cache_iter != NULL) {
@@ -108,15 +108,16 @@ pdc_region_cache_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offse
         obj_cache_iter = obj_cache_iter->next;
     }
 
-done:
-    fflush(stdout);
-    FUNC_LEAVE(ret_value);
+    return region_contained;
+
+// done:
+//     fflush(stdout);
+//     FUNC_LEAVE(ret_value);
 }
 
 // Insert the region to the list
 perr_t
-pdc_region_cache_insert(pdcid_t obj_id, int ndim, uint64_t *offset, uint64_t *size, void *buf,
-                        size_t buf_size)
+pdc_region_cache_insert(pdcid_t obj_id, int ndim, uint64_t *offset, uint64_t *size, void *buf)
 {
     perr_t ret_value = SUCCEED;
 
@@ -195,7 +196,7 @@ pdc_region_cache_insert(pdcid_t obj_id, int ndim, uint64_t *offset, uint64_t *si
 
     memcpy(reg_cache_item->reg_offset, offset, sizeof(uint64_t) * ndim);
     memcpy(reg_cache_item->reg_size, size, sizeof(uint64_t) * ndim);
-    memcpy(reg_cache_item->buf, buf, buf_size);
+    memcpy(reg_cache_item->buf, buf, sizeof(buf));
 
     if (obj_cache_item->reg_cache_list == NULL) {
         DL_PREPEND(obj_cache_item->reg_cache_list, reg_cache_item);
@@ -243,6 +244,10 @@ pdc_region_cache_evict(size_t required_size)
 
             // Delete the last item of the list and free the buffer
             DL_DELETE(obj_cache_iter->reg_cache_list, reg_cache_item);
+
+            free(reg_cache_item->reg_offset);
+            free(reg_cache_item->reg_size);
+            free(reg_cache_item->buf);
             free(reg_cache_item);
 
             if (required_size < MAX_CACHE_SIZE) {

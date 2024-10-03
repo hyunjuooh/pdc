@@ -37,6 +37,7 @@
 #include "pdc_prop_pkg.h"
 #include "pdc_region.h"
 #include "pdc_region_pkg.h"
+#include "pdc_region_cache.h"
 #include "pdc_obj_pkg.h"
 #include "pdc_interface.h"
 #include "pdc_transforms_pkg.h"
@@ -1424,7 +1425,7 @@ PDCregion_transfer_start(pdcid_t transfer_request_id)
     struct _pdc_id_info * transferinfo;
     pdc_transfer_request *transfer_request;
     size_t                unit;
-    int                   i;
+    int                   i, region_in_cache=0;
 
     FUNC_ENTER(NULL);
 
@@ -1438,6 +1439,16 @@ PDCregion_transfer_start(pdcid_t transfer_request_id)
         ret_value = FAIL;
         goto done;
     }
+
+    // Check if the requested region is within the client-side region cache list
+    region_in_cache = pdc_region_cache_search(transfer_request->obj_id, transfer_request->remote_region_ndim, transfer_request->unit, transfer_request->remote_region_offset, transfer_request->remote_region_size, transfer_request->buf);
+
+    if (region_in_cache){
+        printf("PDC Client pdc_region_cache found requested region\n");
+        transfer_request->metadata_id = NULL;
+        goto done;
+    }        
+
     // Dynamic case is implemented within the the aggregated version. The main reason is that the target data
     // server may not be unique, so we may end up sending multiple requests to the same data server.
     // Aggregated method will take care of this type of operation.
@@ -1903,6 +1914,7 @@ perr_t
 PDCregion_transfer_wait(pdcid_t transfer_request_id)
 {
     perr_t                ret_value = SUCCEED;
+    perr_t                ret_value_region_cache = SUCCEED;
     struct _pdc_id_info * transferinfo;
     pdc_transfer_request *transfer_request;
     size_t                unit;
@@ -1991,6 +2003,11 @@ PDCregion_transfer_wait(pdcid_t transfer_request_id)
         free(transfer_request->metadata_id);
         transfer_request->metadata_id = NULL;
         remove_local_transfer_request(transfer_request->obj_pointer, transfer_request_id);
+
+        // Insert the recently requested region into cache
+        ret_value_region_cache = pdc_region_cache_insert(transfer_request->obj_id, transfer_request->remote_region_ndim, transfer_request->remote_region_offset, transfer_request->remote_region_size, transfer_request->buf);
+        if (!ret_value_region_cache)
+            printf("Failed to insert region_cache");
     }
     else {
         // metadata is freed with previous wait (e.g. with posix consistency)
