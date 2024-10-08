@@ -32,6 +32,7 @@
 #include <sys/time.h>
 #include "pdc.h"
 #define BUF_LEN 128
+#define PART_BUF_LEN 100
 
 int
 main(int argc, char **argv)
@@ -57,6 +58,7 @@ main(int argc, char **argv)
 
     int *data      = (int *)malloc(sizeof(int) * BUF_LEN);
     int *data_read = (int *)malloc(sizeof(int) * BUF_LEN);
+    int *data_read2 = (int *)malloc(sizeof(int) * PART_BUF_LEN);
     dims[0]        = PDC_SIZE_UNLIMITED;
 
 #ifdef ENABLE_MPI
@@ -184,6 +186,8 @@ main(int argc, char **argv)
         printf("successfully closed global region @ line %d\n", __LINE__);
     }
 
+    printf("PDC_WRITE ended\n");
+
     // PDC_READ and load the whole region to the cache list
     reg        = PDCregion_create(1, local_offset, offset_length);
     reg_global = PDCregion_create(1, offset, offset_length);
@@ -215,16 +219,36 @@ main(int argc, char **argv)
         }
     }
 
+    if (PDCregion_close(reg) < 0) {
+        printf("fail to close local region @ line %d\n", __LINE__);
+        ret_value = 1;
+    }
+    else {
+        printf("successfully local region @ line %d\n", __LINE__);
+    }
+
+    if (PDCregion_close(reg_global) < 0) {
+        printf("fail to close global region @ line %d\n", __LINE__);
+        ret_value = 1;
+    }
+    else {
+        printf("successfully closed global region @ line %d\n", __LINE__);
+    }
+    
+    printf("PDC_READ prefetch ended\n");
+
     // PDC_READ and check if it is calling the cached part of the region
 
     offset[0]        = 0;
-    offset_length[0] = 100;
+    offset_length[0] = PART_BUF_LEN;
 
     reg        = PDCregion_create(1, local_offset, offset_length);
     reg_global = PDCregion_create(1, offset, offset_length);
 
-    memset(data_read, 0, sizeof(int) * BUF_LEN);
-    transfer_request = PDCregion_transfer_create(data_read, PDC_READ, obj1, reg, reg_global);
+    memset(data_read2, 0, sizeof(int) * PART_BUF_LEN);
+    transfer_request = PDCregion_transfer_create(data_read2, PDC_READ, obj1, reg, reg_global);
+
+    printf("PDC_READ new region created\n");
 
     ret = PDCregion_transfer_start(transfer_request);
     if (ret != SUCCEED) {
@@ -242,8 +266,8 @@ main(int argc, char **argv)
         ret_value = 1;
     }
     // Check if data written previously has been correctly read.
-    for (i = 0; i < 100; ++i) {
-        if (data_read[i] != i) {
+    for (i =0; i < PART_BUF_LEN; ++i) {
+        if (data_read2[i] != i) {
             printf("wrong value %d!=%d @ line %d\n", data_read[i], i, __LINE__);
             ret_value = 1;
             break;
@@ -307,6 +331,7 @@ main(int argc, char **argv)
     }
     free(data);
     free(data_read);
+    free(data_read2);
     // close pdc
     if (PDCclose(pdc) < 0) {
         printf("fail to close PDC @ line %d\n", __LINE__);

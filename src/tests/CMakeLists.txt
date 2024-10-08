@@ -100,6 +100,7 @@ set(PROGRAMS
 #  obj_transformation
   region_transfer_query
   region_transfer
+  region_transfer_cache
   region_transfer_status
   region_transfer_skewed
   region_transfer_2D
@@ -266,6 +267,7 @@ add_test(NAME obj_put_data      WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTO
 add_test(NAME obj_get_data      WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY} COMMAND run_test.sh ./obj_get_data )
 #add_test(NAME create_region     WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY} COMMAND run_test.sh ./create_region )
 add_test(NAME region_transfer    WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY} COMMAND run_test.sh ./region_transfer )
+add_test(NAME region_transfer_cache    WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY} COMMAND run_test.sh ./region_transfer_cache )
 add_test(NAME region_transfer_status    WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY} COMMAND run_test.sh ./region_transfer_status )
 add_test(NAME region_transfer_2D    WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY} COMMAND run_test.sh ./region_transfer_2D )
 add_test(NAME region_transfer_3D    WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY} COMMAND run_test.sh ./region_transfer_3D )
@@ -347,6 +349,7 @@ set_tests_properties(obj_put_data       PROPERTIES LABELS serial )
 set_tests_properties(obj_get_data       PROPERTIES LABELS serial )
 #set_tests_properties(create_region      PROPERTIES LABELS serial )
 set_tests_properties(region_transfer     PROPERTIES LABELS serial )
+set_tests_properties(region_transfer_cache     PROPERTIES LABELS serial )
 set_tests_properties(region_transfer_status     PROPERTIES LABELS serial )
 set_tests_properties(region_transfer_2D     PROPERTIES LABELS serial )
 set_tests_properties(region_transfer_3D     PROPERTIES LABELS serial )

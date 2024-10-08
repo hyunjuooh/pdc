@@ -45,17 +45,14 @@ done:
 // Need to manage the object's offset cache information
 // Currently considering fully contained case
 int
-pdc_region_cache_search(pdcid_t obj_id, int ndim, size_t unit, uint64_t *offset, uint64_t *size, void *buf)
+pdc_region_cache_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size, void *buf)
 {
-    // perr_t                   ret_value = SUCCEED;
     struct pdc_object_cache *obj_cache_iter;
     struct pdc_region_cache *reg_cache_iter;
     uint64_t *               overlap_offset, *overlap_size;
-    int                      region_contained = 0;
+    int                      region_contained = 0, one_item_reg_list=0, one_item_obj_list=0;
 
     obj_cache_iter = obj_cache_list;
-
-    // FUNC_ENTER(NULL);
 
     // Navigate through the object list
     while (obj_cache_iter != NULL) {
@@ -75,60 +72,84 @@ pdc_region_cache_search(pdcid_t obj_id, int ndim, size_t unit, uint64_t *offset,
                     PDC_region_overlap_detect(ndim, offset, size, reg_cache_iter->reg_offset,
                                               reg_cache_iter->reg_size, &overlap_offset, &overlap_size);
 
+                    // printf("pdc_region_cache: overlap offset: %d, size: %d\n", overlap_offset[0], overlap_size[0]);
+                    // printf("pdc_region_cache: remote_reg_iter offset: %d, size: %d\n", reg_cache_iter->reg_offset[0], reg_cache_iter->reg_size[0]);
+                    // printf("pdc_region_cache: required offset: %d, size: %d\n", offset[0], size[0]);
+
                     // Copy the overlapped part into the provided transfer_request buffer
                     memcpy_overlap_subregion(reg_cache_iter->reg_ndim, unit, reg_cache_iter->buf,
                                              reg_cache_iter->reg_offset, reg_cache_iter->reg_size, buf,
                                              offset, size, overlap_offset, overlap_size);
 
                     // Move the recently searched region into the front of the list
-                    DL_DELETE(obj_cache_iter->reg_cache_list, reg_cache_iter);
-                    DL_PREPEND(obj_cache_iter->reg_cache_list, reg_cache_iter);
+                    if (reg_cache_iter == obj_cache_iter->reg_cache_list_end) {
+                        if (reg_cache_iter->prev) {
+                            obj_cache_iter->reg_cache_list_end = reg_cache_iter->prev;
+                        } else {
+                            // This means there is only one item in the list
+                            one_item_reg_list = 1;
+                        }
+                    }
+                    if (!one_item_reg_list) {
+                        DL_DELETE(obj_cache_iter->reg_cache_list, reg_cache_iter);
+                        DL_PREPEND(obj_cache_iter->reg_cache_list, reg_cache_iter);
+                    }
 
                     free(overlap_offset);
-                    free(overlap_size);
-
                     break;
                 }
 
                 reg_cache_iter = reg_cache_iter->next;
             }
 
-            // Update the obj_cache_list_end information
-            if (obj_cache_iter == obj_cache_list_end) {
-                obj_cache_list_end = obj_cache_list_end->prev;
+            if (region_contained) {
+                // Update the obj_cache_list_end information
+                if (obj_cache_iter == obj_cache_list_end) {
+                    if (obj_cache_list_end->prev) {
+                        obj_cache_list_end = obj_cache_list_end->prev;
+                    } else {
+                        one_item_obj_list = 1;
+                    }
+                }
+
+                if (!one_item_obj_list) {
+                    // Move the recently searched object to the front of the list
+                    DL_DELETE(obj_cache_list, obj_cache_iter);
+                    DL_PREPEND(obj_cache_list, obj_cache_iter);
+                }
+                break;
             }
-
-            // Move the recently searched object to the front of the list
-            DL_DELETE(obj_cache_list, obj_cache_iter);
-            DL_PREPEND(obj_cache_list, obj_cache_iter);
-
-            break;
         }
 
         obj_cache_iter = obj_cache_iter->next;
     }
 
     return region_contained;
-
-    // done:
-    //     fflush(stdout);
-    //     FUNC_LEAVE(ret_value);
 }
 
 // Insert the region to the list
 perr_t
-pdc_region_cache_insert(pdcid_t obj_id, int ndim, uint64_t *offset, uint64_t *size, void *buf)
+pdc_region_cache_insert(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size, void *buf)
 {
     perr_t ret_value = SUCCEED;
 
     struct pdc_object_cache *obj_cache_iter, *obj_cache_item = NULL;
     struct pdc_region_cache *reg_cache_item;
+    uint64_t read_size = 0;
 
     FUNC_ENTER(NULL);
 
+    // Calculation of read size
+    if (ndim >= 1)
+        read_size = unit * size[0];
+    if (ndim >= 2)
+        read_size *= size[1];
+    if (ndim >= 3)
+        read_size *= size[2];
+
     // Check if there is remaining buffer size to insert region
     // If there is no remaining capacity, free the buffer according to LRU policy
-    if (total_buf_size + sizeof(buf) > MAX_CACHE_SIZE) {
+    if (total_buf_size + read_size > MAX_CACHE_SIZE) {
         pdc_region_cache_evict(total_buf_size + sizeof(buf));
     }
 
@@ -136,7 +157,7 @@ pdc_region_cache_insert(pdcid_t obj_id, int ndim, uint64_t *offset, uint64_t *si
     if (obj_cache_list == NULL) {
         obj_cache_item = (struct pdc_object_cache *)PDC_malloc(sizeof(struct pdc_object_cache));
         if (!obj_cache_item)
-            PGOTO_ERROR(0, "PDC region cache - obj_cache_item memory allocation failed");
+            PGOTO_ERROR(FAIL, "PDC region cache - obj_cache_item memory allocation failed");
 
         obj_cache_item->obj_id         = obj_id;
         obj_cache_item->reg_cache_list = NULL;
@@ -160,7 +181,7 @@ pdc_region_cache_insert(pdcid_t obj_id, int ndim, uint64_t *offset, uint64_t *si
         if (obj_cache_item == NULL) {
             obj_cache_item = (struct pdc_object_cache *)PDC_malloc(sizeof(struct pdc_object_cache));
             if (!obj_cache_item)
-                PGOTO_ERROR(0, "PDC region cache - obj_cache_item memory allocation failed");
+                PGOTO_ERROR(FAIL, "PDC region cache - obj_cache_item memory allocation failed");
 
             obj_cache_item->obj_id         = obj_id;
             obj_cache_item->reg_cache_list = NULL;
@@ -174,29 +195,26 @@ pdc_region_cache_insert(pdcid_t obj_id, int ndim, uint64_t *offset, uint64_t *si
     // Insert the region to the list
     // Check if the region cache list exists for the obj_id
     // If it does not exists create the list and insert the region
-
-    // pdc_malloc
-    // check if allocation is successful or not
     reg_cache_item = (struct pdc_region_cache *)PDC_malloc(sizeof(struct pdc_region_cache));
     if (!reg_cache_item)
-        PGOTO_ERROR(0, "PDC region cache - reg_cache_item memory allocation failed");
+        PGOTO_ERROR(FAIL, "PDC region cache - reg_cache_item memory allocation failed");
 
     reg_cache_item->reg_ndim = ndim;
 
     // memcpy offset and size continuously
     reg_cache_item->reg_offset = (uint64_t *)PDC_malloc(sizeof(uint64_t) * ndim * 2);
     if (!reg_cache_item->reg_offset)
-        PGOTO_ERROR(0, "PDC region cache - reg_cache_item->reg_offset memory allocation failed");
+        PGOTO_ERROR(FAIL, "PDC region cache - reg_cache_item->reg_offset memory allocation failed");
 
     reg_cache_item->reg_size = reg_cache_item->reg_offset + ndim;
 
-    reg_cache_item->buf = (char *)PDC_malloc(sizeof(char) * sizeof(buf));
+    reg_cache_item->buf = (char *)PDC_malloc(sizeof(char) * read_size);
     if (!reg_cache_item->reg_offset)
-        PGOTO_ERROR(0, "PDC region cache - reg_cache_item->reg_size memory allocation failed");
+        PGOTO_ERROR(FAIL, "PDC region cache - reg_cache_item->reg_size memory allocation failed");
 
     memcpy(reg_cache_item->reg_offset, offset, sizeof(uint64_t) * ndim);
     memcpy(reg_cache_item->reg_size, size, sizeof(uint64_t) * ndim);
-    memcpy(reg_cache_item->buf, buf, sizeof(buf));
+    memcpy(reg_cache_item->buf, buf, sizeof(char) * read_size);
 
     if (obj_cache_item->reg_cache_list == NULL) {
         DL_PREPEND(obj_cache_item->reg_cache_list, reg_cache_item);
@@ -206,7 +224,7 @@ pdc_region_cache_insert(pdcid_t obj_id, int ndim, uint64_t *offset, uint64_t *si
         DL_PREPEND(obj_cache_item->reg_cache_list, reg_cache_item);
     }
 
-    total_buf_size += sizeof(buf);
+    total_buf_size += read_size;
 
 done:
     fflush(stdout);
@@ -246,7 +264,6 @@ pdc_region_cache_evict(size_t required_size)
             DL_DELETE(obj_cache_iter->reg_cache_list, reg_cache_item);
 
             free(reg_cache_item->reg_offset);
-            free(reg_cache_item->reg_size);
             free(reg_cache_item->buf);
             free(reg_cache_item);
 
