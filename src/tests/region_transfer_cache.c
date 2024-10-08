@@ -31,7 +31,7 @@
 #include <unistd.h>
 #include <sys/time.h>
 #include "pdc.h"
-#define BUF_LEN 128
+#define BUF_LEN      128
 #define PART_BUF_LEN 100
 
 int
@@ -56,10 +56,10 @@ main(int argc, char **argv)
     offset_length[1] = 3;
     offset_length[2] = 5;
 
-    int *data      = (int *)malloc(sizeof(int) * BUF_LEN);
-    int *data_read = (int *)malloc(sizeof(int) * BUF_LEN);
+    int *data       = (int *)malloc(sizeof(int) * BUF_LEN);
+    int *data_read  = (int *)malloc(sizeof(int) * BUF_LEN);
     int *data_read2 = (int *)malloc(sizeof(int) * PART_BUF_LEN);
-    dims[0]        = PDC_SIZE_UNLIMITED;
+    dims[0]         = PDC_SIZE_UNLIMITED;
 
 #ifdef ENABLE_MPI
     MPI_Init(&argc, &argv);
@@ -234,7 +234,7 @@ main(int argc, char **argv)
     else {
         printf("successfully closed global region @ line %d\n", __LINE__);
     }
-    
+
     printf("PDC_READ prefetch ended\n");
 
     // PDC_READ and check if it is calling the cached part of the region
@@ -266,7 +266,7 @@ main(int argc, char **argv)
         ret_value = 1;
     }
     // Check if data written previously has been correctly read.
-    for (i =0; i < PART_BUF_LEN; ++i) {
+    for (i = 0; i < PART_BUF_LEN; ++i) {
         if (data_read2[i] != i) {
             printf("wrong value %d!=%d @ line %d\n", data_read[i], i, __LINE__);
             ret_value = 1;

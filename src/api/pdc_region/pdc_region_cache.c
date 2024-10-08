@@ -50,7 +50,7 @@ pdc_region_cache_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offse
     struct pdc_object_cache *obj_cache_iter;
     struct pdc_region_cache *reg_cache_iter;
     uint64_t *               overlap_offset, *overlap_size;
-    int                      region_contained = 0, one_item_reg_list=0, one_item_obj_list=0;
+    int                      region_contained = 0, one_item_reg_list = 0, one_item_obj_list = 0;
 
     obj_cache_iter = obj_cache_list;
 
@@ -72,9 +72,10 @@ pdc_region_cache_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offse
                     PDC_region_overlap_detect(ndim, offset, size, reg_cache_iter->reg_offset,
                                               reg_cache_iter->reg_size, &overlap_offset, &overlap_size);
 
-                    // printf("pdc_region_cache: overlap offset: %d, size: %d\n", overlap_offset[0], overlap_size[0]);
-                    // printf("pdc_region_cache: remote_reg_iter offset: %d, size: %d\n", reg_cache_iter->reg_offset[0], reg_cache_iter->reg_size[0]);
-                    // printf("pdc_region_cache: required offset: %d, size: %d\n", offset[0], size[0]);
+                    // printf("pdc_region_cache: overlap offset: %d, size: %d\n", overlap_offset[0],
+                    // overlap_size[0]); printf("pdc_region_cache: remote_reg_iter offset: %d, size: %d\n",
+                    // reg_cache_iter->reg_offset[0], reg_cache_iter->reg_size[0]); printf("pdc_region_cache:
+                    // required offset: %d, size: %d\n", offset[0], size[0]);
 
                     // Copy the overlapped part into the provided transfer_request buffer
                     memcpy_overlap_subregion(reg_cache_iter->reg_ndim, unit, reg_cache_iter->buf,
@@ -85,7 +86,8 @@ pdc_region_cache_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offse
                     if (reg_cache_iter == obj_cache_iter->reg_cache_list_end) {
                         if (reg_cache_iter->prev) {
                             obj_cache_iter->reg_cache_list_end = reg_cache_iter->prev;
-                        } else {
+                        }
+                        else {
                             // This means there is only one item in the list
                             one_item_reg_list = 1;
                         }
@@ -107,7 +109,8 @@ pdc_region_cache_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offse
                 if (obj_cache_iter == obj_cache_list_end) {
                     if (obj_cache_list_end->prev) {
                         obj_cache_list_end = obj_cache_list_end->prev;
-                    } else {
+                    }
+                    else {
                         one_item_obj_list = 1;
                     }
                 }
@@ -135,7 +138,7 @@ pdc_region_cache_insert(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offse
 
     struct pdc_object_cache *obj_cache_iter, *obj_cache_item = NULL;
     struct pdc_region_cache *reg_cache_item;
-    uint64_t read_size = 0;
+    uint64_t                 read_size = 0;
 
     FUNC_ENTER(NULL);
 

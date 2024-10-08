@@ -283,7 +283,7 @@ PDCregion_transfer_close(pdcid_t transfer_request_id)
 {
     struct _pdc_id_info * transferinfo;
     pdc_transfer_request *transfer_request;
-    perr_t                ret_value = SUCCEED;
+    perr_t                ret_value              = SUCCEED;
     perr_t                ret_value_region_cache = SUCCEED;
     FUNC_ENTER(NULL);
 
@@ -1445,15 +1445,16 @@ PDCregion_transfer_start(pdcid_t transfer_request_id)
     }
 
     // Check if the requested region is within the client-side region cache list
-    if (transfer_request->access_type == PDC_READ){
-        region_in_cache = pdc_region_cache_search(transfer_request->obj_id, transfer_request->remote_region_ndim,
-                                                transfer_request->unit, transfer_request->remote_region_offset,
-                                                transfer_request->remote_region_size, transfer_request->buf);
+    if (transfer_request->access_type == PDC_READ) {
+        region_in_cache =
+            pdc_region_cache_search(transfer_request->obj_id, transfer_request->remote_region_ndim,
+                                    transfer_request->unit, transfer_request->remote_region_offset,
+                                    transfer_request->remote_region_size, transfer_request->buf);
 
         if (region_in_cache) {
             printf("PDC Client pdc_region_cache found requested region\n");
             transfer_request->region_in_cache = region_in_cache;
-            transfer_request->metadata_id = NULL;
+            transfer_request->metadata_id     = NULL;
             goto done;
         }
     }
@@ -2011,14 +2012,14 @@ PDCregion_transfer_wait(pdcid_t transfer_request_id)
         }
 
         // Insert the recently requested region into cache
-        if(transfer_request->access_type == PDC_READ){
+        if (transfer_request->access_type == PDC_READ) {
             ret_value_region_cache =
-            pdc_region_cache_insert(transfer_request->obj_id, transfer_request->remote_region_ndim, transfer_request->unit,
-                                    transfer_request->remote_region_offset,
-                                    transfer_request->remote_region_size, transfer_request->buf);
+                pdc_region_cache_insert(transfer_request->obj_id, transfer_request->remote_region_ndim,
+                                        transfer_request->unit, transfer_request->remote_region_offset,
+                                        transfer_request->remote_region_size, transfer_request->buf);
             if (ret_value_region_cache != SUCCEED)
                 printf("Failed to insert region_cache\n");
-        }  
+        }
 
         free(transfer_request->metadata_id);
         transfer_request->metadata_id = NULL;
