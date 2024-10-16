@@ -22,7 +22,7 @@
 #define MAX_CACHE_SIZE 34359738368
 
 static size_t                   total_buf_size;
-static struct pdc_object_cache  *obj_cache_list, *obj_cache_list_end;
+static struct pdc_object_cache *obj_cache_list, *obj_cache_list_end;
 
 // Initialization of global variables
 perr_t

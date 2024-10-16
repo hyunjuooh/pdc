@@ -81,7 +81,8 @@ main(int argc, char *argv[])
         numparticles = atoll(argv[1]);
         if (rank == 0)
             printf("Writing %" PRIu64 " number of particles with %d clients.\n", numparticles, size);
-    } else {
+    }
+    else {
         numparticles = NPARTICLES;
     }
 
@@ -176,18 +177,18 @@ main(int argc, char *argv[])
 
 #ifdef ENABLE_MPI
     MPI_Barrier(MPI_COMM_WORLD);
-    t0 = MPI_Wtime();
+    t0    = MPI_Wtime();
     start = MPI_Wtime();
 #endif
 
     printf("PDC read whole region and cache it into client-side cache\n");
 
-    transfer_request_x = PDCregion_transfer_create(&x[0], PDC_READ, obj_xx, region_x, region_xx);
-    transfer_request_y = PDCregion_transfer_create(&y[0], PDC_READ, obj_yy, region_y, region_yy);
-    transfer_request_z = PDCregion_transfer_create(&z[0], PDC_READ, obj_zz, region_z, region_zz);
-    transfer_request_px = PDCregion_transfer_create(&px[0], PDC_READ, obj_pxx, region_px, region_pxx);
-    transfer_request_py = PDCregion_transfer_create(&py[0], PDC_READ, obj_pyy, region_py, region_pyy);
-    transfer_request_pz = PDCregion_transfer_create(&pz[0], PDC_READ, obj_pzz, region_pz, region_pzz);
+    transfer_request_x   = PDCregion_transfer_create(&x[0], PDC_READ, obj_xx, region_x, region_xx);
+    transfer_request_y   = PDCregion_transfer_create(&y[0], PDC_READ, obj_yy, region_y, region_yy);
+    transfer_request_z   = PDCregion_transfer_create(&z[0], PDC_READ, obj_zz, region_z, region_zz);
+    transfer_request_px  = PDCregion_transfer_create(&px[0], PDC_READ, obj_pxx, region_px, region_pxx);
+    transfer_request_py  = PDCregion_transfer_create(&py[0], PDC_READ, obj_pyy, region_py, region_pyy);
+    transfer_request_pz  = PDCregion_transfer_create(&pz[0], PDC_READ, obj_pzz, region_pz, region_pzz);
     transfer_request_id1 = PDCregion_transfer_create(&id1[0], PDC_READ, obj_id11, region_id1, region_id11);
     transfer_request_id2 = PDCregion_transfer_create(&id2[0], PDC_READ, obj_id22, region_id2, region_id22);
 
@@ -295,7 +296,7 @@ main(int argc, char *argv[])
     printf("PDC execute multiple transfer request regarding partial regions\n");
 #endif
 
-    mysize[0]        = numparticles / num_transfer_request;
+    mysize[0] = numparticles / num_transfer_request;
 
     for (i = 0; i < num_transfer_request; i++) {
         offset_remote[0] = rank * numparticles + (mysize[0] * i);
@@ -320,8 +321,8 @@ main(int argc, char *argv[])
         region_id22 = PDCregion_create(ndim, offset_remote, mysize);
 
 #ifdef ENABLE_MPI
-    MPI_Barrier(MPI_COMM_WORLD);
-    t0 = MPI_Wtime();
+        MPI_Barrier(MPI_COMM_WORLD);
+        t0 = MPI_Wtime();
 #endif
 
         transfer_request_x = PDCregion_transfer_create(&x[0], PDC_READ, obj_xx, region_x, region_xx);
@@ -329,19 +330,21 @@ main(int argc, char *argv[])
             printf("Array x transfer request creation failed\n");
             return 1;
         }
-        transfer_request_y = PDCregion_transfer_create(&y[0], PDC_READ, obj_yy, region_y, region_yy);
-        transfer_request_z = PDCregion_transfer_create(&z[0], PDC_READ, obj_zz, region_z, region_zz);
+        transfer_request_y  = PDCregion_transfer_create(&y[0], PDC_READ, obj_yy, region_y, region_yy);
+        transfer_request_z  = PDCregion_transfer_create(&z[0], PDC_READ, obj_zz, region_z, region_zz);
         transfer_request_px = PDCregion_transfer_create(&px[0], PDC_READ, obj_pxx, region_px, region_pxx);
         transfer_request_py = PDCregion_transfer_create(&py[0], PDC_READ, obj_pyy, region_py, region_pyy);
         transfer_request_pz = PDCregion_transfer_create(&pz[0], PDC_READ, obj_pzz, region_pz, region_pzz);
-        transfer_request_id1 = PDCregion_transfer_create(&id1[0], PDC_READ, obj_id11, region_id1, region_id11);
-        transfer_request_id2 = PDCregion_transfer_create(&id2[0], PDC_READ, obj_id22, region_id2, region_id22);
+        transfer_request_id1 =
+            PDCregion_transfer_create(&id1[0], PDC_READ, obj_id11, region_id1, region_id11);
+        transfer_request_id2 =
+            PDCregion_transfer_create(&id2[0], PDC_READ, obj_id22, region_id2, region_id22);
 
         ret = PDCregion_transfer_start(transfer_request_x);
         if (ret != SUCCEED) {
             printf("Failed to start transfer for region_xx\n");
             return 1;
-        }   
+        }
         ret = PDCregion_transfer_start(transfer_request_y);
         ret = PDCregion_transfer_start(transfer_request_z);
         ret = PDCregion_transfer_start(transfer_request_px);
@@ -351,11 +354,11 @@ main(int argc, char *argv[])
         ret = PDCregion_transfer_start(transfer_request_id2);
 
 #ifdef ENABLE_MPI
-    MPI_Barrier(MPI_COMM_WORLD);
-    t1 = MPI_Wtime();
-    if (rank == 0) {
-        printf("Transfer start time: %f\n", t1 - t0);
-    }
+        MPI_Barrier(MPI_COMM_WORLD);
+        t1 = MPI_Wtime();
+        if (rank == 0) {
+            printf("Transfer start time: %f\n", t1 - t0);
+        }
 #endif
         ret = PDCregion_transfer_wait(transfer_request_x);
         ret = PDCregion_transfer_wait(transfer_request_y);
@@ -367,11 +370,11 @@ main(int argc, char *argv[])
         ret = PDCregion_transfer_wait(transfer_request_id2);
 
 #ifdef ENABLE_MPI
-    MPI_Barrier(MPI_COMM_WORLD);
-    t0 = MPI_Wtime();
-    if (rank == 0) {
-        printf("Transfer wait time: %f\n", t0 - t1);
-    }
+        MPI_Barrier(MPI_COMM_WORLD);
+        t0 = MPI_Wtime();
+        if (rank == 0) {
+            printf("Transfer wait time: %f\n", t0 - t1);
+        }
 #endif
 
         ret = PDCregion_transfer_close(transfer_request_x);
@@ -384,11 +387,11 @@ main(int argc, char *argv[])
         ret = PDCregion_transfer_close(transfer_request_id2);
 
 #ifdef ENABLE_MPI
-    MPI_Barrier(MPI_COMM_WORLD);
-    t1 = MPI_Wtime();
-    if (rank == 0) {
-        printf("Transfer close time: %f\n", t1 - t0);
-    }
+        MPI_Barrier(MPI_COMM_WORLD);
+        t1 = MPI_Wtime();
+        if (rank == 0) {
+            printf("Transfer close time: %f\n", t1 - t0);
+        }
 #endif
 
         if (PDCregion_close(region_x) < 0)
@@ -440,7 +443,7 @@ main(int argc, char *argv[])
             printf("fail to close region region_id22\n");
 
 #ifdef ENABLE_MPI
-    MPI_Barrier(MPI_COMM_WORLD);
+        MPI_Barrier(MPI_COMM_WORLD);
 #endif
     }
 
