@@ -89,6 +89,7 @@ set(PROGRAMS
   vpicio
   vpicio_mts
   bdcats
+  bdcats_client_cache
   vpicio_old
   bdcats_old
 #  cont_add_del

@@ -18,11 +18,11 @@
 #include "pdc_analysis_pkg.h"
 #include <mpi.h>
 
-// Temporary defined variable
+// Temporary defined
 #define MAX_CACHE_SIZE 34359738368
 
 static size_t                   total_buf_size;
-static struct pdc_object_cache *obj_cache_list, *obj_cache_list_end;
+static struct pdc_object_cache  *obj_cache_list, *obj_cache_list_end;
 
 // Initialization of global variables
 perr_t
@@ -71,11 +71,6 @@ pdc_region_cache_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offse
                     // Get the offset and size information of overlapped region part
                     PDC_region_overlap_detect(ndim, offset, size, reg_cache_iter->reg_offset,
                                               reg_cache_iter->reg_size, &overlap_offset, &overlap_size);
-
-                    // printf("pdc_region_cache: overlap offset: %d, size: %d\n", overlap_offset[0],
-                    // overlap_size[0]); printf("pdc_region_cache: remote_reg_iter offset: %d, size: %d\n",
-                    // reg_cache_iter->reg_offset[0], reg_cache_iter->reg_size[0]); printf("pdc_region_cache:
-                    // required offset: %d, size: %d\n", offset[0], size[0]);
 
                     // Copy the overlapped part into the provided transfer_request buffer
                     memcpy_overlap_subregion(reg_cache_iter->reg_ndim, unit, reg_cache_iter->buf,
