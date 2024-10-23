@@ -313,7 +313,6 @@ main(int argc, char *argv[])
     region_id1 = PDCregion_create(ndim, offset, mysize);
     region_id2 = PDCregion_create(ndim, offset, mysize);
 
-
     for (i = 0; i < num_transfer_request; i++) {
         offset_remote[0] = rank * numparticles + (mysize[0] * i);
 
@@ -331,7 +330,7 @@ main(int argc, char *argv[])
         t0 = MPI_Wtime();
 #endif
 
-        transfer_request_x = PDCregion_transfer_create(&x[0], PDC_READ, obj_xx, region_x, region_xx);
+        transfer_request_x  = PDCregion_transfer_create(&x[0], PDC_READ, obj_xx, region_x, region_xx);
         transfer_request_y  = PDCregion_transfer_create(&y[0], PDC_READ, obj_yy, region_y, region_yy);
         transfer_request_z  = PDCregion_transfer_create(&z[0], PDC_READ, obj_zz, region_z, region_zz);
         transfer_request_px = PDCregion_transfer_create(&px[0], PDC_READ, obj_pxx, region_px, region_pxx);

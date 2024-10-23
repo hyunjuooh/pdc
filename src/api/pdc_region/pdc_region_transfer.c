@@ -283,7 +283,7 @@ PDCregion_transfer_close(pdcid_t transfer_request_id)
 {
     struct _pdc_id_info * transferinfo;
     pdc_transfer_request *transfer_request;
-    perr_t                ret_value              = SUCCEED;
+    perr_t                ret_value = SUCCEED;
 
     FUNC_ENTER(NULL);
 
@@ -923,7 +923,7 @@ prepare_start_all_requests(pdcid_t *transfer_request_id, int size,
     int                   write_size, read_size, output_size;
     struct _pdc_id_info * transferinfo;
     pdc_transfer_request *transfer_request;
-    int                   set_output_buf = 0;
+    int                   set_output_buf  = 0;
     int                   region_in_cache = 0;
 
     write_request_pkgs             = NULL;
@@ -945,7 +945,9 @@ prepare_start_all_requests(pdcid_t *transfer_request_id, int size,
 
         // Check if the requested region is within the client-side region cache list
         if (transfer_request->access_type == PDC_WRITE) {
-            pdc_region_cache_update(transfer_request->obj_id, transfer_request->remote_region_ndim, transfer_request->unit, transfer_request->remote_region_offset, transfer_request->remote_region_size, transfer_request->buf);
+            pdc_region_cache_update(transfer_request->obj_id, transfer_request->remote_region_ndim,
+                                    transfer_request->unit, transfer_request->remote_region_offset,
+                                    transfer_request->remote_region_size, transfer_request->buf);
         }
 
         // Check if the requested region is within the client-side region cache list
@@ -1347,8 +1349,9 @@ PDCregion_transfer_start_all(pdcid_t *transfer_request_id, int size)
 {
     perr_t                               ret_value  = SUCCEED;
     int                                  write_size = 0, read_size = 0, posix_size = 0;
-    pdc_transfer_request_start_all_pkg **write_transfer_requests = NULL, **read_transfer_requests = NULL, **read_transfer_requests_iter = NULL;
-    pdcid_t *                            posix_transfer_request_id;
+    pdc_transfer_request_start_all_pkg **write_transfer_requests = NULL, **read_transfer_requests = NULL,
+                                       **read_transfer_requests_iter = NULL;
+    pdcid_t *posix_transfer_request_id;
 
     FUNC_ENTER(NULL);
     // Split write and read requests. Handle them separately.
@@ -1469,7 +1472,9 @@ PDCregion_transfer_start(pdcid_t transfer_request_id)
 
     // Check if the requested region is within the client-side region cache list
     if (transfer_request->access_type == PDC_WRITE) {
-        pdc_region_cache_update(transfer_request->obj_id, transfer_request->remote_region_ndim, transfer_request->unit, transfer_request->remote_region_offset, transfer_request->remote_region_size, transfer_request->buf);
+        pdc_region_cache_update(transfer_request->obj_id, transfer_request->remote_region_ndim,
+                                transfer_request->unit, transfer_request->remote_region_offset,
+                                transfer_request->remote_region_size, transfer_request->buf);
         ret_value = FAIL;
     }
 
@@ -1741,7 +1746,7 @@ done:
 perr_t
 PDCregion_transfer_wait_all(pdcid_t *transfer_request_id, int size)
 {
-    perr_t                              ret_value = SUCCEED;
+    perr_t                              ret_value              = SUCCEED;
     perr_t                              ret_value_region_cache = SUCCEED;
     int                                 index, i, j;
     size_t                              unit;
