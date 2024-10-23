@@ -31,8 +31,8 @@
 #include <unistd.h>
 #include <sys/time.h>
 #include "pdc.h"
-#define BUF_LEN      128
-#define PART_BUF_LEN 100
+#define BUF_LEN      134217728
+#define PART_BUF_LEN 134217728
 
 int
 main(int argc, char **argv)

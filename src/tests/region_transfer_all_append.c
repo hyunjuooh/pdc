@@ -382,6 +382,8 @@ main(int argc, char **argv)
         }
     }
 
+    printf("************First PDC_READ(BUF_LEN / REQ_SIZE) Finished**********\n");
+
     offset[0]        = 0;
     offset_length[0] = BUF_LEN;
     reg              = PDCregion_create(1, offset, offset_length);
@@ -494,6 +496,8 @@ main(int argc, char **argv)
     /* else { */
     /*     printf("successfully local region @ line %d\n", __LINE__); */
     /* } */
+
+    printf("************Second PDC_READ(BUF_LEN) Finished**********\n");
 
     // Now we rewrite the whole object and check its values.
     // open object

@@ -50,7 +50,7 @@ print_usage()
 int
 main(int argc, char *argv[])
 {
-    int     rank = 0, size = 1, i = 0;
+    int     rank = 0, size = 1, i = 0, j = 0;
     int     num_transfer_request = 0;
     double  t0, t1, start, end;
     pdcid_t pdc_id, cont_id;
@@ -205,7 +205,7 @@ main(int argc, char *argv[])
     MPI_Barrier(MPI_COMM_WORLD);
     t1 = MPI_Wtime();
     if (rank == 0) {
-        printf("Transfer start time: %f\n", t1 - t0);
+        printf("[CACHE_LOG] Transfer start time: %f\n", t1 - t0);
     }
 #endif
 
@@ -222,7 +222,7 @@ main(int argc, char *argv[])
     MPI_Barrier(MPI_COMM_WORLD);
     t0 = MPI_Wtime();
     if (rank == 0) {
-        printf("Transfer wait time: %f\n", t0 - t1);
+        printf("[CACHE_LOG] Transfer wait time: %f\n", t0 - t1);
     }
 #endif
 
@@ -239,7 +239,7 @@ main(int argc, char *argv[])
     MPI_Barrier(MPI_COMM_WORLD);
     t1 = MPI_Wtime();
     if (rank == 0) {
-        printf("Transfer close time: %f\n", t1 - t0);
+        printf("[CACHE_LOG] Transfer close time: %f\n", t1 - t0);
     }
 #endif
 
@@ -293,23 +293,29 @@ main(int argc, char *argv[])
 
 #ifdef ENABLE_MPI
     MPI_Barrier(MPI_COMM_WORLD);
+    end = MPI_Wtime();
+    if (rank == 0) {
+        printf("[CACHE_LOG] Total execution time - Cache Insertion: %f\n", end - start);
+    }
+    start = MPI_Wtime();
     printf("PDC execute multiple transfer request regarding partial regions\n");
 #endif
 
     mysize[0] = numparticles / num_transfer_request;
 
+    // create a region
+    region_x   = PDCregion_create(ndim, offset, mysize);
+    region_y   = PDCregion_create(ndim, offset, mysize);
+    region_z   = PDCregion_create(ndim, offset, mysize);
+    region_px  = PDCregion_create(ndim, offset, mysize);
+    region_py  = PDCregion_create(ndim, offset, mysize);
+    region_pz  = PDCregion_create(ndim, offset, mysize);
+    region_id1 = PDCregion_create(ndim, offset, mysize);
+    region_id2 = PDCregion_create(ndim, offset, mysize);
+
+
     for (i = 0; i < num_transfer_request; i++) {
         offset_remote[0] = rank * numparticles + (mysize[0] * i);
-
-        // create a region
-        region_x   = PDCregion_create(ndim, offset, mysize);
-        region_y   = PDCregion_create(ndim, offset, mysize);
-        region_z   = PDCregion_create(ndim, offset, mysize);
-        region_px  = PDCregion_create(ndim, offset, mysize);
-        region_py  = PDCregion_create(ndim, offset, mysize);
-        region_pz  = PDCregion_create(ndim, offset, mysize);
-        region_id1 = PDCregion_create(ndim, offset, mysize);
-        region_id2 = PDCregion_create(ndim, offset, mysize);
 
         region_xx   = PDCregion_create(ndim, offset_remote, mysize);
         region_yy   = PDCregion_create(ndim, offset_remote, mysize);
@@ -326,10 +332,6 @@ main(int argc, char *argv[])
 #endif
 
         transfer_request_x = PDCregion_transfer_create(&x[0], PDC_READ, obj_xx, region_x, region_xx);
-        if (transfer_request_x == 0) {
-            printf("Array x transfer request creation failed\n");
-            return 1;
-        }
         transfer_request_y  = PDCregion_transfer_create(&y[0], PDC_READ, obj_yy, region_y, region_yy);
         transfer_request_z  = PDCregion_transfer_create(&z[0], PDC_READ, obj_zz, region_z, region_zz);
         transfer_request_px = PDCregion_transfer_create(&px[0], PDC_READ, obj_pxx, region_px, region_pxx);
@@ -341,10 +343,6 @@ main(int argc, char *argv[])
             PDCregion_transfer_create(&id2[0], PDC_READ, obj_id22, region_id2, region_id22);
 
         ret = PDCregion_transfer_start(transfer_request_x);
-        if (ret != SUCCEED) {
-            printf("Failed to start transfer for region_xx\n");
-            return 1;
-        }
         ret = PDCregion_transfer_start(transfer_request_y);
         ret = PDCregion_transfer_start(transfer_request_z);
         ret = PDCregion_transfer_start(transfer_request_px);
@@ -357,7 +355,7 @@ main(int argc, char *argv[])
         MPI_Barrier(MPI_COMM_WORLD);
         t1 = MPI_Wtime();
         if (rank == 0) {
-            printf("Transfer start time: %f\n", t1 - t0);
+            printf("[CACHE_LOG] Transfer start time: %f\n", t1 - t0);
         }
 #endif
         ret = PDCregion_transfer_wait(transfer_request_x);
@@ -373,7 +371,7 @@ main(int argc, char *argv[])
         MPI_Barrier(MPI_COMM_WORLD);
         t0 = MPI_Wtime();
         if (rank == 0) {
-            printf("Transfer wait time: %f\n", t0 - t1);
+            printf("[CACHE_LOG] Transfer wait time: %f\n", t0 - t1);
         }
 #endif
 
@@ -390,33 +388,21 @@ main(int argc, char *argv[])
         MPI_Barrier(MPI_COMM_WORLD);
         t1 = MPI_Wtime();
         if (rank == 0) {
-            printf("Transfer close time: %f\n", t1 - t0);
+            printf("[CACHE_LOG] Transfer close time: %f\n", t1 - t0);
         }
 #endif
 
-        if (PDCregion_close(region_x) < 0)
-            printf("fail to close region region_x\n");
-
-        if (PDCregion_close(region_y) < 0)
-            printf("fail to close region region_y\n");
-
-        if (PDCregion_close(region_z) < 0)
-            printf("fail to close region region_z\n");
-
-        if (PDCregion_close(region_px) < 0)
-            printf("fail to close region region_px\n");
-
-        if (PDCregion_close(region_py) < 0)
-            printf("fail to close region region_py\n");
-
-        if (PDCobj_close(region_pz) < 0)
-            printf("fail to close region region_pz\n");
-
-        if (PDCobj_close(region_id1) < 0)
-            printf("fail to close region region_id1\n");
-
-        if (PDCobj_close(region_id2) < 0)
-            printf("fail to close region region_id2\n");
+        // Check if data written previously has been correctly read.
+        for (j = offset_remote[0]; j < offset_remote[0] + mysize[0]; ++j) {
+            if (id1[j] != j) {
+                printf("wrong value %d!=%d @ line %d\n", id1[j], j, __LINE__);
+                break;
+            }
+            if (id2[j] != j * 2) {
+                printf("wrong value %d!=%d @ line %d\n", id2[j], j, __LINE__);
+                break;
+            }
+        }
 
         if (PDCregion_close(region_xx) < 0)
             printf("fail to close region region_xx\n");
@@ -447,7 +433,29 @@ main(int argc, char *argv[])
 #endif
     }
 
-    PDC_timing_report("read");
+    if (PDCregion_close(region_x) < 0)
+        printf("fail to close region region_xx\n");
+
+    if (PDCregion_close(region_y) < 0)
+        printf("fail to close region region_yy\n");
+
+    if (PDCregion_close(region_z) < 0)
+        printf("fail to close region region_zz\n");
+
+    if (PDCregion_close(region_px) < 0)
+        printf("fail to close region region_pxx\n");
+
+    if (PDCregion_close(region_py) < 0)
+        printf("fail to close region region_pyy\n");
+
+    if (PDCregion_close(region_pz) < 0)
+        printf("fail to close region region_pzz\n");
+
+    if (PDCregion_close(region_id1) < 0)
+        printf("fail to close region region_id11\n");
+
+    if (PDCregion_close(region_id2) < 0)
+        printf("fail to close region region_id22\n");
 
     if (PDCobj_close(obj_xx) < 0)
         printf("fail to close obj_xx\n");
@@ -495,7 +503,7 @@ main(int argc, char *argv[])
 #ifdef ENABLE_MPI
     end = MPI_Wtime();
     if (rank == 0) {
-        printf("Total execution time: %f\n", end - start);
+        printf("[CACHE_LOG] Total execution time: %f\n", end - start);
     }
     MPI_Finalize();
 #endif
