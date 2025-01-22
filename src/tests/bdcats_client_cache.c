@@ -309,16 +309,16 @@ main(int argc, char *argv[])
     if (PDCregion_close(region_id22) < 0)
         printf("fail to close region region_id22\n");
 
-/*#ifdef ENABLE_MPI
-    MPI_Barrier(MPI_COMM_WORLD);
-    end = MPI_Wtime();
-    if (rank <= 5) {
-        cur_time = time(NULL);
-        log_time = localtime(&cur_time);
-        printf("[CACHE_LOG] [%02d:%02d:%02d] [RANK %d] | Initial Read Total Execution Time: %f\n",
-               log_time->tm_hour, log_time->tm_min, log_time->tm_sec, rank, end - start);
-    }
-#endif*/
+    /*#ifdef ENABLE_MPI
+        MPI_Barrier(MPI_COMM_WORLD);
+        end = MPI_Wtime();
+        if (rank <= 5) {
+            cur_time = time(NULL);
+            log_time = localtime(&cur_time);
+            printf("[CACHE_LOG] [%02d:%02d:%02d] [RANK %d] | Initial Read Total Execution Time: %f\n",
+                   log_time->tm_hour, log_time->tm_min, log_time->tm_sec, rank, end - start);
+        }
+    #endif*/
 
     // Check if data written previously has been correctly read.
     for (j = 0; j < numparticles; ++j) {
@@ -365,16 +365,14 @@ main(int argc, char *argv[])
     t0 = MPI_Wtime();
 #endif
 
-    transfer_request_x  = PDCregion_transfer_create(&x[0], PDC_READ, obj_xx, region_x, region_xx);
-    transfer_request_y  = PDCregion_transfer_create(&y[0], PDC_READ, obj_yy, region_y, region_yy);
-    transfer_request_z  = PDCregion_transfer_create(&z[0], PDC_READ, obj_zz, region_z, region_zz);
-    transfer_request_px = PDCregion_transfer_create(&px[0], PDC_READ, obj_pxx, region_px, region_pxx);
-    transfer_request_py = PDCregion_transfer_create(&py[0], PDC_READ, obj_pyy, region_py, region_pyy);
-    transfer_request_pz = PDCregion_transfer_create(&pz[0], PDC_READ, obj_pzz, region_pz, region_pzz);
-    transfer_request_id1 =
-        PDCregion_transfer_create(&id1[0], PDC_READ, obj_id11, region_id1, region_id11);
-    transfer_request_id2 =
-        PDCregion_transfer_create(&id2[0], PDC_READ, obj_id22, region_id2, region_id22);
+    transfer_request_x   = PDCregion_transfer_create(&x[0], PDC_READ, obj_xx, region_x, region_xx);
+    transfer_request_y   = PDCregion_transfer_create(&y[0], PDC_READ, obj_yy, region_y, region_yy);
+    transfer_request_z   = PDCregion_transfer_create(&z[0], PDC_READ, obj_zz, region_z, region_zz);
+    transfer_request_px  = PDCregion_transfer_create(&px[0], PDC_READ, obj_pxx, region_px, region_pxx);
+    transfer_request_py  = PDCregion_transfer_create(&py[0], PDC_READ, obj_pyy, region_py, region_pyy);
+    transfer_request_pz  = PDCregion_transfer_create(&pz[0], PDC_READ, obj_pzz, region_pz, region_pzz);
+    transfer_request_id1 = PDCregion_transfer_create(&id1[0], PDC_READ, obj_id11, region_id1, region_id11);
+    transfer_request_id2 = PDCregion_transfer_create(&id2[0], PDC_READ, obj_id22, region_id2, region_id22);
 
     ret = PDCregion_transfer_start(transfer_request_x);
     ret = PDCregion_transfer_start(transfer_request_y);
