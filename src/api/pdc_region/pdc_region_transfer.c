@@ -1617,7 +1617,7 @@ PDCregion_transfer_start_common(pdcid_t transfer_request_id,
             goto done;
         }
     }
-    
+
     // Dynamic case is implemented within the the aggregated version. The main reason is that the target data
     // server may not be unique, so we may end up sending multiple requests to the same data server.
     // Aggregated method will take care of this type of operation.
