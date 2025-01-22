@@ -888,8 +888,8 @@ prepare_start_all_requests(pdcid_t *transfer_request_id, int size,
     int                   write_size, read_size, output_size;
     struct _pdc_id_info * transferinfo;
     pdc_transfer_request *transfer_request;
-    int                   set_output_buf = 0;
-    int                   region_in_cache = 0;  // Indicating requested region is within client-side cache
+    int                   set_output_buf  = 0;
+    int                   region_in_cache = 0; // Indicating requested region is within client-side cache
 
     write_request_pkgs             = NULL;
     read_request_pkgs              = NULL;
@@ -1603,7 +1603,7 @@ PDCregion_transfer_start_common(pdcid_t transfer_request_id,
             goto done;
         }
     }
-    
+
     // Dynamic case is implemented within the the aggregated version. The main reason is that the target data
     // server may not be unique, so we may end up sending multiple requests to the same data server.
     // Aggregated method will take care of this type of operation.
@@ -1856,7 +1856,7 @@ done:
 perr_t
 PDCregion_transfer_wait_all(pdcid_t *transfer_request_id, int size)
 {
-    perr_t                              ret_value = SUCCEED;
+    perr_t                              ret_value              = SUCCEED;
     perr_t                              ret_value_region_cache = SUCCEED;
     int                                 index, i, j, merged_xfer = 0, ori_size = size, is_first = 1;
     size_t                              unit;
@@ -2106,7 +2106,7 @@ done:
 perr_t
 PDCregion_transfer_wait(pdcid_t transfer_request_id)
 {
-    perr_t                ret_value = SUCCEED;
+    perr_t                ret_value              = SUCCEED;
     perr_t                ret_value_region_cache = SUCCEED;
     struct _pdc_id_info * transferinfo;
     pdc_transfer_request *transfer_request;
@@ -2177,7 +2177,7 @@ PDCregion_transfer_wait(pdcid_t transfer_request_id)
                 transfer_request->access_type, transfer_request->n_obj_servers, transfer_request->new_buf,
                 transfer_request->bulk_buf, transfer_request->bulk_buf_ref, transfer_request->read_bulk_buf);
         }
-        
+
         // Insert the recently requested region into cache
         if (transfer_request->access_type == PDC_READ) {
             ret_value_region_cache =
