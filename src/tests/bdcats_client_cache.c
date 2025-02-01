@@ -339,11 +339,12 @@ main(int argc, char *argv[])
 
     mysize[0] = numparticles / num_transfer_request;
     if (mysize[0] == numparticles) {
-	// For pattern1
+        // For pattern1
         offset_remote[0] = rank * numparticles + (mysize[0] * 0);
-    } else {
-	// For pattern2
-	offset_remote[0] = rank * numparticles + (mysize[0] * 1);
+    }
+    else {
+        // For pattern2
+        offset_remote[0] = rank * numparticles + (mysize[0] * 1);
     }
 
     // create a region
