@@ -57,7 +57,7 @@ pdc_region_dl_init()
 
     FUNC_ENTER(NULL);
 
-    obj_cache_list = NULL;
+    obj_cache_list     = NULL;
     obj_cache_list_end = NULL;
 
 done:
@@ -70,7 +70,8 @@ done:
 // Need to manage the object's offset cache information
 // Currently considering fully contained case
 int
-pdc_region_dl_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size, void *buf){
+pdc_region_dl_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size, void *buf)
+{
     struct pdc_object_cache *obj_cache_iter;
     struct pdc_region_cache *reg_cache_iter;
     uint64_t *               overlap_offset, *overlap_size;
@@ -91,19 +92,19 @@ pdc_region_dl_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, 
                     detect_region_contained(offset, size, reg_cache_iter->reg_offset,
                                             reg_cache_iter->reg_size, reg_cache_iter->reg_ndim);
 
-
                 // Get the offset and size information of overlapped region part
                 PDC_region_overlap_detect(ndim, offset, size, reg_cache_iter->reg_offset,
-                                        reg_cache_iter->reg_size, &overlap_offset, &overlap_size);
+                                          reg_cache_iter->reg_size, &overlap_offset, &overlap_size);
 
                 // Copy the overlapped part into the provided transfer_request buffer
                 memcpy_overlap_subregion(reg_cache_iter->reg_ndim, unit, reg_cache_iter->buf,
-                                        reg_cache_iter->reg_offset, reg_cache_iter->reg_size, buf,
-                                        offset, size, overlap_offset, overlap_size);
+                                         reg_cache_iter->reg_offset, reg_cache_iter->reg_size, buf, offset,
+                                         size, overlap_offset, overlap_size);
 
                 // Update region cache list according to LRU policy
                 if (region_contained) {
-                    pdc_region_dl_LRU(reg_cache_iter, obj_cache_iter->reg_cache_list, obj_cache_iter->reg_cache_list_end, 2);
+                    pdc_region_dl_LRU(reg_cache_iter, obj_cache_iter->reg_cache_list,
+                                      obj_cache_iter->reg_cache_list_end, 2);
                     free(overlap_offset);
                     break;
                 }
@@ -124,19 +125,20 @@ pdc_region_dl_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, 
 
 // Insert the region to the list
 perr_t
-pdc_region_dl_insert(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size, void *buf, uint64_t read_size) {
+pdc_region_dl_insert(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size, void *buf,
+                     uint64_t read_size)
+{
     perr_t ret_value = SUCCEED;
 
-    struct  pdc_object_cache *obj_cache_iter, *obj_cache_item = NULL;
-    struct  pdc_region_cache *reg_cache_item;
+    struct pdc_object_cache *obj_cache_iter, *obj_cache_item = NULL;
+    struct pdc_region_cache *reg_cache_item;
 
-    int     obj_list_end_init=0;
+    int obj_list_end_init = 0;
 
     double reg_list_start, reg_memcpy;
 
-
     obj_cache_iter = obj_cache_list;
-    if (obj_cache_list == NULL){
+    if (obj_cache_list == NULL) {
         obj_list_end_init = 1;
     }
 
@@ -163,13 +165,12 @@ pdc_region_dl_insert(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, 
         }
 
         DL_PREPEND(obj_cache_list, obj_cache_item);
-        if (obj_list_end_init){
+        if (obj_list_end_init) {
             obj_cache_list_end = obj_cache_list;
         }
     }
 
     // Check if there are overlapping parts of region lists
-
 
     // Insert the region to the list
     // Check if the region cache list exists for the obj_id
@@ -210,11 +211,11 @@ pdc_region_dl_insert(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, 
     }
 
     pdc_region_cache_timelog(5, reg_list_start, "pdc_region_cache_insert reg_list_insert time");
-
 }
 
 int
-pdc_region_dl_update(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size, void *buf) {
+pdc_region_dl_update(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size, void *buf)
+{
 
     struct pdc_object_cache *obj_cache_iter, *obj_cache_item;
     struct pdc_region_cache *reg_cache_iter, *reg_cache_item;
@@ -279,10 +280,11 @@ pdc_region_dl_update(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, 
 }
 
 size_t
-pdc_region_dl_evict(size_t required_size) {
+pdc_region_dl_evict(size_t required_size)
+{
     struct pdc_object_cache *obj_cache_iter, *obj_cache_item;
     struct pdc_region_cache *reg_cache_item;
-    size_t                  deleted_size = 0;
+    size_t                   deleted_size = 0;
 
     obj_cache_iter = obj_cache_list_end;
 
@@ -328,17 +330,18 @@ pdc_region_dl_evict(size_t required_size) {
 
 // Update object cache list according to LRU policy
 int
-pdc_region_dl_LRU(void *target_item, void *target_list, void *target_list_end, int type){
-    struct  pdc_object_cache *target_obj, *target_obj_list, *target_obj_list_end;
-    struct  pdc_region_cache *target_reg, *target_reg_list, *target_reg_list_end;
+pdc_region_dl_LRU(void *target_item, void *target_list, void *target_list_end, int type)
+{
+    struct pdc_object_cache *target_obj, *target_obj_list, *target_obj_list_end;
+    struct pdc_region_cache *target_reg, *target_reg_list, *target_reg_list_end;
 
     // Indication for one item list
-    int     one_item_list = 0;
+    int one_item_list = 0;
 
     // Object list update according to LRU policy
     if (type == 1) {
-        target_obj = (pdc_object_cache *)target_item;
-        target_obj_list = (pdc_object_cache *)target_list;
+        target_obj          = (pdc_object_cache *)target_item;
+        target_obj_list     = (pdc_object_cache *)target_list;
         target_obj_list_end = (pdc_object_cache *)target_list_end;
 
         // Update the obj_cache_list_end information
@@ -360,8 +363,8 @@ pdc_region_dl_LRU(void *target_item, void *target_list, void *target_list_end, i
 
     // Region list update according to LRU policy
     if (type == 2) {
-        target_reg = (pdc_region_cache *)target_item;
-        target_reg_list = (pdc_region_cache *)target_list;
+        target_reg          = (pdc_region_cache *)target_item;
+        target_reg_list     = (pdc_region_cache *)target_list;
         target_reg_list_end = (pdc_region_cache *)target_list_end;
 
         // Move the recently searched region into the front of the list
