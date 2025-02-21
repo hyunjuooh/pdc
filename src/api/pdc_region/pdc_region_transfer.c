@@ -927,7 +927,7 @@ prepare_start_all_requests(pdcid_t *transfer_request_id, int size,
                                         transfer_request->remote_region_size, transfer_request->buf);
 
             if (region_in_cache) {
-                // printf("PDC Client pdc_region_cache found requested region\n");
+                printf("PDC Client pdc_region_cache found requested region\n");
                 transfer_request->region_in_cache = region_in_cache;
                 transfer_request->metadata_id     = NULL;
                 continue;
