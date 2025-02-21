@@ -53,9 +53,9 @@ pdc_region_dl_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, 
     struct pdc_region_cache *reg_cache_iter;
     uint64_t *               overlap_offset, *overlap_size;
     int                      region_contained = 0
-    //int                      is_overlapped = 0;
+        // int                      is_overlapped = 0;
 
-    obj_cache_iter = obj_cache_list;
+        obj_cache_iter = obj_cache_list;
 
     // Navigate through the object list
     while (obj_cache_iter != NULL) {
@@ -72,7 +72,8 @@ pdc_region_dl_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, 
 
                 // // Compare offset and offset + size and see if there is an overlap
                 // is_overlapped =
-                //     check_overlap(ndim, offset, size, reg_cache_iter->reg_offset, reg_cache_iter->reg_size);
+                //     check_overlap(ndim, offset, size, reg_cache_iter->reg_offset,
+                //     reg_cache_iter->reg_size);
 
                 // Get the offset and size information of overlapped region part
                 PDC_region_overlap_detect(ndim, offset, size, reg_cache_iter->reg_offset,
