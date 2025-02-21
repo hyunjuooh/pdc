@@ -81,7 +81,7 @@ pdc_region_dl_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, 
                 // Update region cache list according to LRU policy
                 if (region_contained) {
                     ret_value = pdc_region_dl_LRU(reg_cache_iter, obj_cache_iter->reg_cache_list,
-                                      obj_cache_iter->reg_cache_list_end, 2);
+                                                  obj_cache_iter->reg_cache_list_end, 2);
                     free(overlap_offset);
                     break;
                 }
@@ -315,7 +315,7 @@ pdc_region_dl_evict(size_t required_size)
 perr_t
 pdc_region_dl_LRU(void *target_item, void *target_list, void *target_list_end, int type)
 {
-    perr_t ret_value = SUCCEED;
+    perr_t                   ret_value = SUCCEED;
     struct pdc_object_cache *target_obj;
     struct pdc_region_cache *target_reg, *target_reg_list, *target_reg_list_end;
 
@@ -326,7 +326,7 @@ pdc_region_dl_LRU(void *target_item, void *target_list, void *target_list_end, i
 
     // Object list update according to LRU policy
     if (type == 1) {
-        target_obj          = (pdc_object_cache *)target_item;
+        target_obj = (pdc_object_cache *)target_item;
 
         // Update the obj_cache_list_end information
         if (target_obj == obj_cache_list_end) {
