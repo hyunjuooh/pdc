@@ -32,31 +32,6 @@
 /* Library Private Struct */
 /**************************/
 
-typedef struct pdc_object_cache {
-    // PDC Object information
-    pdcid_t obj_id;
-    // int         obj_ndim;
-
-    // Cached region list for this object
-    struct pdc_region_cache *reg_cache_list, *reg_cache_list_end;
-
-    // Double linked list for cached object list
-    struct pdc_object_cache *prev;
-    struct pdc_object_cache *next;
-} pdc_object_cache;
-
-typedef struct pdc_region_cache {
-    // Region information(remote region)
-    int       reg_ndim;
-    uint64_t *reg_offset;
-    uint64_t *reg_size;
-
-    // Region Buffer
-    char *buf;
-
-    struct pdc_region_cache *prev;
-    struct pdc_region_cache *next;
-} pdc_region_cache;
 
 /****************************************************/
 /* Private Functions for Client-side Region Caching */
@@ -70,9 +45,26 @@ int pdc_region_cache_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *o
 perr_t pdc_region_cache_insert(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size,
                                void *buf);
 
+perr_t pdc_region_cache_update(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size, void *buf);
+
 perr_t pdc_region_cache_evict(size_t required_size);
 
-perr_t pdc_region_cache_update(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size,
-                               void *buf);
+void pdc_region_cache_timelog(int rank_limit, double start_time, const char *message);
+
+/**************************************************************************/
+/* Private Functions for Linked List Structure Client-side Region Caching */
+/**************************************************************************/
+
+perr_t pdc_region_dl_init();
+
+int pdc_region_dl_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size, void *buf);
+
+perr_t pdc_region_dl_insert(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size, void *buf, uint64_t read_size);
+
+int pdc_region_dl_update(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size, void *buf);
+
+size_t pdc_region_dl_evict(size_t required_size);
+
+int pdc_region_dl_LRU(void *target_item, void *target_list, void *target_list_end, int type);
 
 #endif /* PDC_REGION_CACHE_H */

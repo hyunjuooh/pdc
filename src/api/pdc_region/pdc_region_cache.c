@@ -11,6 +11,7 @@
 #include "pdc_region.h"
 #include "pdc_region_pkg.h"
 #include "pdc_region_cache.h"
+#include "pdc_region_cache_dl.h"
 #include "pdc_obj_pkg.h"
 #include "pdc_interface.h"
 #include "pdc_transforms_pkg.h"
@@ -22,7 +23,6 @@
 #define MAX_CACHE_SIZE 34359738368
 
 static size_t                   total_buf_size;
-static struct pdc_object_cache *obj_cache_list, *obj_cache_list_end;
 
 // Initialization of global variables
 perr_t
@@ -47,94 +47,18 @@ done:
 int
 pdc_region_cache_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size, void *buf)
 {
-    struct pdc_object_cache *obj_cache_iter;
-    struct pdc_region_cache *reg_cache_iter;
-    uint64_t *               overlap_offset, *overlap_size;
-    int                      region_contained = 0, one_item_reg_list = 0, one_item_obj_list = 0;
-    double                   start, end;
+    int                     region_contained = 0;
 
-    time_t     cur_time = time(NULL);
-    struct tm *log_time = localtime(&cur_time);
-
+    double                  start, end;
+    time_t                  cur_time = time(NULL);
+    struct tm               *log_time = localtime(&cur_time);
+    
     start = MPI_Wtime();
+    
+    // Search on doubly linked list
+    region_contained = pdc_region_dl_search(obj_id, ndim, unit, offset, size, buf);
 
-    obj_cache_iter = obj_cache_list;
-
-    // Navigate through the object list
-    while (obj_cache_iter != NULL) {
-        if (obj_cache_iter->obj_id == obj_id) {
-            reg_cache_iter = obj_cache_iter->reg_cache_list;
-
-            // Compare offset and offset + size and see if the region is contained
-            while (reg_cache_iter != NULL) {
-                // Check if the region is fully contained within the region list
-                region_contained =
-                    detect_region_contained(offset, size, reg_cache_iter->reg_offset,
-                                            reg_cache_iter->reg_size, reg_cache_iter->reg_ndim);
-
-                // Currently considering fully contained case
-                if (region_contained) {
-                    // Get the offset and size information of overlapped region part
-                    PDC_region_overlap_detect(ndim, offset, size, reg_cache_iter->reg_offset,
-                                              reg_cache_iter->reg_size, &overlap_offset, &overlap_size);
-
-                    // Copy the overlapped part into the provided transfer_request buffer
-                    memcpy_overlap_subregion(reg_cache_iter->reg_ndim, unit, reg_cache_iter->buf,
-                                             reg_cache_iter->reg_offset, reg_cache_iter->reg_size, buf,
-                                             offset, size, overlap_offset, overlap_size);
-
-                    // Move the recently searched region into the front of the list
-                    if (reg_cache_iter == obj_cache_iter->reg_cache_list_end) {
-                        if (reg_cache_iter->prev) {
-                            obj_cache_iter->reg_cache_list_end = reg_cache_iter->prev;
-                        }
-                        else {
-                            // This means there is only one item in the list
-                            one_item_reg_list = 1;
-                        }
-                    }
-                    if (!one_item_reg_list) {
-                        DL_DELETE(obj_cache_iter->reg_cache_list, reg_cache_iter);
-                        DL_PREPEND(obj_cache_iter->reg_cache_list, reg_cache_iter);
-                    }
-
-                    free(overlap_offset);
-                    break;
-                }
-
-                reg_cache_iter = reg_cache_iter->next;
-            }
-
-            if (region_contained) {
-                // Update the obj_cache_list_end information
-                if (obj_cache_iter == obj_cache_list_end) {
-                    if (obj_cache_list_end->prev) {
-                        obj_cache_list_end = obj_cache_list_end->prev;
-                    }
-                    else {
-                        one_item_obj_list = 1;
-                    }
-                }
-
-                if (!one_item_obj_list) {
-                    // Move the recently searched object to the front of the list
-                    DL_DELETE(obj_cache_list, obj_cache_iter);
-                    DL_PREPEND(obj_cache_list, obj_cache_iter);
-                }
-                break;
-            }
-        }
-
-        obj_cache_iter = obj_cache_iter->next;
-    }
-
-    end = MPI_Wtime();
-    if (pdc_client_mpi_rank_g <= 5) {
-        cur_time = time(NULL);
-        log_time = localtime(&cur_time);
-        printf("[CACHE_LOG] [%02d:%02d:%02d] [RANK %d] | pdc_region_cache_search time: %f\n",
-               log_time->tm_hour, log_time->tm_min, log_time->tm_sec, pdc_client_mpi_rank_g, end - start);
-    }
+    pdc_region_cache_timelog(5, start, "pdc_region_cache_search time");
 
     return region_contained;
 }
@@ -143,20 +67,14 @@ pdc_region_cache_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offse
 perr_t
 pdc_region_cache_insert(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size, void *buf)
 {
-    perr_t ret_value = SUCCEED;
+    perr_t              ret_value = SUCCEED;
+    uint64_t            read_size = 0;
 
-    struct pdc_object_cache *obj_cache_iter, *obj_cache_item = NULL;
-    struct pdc_region_cache *reg_cache_item;
-    uint64_t                 read_size = 0;
-
-    double start, end, obj_list_start, obj_list_end, reg_list_start, reg_list_end, reg_malloc, reg_memcpy;
-
-    time_t     cur_time = time(NULL);
-    struct tm *log_time = localtime(&cur_time);
-
-    start = MPI_Wtime();
+    double              start;
 
     FUNC_ENTER(NULL);
+
+    start = MPI_Wtime();
 
     // Calculation of read size
     if (ndim >= 1)
@@ -172,244 +90,41 @@ pdc_region_cache_insert(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offse
         pdc_region_cache_evict(total_buf_size + sizeof(buf));
     }
 
-    // If there is no object list, generate the list and insert the item
-    obj_list_start = MPI_Wtime();
+    ret_value = pdc_region_dl_insert(obj_id, ndim, unit, offset, size, buf, read_size);
 
-    if (obj_cache_list == NULL) {
-        obj_cache_item = (struct pdc_object_cache *)PDC_malloc(sizeof(struct pdc_object_cache));
-        if (!obj_cache_item)
-            PGOTO_ERROR(FAIL, "PDC region cache - obj_cache_item memory allocation failed");
-
-        obj_cache_item->obj_id         = obj_id;
-        obj_cache_item->reg_cache_list = NULL;
-
-        DL_PREPEND(obj_cache_list, obj_cache_item);
-        obj_cache_list_end = obj_cache_list;
-
-        obj_list_end = MPI_Wtime();
-        if (pdc_client_mpi_rank_g <= 5) {
-            cur_time = time(NULL);
-            log_time = localtime(&cur_time);
-            printf("[CACHE_LOG] [%02d:%02d:%02d] [RANK %d] | pdc_region_cache_insert obj_list_gen time: %f\n",
-                   log_time->tm_hour, log_time->tm_min, log_time->tm_sec, pdc_client_mpi_rank_g,
-                   obj_list_end - obj_list_start);
-        }
+    if (ret_value == SUCCEED){
+        total_buf_size += read_size;
     }
-    else {
-        // Check if the specific obj_id exists in the object cache list
-        obj_cache_iter = obj_cache_list;
-
-        while (obj_cache_iter != NULL) {
-            if (obj_cache_iter->obj_id == obj_id) {
-                obj_cache_item = obj_cache_iter;
-                break;
-            }
-            obj_cache_iter = obj_cache_iter->next;
-        }
-
-        // If it does not exists create the list prior to insertion
-        if (obj_cache_item == NULL) {
-            obj_cache_item = (struct pdc_object_cache *)PDC_malloc(sizeof(struct pdc_object_cache));
-            if (!obj_cache_item)
-                PGOTO_ERROR(FAIL, "PDC region cache - obj_cache_item memory allocation failed");
-
-            obj_cache_item->obj_id         = obj_id;
-            obj_cache_item->reg_cache_list = NULL;
-
-            DL_PREPEND(obj_cache_list, obj_cache_item);
-        }
-
-        obj_list_end = MPI_Wtime();
-        if (pdc_client_mpi_rank_g <= 5) {
-            cur_time = time(NULL);
-            log_time = localtime(&cur_time);
-            printf(
-                "[CACHE_LOG] [%02d:%02d:%02d] [RANK %d] | pdc_region_cache_insert obj_list_exist time: %f\n",
-                log_time->tm_hour, log_time->tm_min, log_time->tm_sec, pdc_client_mpi_rank_g,
-                obj_list_end - obj_list_start);
-        }
-    }
-
-    // Check if there are overlapping parts of region lists
-
-    // Insert the region to the list
-    // Check if the region cache list exists for the obj_id
-    // If it does not exists create the list and insert the region
-
-    reg_list_start = MPI_Wtime();
-
-    reg_cache_item = (struct pdc_region_cache *)PDC_malloc(sizeof(struct pdc_region_cache));
-    if (!reg_cache_item)
-        PGOTO_ERROR(FAIL, "PDC region cache - reg_cache_item memory allocation failed");
-
-    reg_cache_item->reg_ndim = ndim;
-
-    // memcpy offset and size continuously
-    reg_cache_item->reg_offset = (uint64_t *)PDC_malloc(sizeof(uint64_t) * ndim * 2);
-    if (!reg_cache_item->reg_offset)
-        PGOTO_ERROR(FAIL, "PDC region cache - reg_cache_item->reg_offset memory allocation failed");
-
-    reg_cache_item->reg_size = reg_cache_item->reg_offset + ndim;
-
-    reg_cache_item->buf = (char *)PDC_malloc(sizeof(char) * read_size);
-    if (!reg_cache_item->reg_offset)
-        PGOTO_ERROR(FAIL, "PDC region cache - reg_cache_item->reg_size memory allocation failed");
-
-    reg_malloc = MPI_Wtime();
-    if (pdc_client_mpi_rank_g <= 5) {
-        cur_time = time(NULL);
-        log_time = localtime(&cur_time);
-        printf("[CACHE_LOG] [%02d:%02d:%02d] [RANK %d] | pdc_region_cache_insert reg_malloc time: %f\n",
-               log_time->tm_hour, log_time->tm_min, log_time->tm_sec, pdc_client_mpi_rank_g,
-               reg_malloc - reg_list_start);
-    }
-
-    memcpy(reg_cache_item->reg_offset, offset, sizeof(uint64_t) * ndim);
-    memcpy(reg_cache_item->reg_size, size, sizeof(uint64_t) * ndim);
-    memcpy(reg_cache_item->buf, buf, sizeof(char) * read_size);
-
-    reg_memcpy = MPI_Wtime();
-    if (pdc_client_mpi_rank_g <= 5) {
-        cur_time = time(NULL);
-        log_time = localtime(&cur_time);
-        printf("[CACHE_LOG] [%02d:%02d:%02d] [RANK %d] | pdc_region_cache_insert reg_memcpy time: %f\n",
-               log_time->tm_hour, log_time->tm_min, log_time->tm_sec, pdc_client_mpi_rank_g,
-               reg_memcpy - reg_malloc);
-    }
-
-    if (obj_cache_item->reg_cache_list == NULL) {
-        DL_PREPEND(obj_cache_item->reg_cache_list, reg_cache_item);
-        obj_cache_item->reg_cache_list_end = obj_cache_item->reg_cache_list;
-    }
-    else {
-        DL_PREPEND(obj_cache_item->reg_cache_list, reg_cache_item);
-    }
-
-    total_buf_size += read_size;
-
-    reg_list_end = MPI_Wtime();
-
-    if (pdc_client_mpi_rank_g <= 5) {
-        cur_time = time(NULL);
-        log_time = localtime(&cur_time);
-        printf("[CACHE_LOG] [%02d:%02d:%02d] [RANK %d] | pdc_region_cache_insert reg_cache_list_prepend "
-               "time: %f\n",
-               log_time->tm_hour, log_time->tm_min, log_time->tm_sec, pdc_client_mpi_rank_g,
-               reg_list_end - reg_memcpy);
-    }
-    if (pdc_client_mpi_rank_g <= 5) {
-        cur_time = time(NULL);
-        log_time = localtime(&cur_time);
-        printf("[CACHE_LOG] [%02d:%02d:%02d] [RANK %d] | pdc_region_cache_insert reg_list_insert time: %f\n",
-               log_time->tm_hour, log_time->tm_min, log_time->tm_sec, pdc_client_mpi_rank_g,
-               reg_list_end - reg_list_start);
-    }
-
-    end = MPI_Wtime();
-    if (pdc_client_mpi_rank_g <= 5) {
-        cur_time = time(NULL);
-        log_time = localtime(&cur_time);
-        printf("[CACHE_LOG] [%02d:%02d:%02d] [RANK %d] | pdc_region_cache_insert total time: %f\n",
-               log_time->tm_hour, log_time->tm_min, log_time->tm_sec, pdc_client_mpi_rank_g, end - start);
-    }
+    
+    pdc_region_cache_timelog(5, start, "pdc_region_cache_insert total time");
 
 done:
     fflush(stdout);
     FUNC_LEAVE(ret_value);
 }
 
-// // Check the overlapping part of the regions
-// perr_t pdc_region_cache_overlap(pdcid_t obj_id, int ndim, uint64_t *offset, uint64_t *size, void *buf){
-
-// }
 
 // Check if there are overlapping parts when PDC_WRITE transfer_request is executed
 // If there is evict that item since it is out of date
 // TODO:
 // Add checking if the ndim matches the region item ndim
-
 perr_t
 pdc_region_cache_update(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size, void *buf)
 {
-    struct pdc_object_cache *obj_cache_iter, *obj_cache_item;
-    struct pdc_region_cache *reg_cache_iter, *reg_cache_item;
-    uint64_t *               overlap_offset, *overlap_size;
-    int                      is_overlapped     = 0;
-    int                      one_item_reg_list = 0, one_item_obj_list = 0;
-    double                   start, end;
     perr_t                   ret_value = SUCCEED;
-
-    time_t     cur_time = time(NULL);
-    struct tm *log_time = localtime(&cur_time);
+    double                   start;
+    int                      upadated = 0;
+    FUNC_ENTER(NULL);
 
     start = MPI_Wtime();
 
-    FUNC_ENTER(NULL);
+    updated = pdc_region_dl_update(obj_id, ndim, unit, offset, size, buf);
 
-    obj_cache_iter = obj_cache_list;
-
-    if (obj_cache_iter == NULL) {
-        // printf("NO LIST FOR REGION CACHE\n");
-        goto done;
+    if (updated) {
+        total_buf_size -= sizeof(reg_cache_item->buf);
     }
 
-    // Navigate through the object list
-    while (obj_cache_iter != NULL) {
-        if (obj_cache_iter->obj_id == obj_id) {
-            reg_cache_iter = obj_cache_iter->reg_cache_list;
-
-            // Compare offset and offset + size and see if the region is contained
-            while (reg_cache_iter != NULL) {
-                // Check if the region is fully contained within the region list
-                is_overlapped =
-                    check_overlap(ndim, offset, size, reg_cache_iter->reg_offset, reg_cache_iter->reg_size);
-
-                // Update the reg_cache_list_end pointer if needed
-                if (reg_cache_iter == obj_cache_iter->reg_cache_list_end) {
-                    if (reg_cache_iter->prev) {
-                        obj_cache_iter->reg_cache_list_end = reg_cache_iter->prev;
-                    }
-                    else {
-                        // This means there is only one item in the list
-                        one_item_reg_list = 1;
-                    }
-                }
-                reg_cache_item = reg_cache_iter;
-                reg_cache_iter = reg_cache_iter->next;
-
-                // If there is an overlap with the recent PDC_WRITE DELETE this item since this is out of date
-                if (is_overlapped) {
-                    // printf("PDC_WRITE is trying to write on cached region\n");
-                    // Delete the last item of the list and free the buffer
-
-                    DL_DELETE(obj_cache_iter->reg_cache_list, reg_cache_item);
-
-                    free(reg_cache_item->reg_offset);
-                    free(reg_cache_item->buf);
-                    free(reg_cache_item);
-
-                    total_buf_size -= sizeof(reg_cache_item->buf);
-                }
-            }
-        }
-
-        obj_cache_item = obj_cache_iter;
-        obj_cache_iter = obj_cache_iter->next;
-
-        if (one_item_reg_list) {
-            // Delete the empty object item
-            DL_DELETE(obj_cache_list, obj_cache_item);
-            free(obj_cache_item);
-        }
-    }
-
-    end = MPI_Wtime();
-    if (pdc_client_mpi_rank_g <= 5) {
-        cur_time = time(NULL);
-        log_time = localtime(&cur_time);
-        printf("[CACHE_LOG] [%02d:%02d:%02d] [RANK %d] | pdc_region_cache_update time: %f\n",
-               log_time->tm_hour, log_time->tm_min, log_time->tm_sec, pdc_client_mpi_rank_g, end - start);
-    }
+    pdc_region_cache_timelog(5, start, "pdc_region_cache_update time");
 
 done:
     fflush(stdout);
@@ -421,10 +136,9 @@ perr_t
 pdc_region_cache_evict(size_t required_size)
 {
     perr_t                   ret_value = SUCCEED;
-    struct pdc_object_cache *obj_cache_iter, *obj_cache_item;
-    struct pdc_region_cache *reg_cache_item;
+    size_t                   deleted_size;
 
-    double start, end;
+    double start;
 
     time_t     cur_time = time(NULL);
     struct tm *log_time = localtime(&cur_time);
@@ -433,54 +147,30 @@ pdc_region_cache_evict(size_t required_size)
 
     FUNC_ENTER(NULL);
 
-    obj_cache_iter = obj_cache_list_end;
+    deleted_size = pdc_region_dl_evict(required_size);
 
-    // From the end of the object list, free the object item of the list until it matches the required size
-    while (obj_cache_iter != NULL) {
-        obj_cache_item = obj_cache_iter;
+    // total_buf_size update
+    total_buf_size -= deleted_size;
 
-        // From the end of the region list, free the region item of the list until it matches the required
-        // size
-        do {
-            reg_cache_item                     = obj_cache_iter->reg_cache_list_end;
-            obj_cache_iter->reg_cache_list_end = obj_cache_iter->reg_cache_list_end->prev;
-
-            required_size -= sizeof(reg_cache_item->buf);
-            total_buf_size -= sizeof(reg_cache_item->buf);
-
-            // Delete the last item of the list and free the buffer
-            DL_DELETE(obj_cache_iter->reg_cache_list, reg_cache_item);
-
-            free(reg_cache_item->reg_offset);
-            free(reg_cache_item->buf);
-            free(reg_cache_item);
-
-            if (required_size < MAX_CACHE_SIZE) {
-                break;
-            }
-        } while (reg_cache_item != NULL);
-
-        if (required_size < MAX_CACHE_SIZE) {
-            break;
-        }
-
-        obj_cache_iter     = obj_cache_iter->prev;
-        obj_cache_list_end = obj_cache_iter;
-
-        // Delete the empty object item
-        DL_DELETE(obj_cache_list, obj_cache_item);
-        free(obj_cache_item);
-    }
-
-    end = MPI_Wtime();
-    if (pdc_client_mpi_rank_g <= 5) {
-        cur_time = time(NULL);
-        log_time = localtime(&cur_time);
-        printf("[CACHE_LOG] [%02d:%02d:%02d] [RANK %d] | pdc_region_cache_evict time: %f\n",
-               log_time->tm_hour, log_time->tm_min, log_time->tm_sec, pdc_client_mpi_rank_g, end - start);
-    }
+    pdc_region_cache_timelog(5, start, "pdc_region_cache_evict time");
 
 done:
     fflush(stdout);
     FUNC_LEAVE(ret_value);
+}
+
+void
+pdc_region_cache_timelog(int rank_limit, double start_time, const char *message) {
+    double          end_time;
+    time_t          cur_time = time(NULL);
+    struct tm       *log_time = localtime(&cur_time);
+
+    end_time = MPI_Wtime();
+    if (pdc_client_mpi_rank_g <= rank_limit) {
+        cur_time = time(NULL);
+        log_time = localtime(&cur_time);
+        printf("[CACHE_LOG] [%02d:%02d:%02d] [RANK %d] | %s : %f\n",
+               log_time->tm_hour, log_time->tm_min, log_time->tm_sec, pdc_client_mpi_rank_g, message, end_time - start_time);
+    }
+
 }
