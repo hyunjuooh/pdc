@@ -11,6 +11,7 @@
 #include "pdc_region.h"
 #include "pdc_region_pkg.h"
 #include "pdc_region_cache.h"
+#include "pdc_region_cache_dl.h"
 #include "pdc_obj_pkg.h"
 #include "pdc_interface.h"
 #include "pdc_transforms_pkg.h"
@@ -20,32 +21,6 @@
 
 // Temporary defined
 #define MAX_CACHE_SIZE 34359738368
-
-typedef struct pdc_object_cache {
-    // PDC Object information
-    pdcid_t obj_id;
-    // int         obj_ndim;
-
-    // Cached region list for this object
-    struct pdc_region_cache *reg_cache_list, *reg_cache_list_end;
-
-    // Double linked list for cached object list
-    struct pdc_object_cache *prev;
-    struct pdc_object_cache *next;
-} pdc_object_cache;
-
-typedef struct pdc_region_cache {
-    // Region information(remote region)
-    int       reg_ndim;
-    uint64_t *reg_offset;
-    uint64_t *reg_size;
-
-    // Region Buffer
-    char *buf;
-
-    struct pdc_region_cache *prev;
-    struct pdc_region_cache *next;
-} pdc_region_cache;
 
 // Object cache list that will be used for object cache management
 static struct pdc_object_cache *obj_cache_list, *obj_cache_list_end;
@@ -72,6 +47,8 @@ done:
 int
 pdc_region_dl_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size, void *buf)
 {
+    perr_t ret_value = SUCCEED;
+
     struct pdc_object_cache *obj_cache_iter;
     struct pdc_region_cache *reg_cache_iter;
     uint64_t *               overlap_offset, *overlap_size;
@@ -103,7 +80,7 @@ pdc_region_dl_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, 
 
                 // Update region cache list according to LRU policy
                 if (region_contained) {
-                    pdc_region_dl_LRU(reg_cache_iter, obj_cache_iter->reg_cache_list,
+                    ret_value = pdc_region_dl_LRU(reg_cache_iter, obj_cache_iter->reg_cache_list,
                                       obj_cache_iter->reg_cache_list_end, 2);
                     free(overlap_offset);
                     break;
@@ -113,7 +90,7 @@ pdc_region_dl_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, 
 
             // Update object cache list according to LRU policy
             if (region_contained) {
-                pdc_region_dl_LRU(obj_cache_iter, obj_cache_list, obj_cache_list_end, 1);
+                ret_value = pdc_region_dl_LRU(obj_cache_iter, obj_cache_list, obj_cache_list_end, 1);
                 break;
             }
         }
@@ -136,6 +113,8 @@ pdc_region_dl_insert(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, 
     int obj_list_end_init = 0;
 
     double reg_list_start, reg_memcpy;
+
+    FUNC_ENTER(NULL);
 
     obj_cache_iter = obj_cache_list;
     if (obj_cache_list == NULL) {
@@ -211,6 +190,10 @@ pdc_region_dl_insert(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, 
     }
 
     pdc_region_cache_timelog(5, reg_list_start, "pdc_region_cache_insert reg_list_insert time");
+
+done:
+    fflush(stdout);
+    FUNC_LEAVE(ret_value);
 }
 
 int
@@ -329,25 +312,26 @@ pdc_region_dl_evict(size_t required_size)
 }
 
 // Update object cache list according to LRU policy
-int
+perr_t
 pdc_region_dl_LRU(void *target_item, void *target_list, void *target_list_end, int type)
 {
-    struct pdc_object_cache *target_obj, *target_obj_list, *target_obj_list_end;
+    perr_t ret_value = SUCCEED;
+    struct pdc_object_cache *target_obj;
     struct pdc_region_cache *target_reg, *target_reg_list, *target_reg_list_end;
 
     // Indication for one item list
     int one_item_list = 0;
 
+    FUNC_ENTER(NULL);
+
     // Object list update according to LRU policy
     if (type == 1) {
         target_obj          = (pdc_object_cache *)target_item;
-        target_obj_list     = (pdc_object_cache *)target_list;
-        target_obj_list_end = (pdc_object_cache *)target_list_end;
 
         // Update the obj_cache_list_end information
-        if (target_obj == target_obj_list_end) {
-            if (target_obj_list_end->prev) {
-                target_obj_list_end = target_obj_list_end->prev;
+        if (target_obj == obj_cache_list_end) {
+            if (obj_cache_list_end->prev) {
+                obj_cache_list_end = obj_cache_list_end->prev;
             }
             else {
                 one_item_list = 1;
@@ -356,8 +340,8 @@ pdc_region_dl_LRU(void *target_item, void *target_list, void *target_list_end, i
 
         // Move the recently searched object to the front of the list
         if (!one_item_list) {
-            DL_DELETE(target_obj_list, target_obj);
-            DL_PREPEND(target_obj_list, target_obj);
+            DL_DELETE(obj_cache_list, target_obj);
+            DL_PREPEND(obj_cache_list, target_obj);
         }
     }
 
@@ -381,4 +365,8 @@ pdc_region_dl_LRU(void *target_item, void *target_list, void *target_list_end, i
             DL_PREPEND(target_reg_list, target_reg);
         }
     }
+
+done:
+    fflush(stdout);
+    FUNC_LEAVE(ret_value);
 }
