@@ -32,7 +32,6 @@
 /* Library Private Struct */
 /**************************/
 
-
 /****************************************************/
 /* Private Functions for Client-side Region Caching */
 /****************************************************/
@@ -45,7 +44,8 @@ int pdc_region_cache_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *o
 perr_t pdc_region_cache_insert(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size,
                                void *buf);
 
-perr_t pdc_region_cache_update(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size, void *buf);
+perr_t pdc_region_cache_update(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size,
+                               void *buf);
 
 perr_t pdc_region_cache_evict(size_t required_size);
 
@@ -57,11 +57,14 @@ void pdc_region_cache_timelog(int rank_limit, double start_time, const char *mes
 
 perr_t pdc_region_dl_init();
 
-int pdc_region_dl_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size, void *buf);
+int pdc_region_dl_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size,
+                         void *buf);
 
-perr_t pdc_region_dl_insert(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size, void *buf, uint64_t read_size);
+perr_t pdc_region_dl_insert(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size,
+                            void *buf, uint64_t read_size);
 
-int pdc_region_dl_update(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size, void *buf);
+int pdc_region_dl_update(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size,
+                         void *buf);
 
 size_t pdc_region_dl_evict(size_t required_size);
 
