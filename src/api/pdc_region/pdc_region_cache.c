@@ -33,7 +33,6 @@ pdc_region_cache_init()
     FUNC_ENTER(NULL);
 
     total_buf_size = 0;
-    obj_cache_list = NULL;
 
 done:
     fflush(stdout);
@@ -112,7 +111,8 @@ pdc_region_cache_update(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offse
 {
     perr_t ret_value = SUCCEED;
     double start;
-    int    upadated = 0;
+    int    updated = 0;
+
     FUNC_ENTER(NULL);
 
     start = MPI_Wtime();
@@ -120,7 +120,7 @@ pdc_region_cache_update(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offse
     updated = pdc_region_dl_update(obj_id, ndim, unit, offset, size, buf);
 
     if (updated) {
-        total_buf_size -= sizeof(reg_cache_item->buf);
+        total_buf_size -= updated;
     }
 
     pdc_region_cache_timelog(5, start, "pdc_region_cache_update time");
