@@ -52,7 +52,7 @@ pdc_region_dl_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, 
     struct pdc_object_cache *obj_cache_iter;
     struct pdc_region_cache *reg_cache_iter;
     uint64_t *               overlap_offset, *overlap_size;
-    int                      region_contained = 0
+    int                      region_contained = 0;
         // int                      is_overlapped = 0;
 
         obj_cache_iter = obj_cache_list;
