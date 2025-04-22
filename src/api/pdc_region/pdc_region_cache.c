@@ -45,24 +45,24 @@ done:
     FUNC_LEAVE(ret_value);
 }
 
-perr_t
-PDCregion_collect_global_cache()
-{
-    perr_t ret_value = SUCCEED;
-    double start;
+// perr_t
+// PDCregion_collect_global_cache()
+// {
+//     perr_t ret_value = SUCCEED;
+//     double start;
 
-    FUNC_ENTER(NULL);
+//     FUNC_ENTER(NULL);
 
-    start = MPI_Wtime();
+//     start = MPI_Wtime();
 
-    ret_value = pdc_region_dl_collect_global_metadata();
+//     ret_value = pdc_region_dl_collect_global_metadata();
 
-    pdc_region_cache_timelog(start, "PDCregion_collect_global_cache - total time");
+//     pdc_region_cache_timelog(start, "PDCregion_collect_global_cache - total time");
 
-done:
-    fflush(stdout);
-    FUNC_LEAVE(ret_value);
-}
+// done:
+//     fflush(stdout);
+//     FUNC_LEAVE(ret_value);
+// }
 
 // TODO:
 // Implement when the region is overlapping - partially containing
