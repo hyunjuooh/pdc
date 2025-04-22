@@ -20,7 +20,7 @@ int      current_rank    = pdc_client_mpi_rank_g;
 int      total_rank_size = pdc_client_mpi_size_g;
 
 perr_t
-pdc_region_receive_prefetch_hint(const char **obj_array, int obj_array_len)
+PDCregion_receive_prefetch_hint (const char **obj_array, int obj_array_len)
 {
     perr_t ret_value = SUCCEED;
     int    i, sample_per_rank, item_idx = 0;
@@ -50,7 +50,7 @@ done:
 }
 
 perr_t
-pdc_region_prefetch_by_objid()
+PDCregion_prefetch_by_objid()
 {
     perr_t ret_value = SUCCEED;
     int    i;
