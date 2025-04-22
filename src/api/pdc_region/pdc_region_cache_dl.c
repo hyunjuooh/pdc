@@ -301,6 +301,10 @@ pdc_region_dl_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, 
         return is_cached;
     }
 
+    if (!obj_cache_list_item_num) {
+        return is_cached;
+    }
+
     // Find if region is cached into local object list cache
     // If region contained, return the rank that contains the region
     item_idx = obj_cache_list_metadata->head_idx;
@@ -345,12 +349,12 @@ done:
     FUNC_LEAVE(is_cached);
 }
 
-perr_t
+int
 pdc_region_dl_global_search(pdcid_t obj_id)
 {
     perr_t ret_value = SUCCEED;
 
-    int                       i, item_idx;
+    int                       i, item_idx, is_cached = 0;
     void *                    current_metadata_list;
     pdc_object_list_metadata *current_metadata;
     pdc_object_cache *        current_cache_list;
@@ -393,6 +397,8 @@ pdc_region_dl_global_search(pdcid_t obj_id)
                     current_cache_list[item_idx].unit, current_cache_list[item_idx].reg_offset,
                     current_cache_list[item_idx].reg_size, buf);
 
+                is_cached = 1;
+
                 free(buf);
                 break;
             }
@@ -402,7 +408,7 @@ pdc_region_dl_global_search(pdcid_t obj_id)
     }
 done:
     fflush(stdout);
-    FUNC_LEAVE(ret_value);
+    FUNC_LEAVE(is_cached);
 }
 
 item_delete_info

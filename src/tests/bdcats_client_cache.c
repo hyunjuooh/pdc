@@ -309,17 +309,6 @@ main(int argc, char *argv[])
     if (PDCregion_close(region_id22) < 0)
         printf("fail to close region region_id22\n");
 
-    /*#ifdef ENABLE_MPI
-        MPI_Barrier(MPI_COMM_WORLD);
-        end = MPI_Wtime();
-        if (rank <= 5) {
-            cur_time = time(NULL);
-            log_time = localtime(&cur_time);
-            printf("[CACHE_LOG] [%02d:%02d:%02d] [RANK %d] | Initial Read Total Execution Time: %f\n",
-                   log_time->tm_hour, log_time->tm_min, log_time->tm_sec, rank, end - start);
-        }
-    #endif*/
-
     // Check if data written previously has been correctly read.
     for (j = 0; j < numparticles; ++j) {
         if (id1[j] != j) {
@@ -327,10 +316,12 @@ main(int argc, char *argv[])
             break;
         }
         if (id2[j] != j * 2) {
-            printf("rank: %d, wrong value %d!=%d @ line %d\n", rank, id2[j], j, __LINE__);
+            printf("rank: %d, wrong value %d!=%d @ line %d\n", rank, id2[j], j * 2, __LINE__);
             break;
         }
     }
+
+    // PDCregion_collect_global_cache();
 
 #ifdef ENABLE_MPI
     MPI_Barrier(MPI_COMM_WORLD);
@@ -341,6 +332,14 @@ main(int argc, char *argv[])
     if (mysize[0] == numparticles) {
         // For pattern1
         offset_remote[0] = rank * numparticles + (mysize[0] * 0);
+
+        // For pattern3
+        // if (rank != (size - 1)) {
+        //     offset_remote[0] = (rank + 1) * numparticles;
+        // }
+        // else {
+        //     offset_remote[0] = 0;
+        // }
     }
     else {
         // For pattern2
@@ -356,8 +355,6 @@ main(int argc, char *argv[])
     region_pz  = PDCregion_create(ndim, offset, mysize);
     region_id1 = PDCregion_create(ndim, offset, mysize);
     region_id2 = PDCregion_create(ndim, offset, mysize);
-
-    offset_remote[0] = rank * numparticles;
 
     region_xx   = PDCregion_create(ndim, offset_remote, mysize);
     region_yy   = PDCregion_create(ndim, offset_remote, mysize);
@@ -450,14 +447,29 @@ main(int argc, char *argv[])
 #endif
 
     // Check if data written previously has been correctly read.
-    for (j = offset_remote[0]; j < mysize[0]; ++j) {
-        if (id1[j] != j) {
-            printf("wrong value %d!=%d @ line %d\n", id1[j], j, __LINE__);
-            break;
+    // For pattern 1 and 3
+    if (mysize[0] == numparticles) {
+        for (j = 0; j < numparticles; ++j) {
+            if (id1[j] != j) {
+                printf("[Rank %d] id1 wrong value %d!=%d @ line %d\n", rank, id1[j], j, __LINE__);
+                break;
+            }
+            if (id2[j] != j * 2) {
+                printf("[Rank %d] id2 wrong value %d!=%d @ line %d\n", rank, id2[j], j * 2, __LINE__);
+                break;
+            }
         }
-        if (id2[j] != j * 2) {
-            printf("wrong value %d!=%d @ line %d\n", id2[j], j, __LINE__);
-            break;
+    }
+    else {
+        for (j = offset_remote[0]; j < offset_remote[0] + mysize[0]; ++j) {
+            if (id1[j] != j) {
+                printf("[Rank %d] id1 wrong value %d!=%d @ line %d\n", rank, id1[j], j, __LINE__);
+                break;
+            }
+            if (id2[j] != j * 2) {
+                printf("[Rank %d] id2 wrong value %d!=%d @ line %d\n", rank, id2[j], j * 2, __LINE__);
+                break;
+            }
         }
     }
 
