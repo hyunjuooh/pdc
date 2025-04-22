@@ -173,7 +173,12 @@ PDCclose(pdcid_t pdcid)
 {
     FUNC_ENTER(NULL);
 
+
     perr_t ret_value = SUCCEED;
+
+    // PDC Client Cache finalize
+    pdc_region_cache_finalize();
+
 
 #ifdef ENABLE_APP_CLOSE_SERVER
     PDC_Client_close_all_server();

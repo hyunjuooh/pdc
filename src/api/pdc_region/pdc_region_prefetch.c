@@ -27,21 +27,22 @@ PDCregion_receive_prefetch_hint(const char **obj_array, int obj_array_len)
 
     for (i = 0; i < obj_array_len; i++) {
         printf("String %d: %s\n", i, obj_array[i]);
+        fflush(stdout);
     }
 
-    obj_prefetch_list_len = obj_array_len;
-    obj_prefetch_list     = (pdcid_t *)PDC_malloc(obj_prefetch_list_len * sizeof(pdcid_t));
+    // obj_prefetch_list_len = obj_array_len;
+    // obj_prefetch_list     = (pdcid_t *)PDC_malloc(obj_prefetch_list_len * sizeof(pdcid_t));
 
-    sample_per_rank = obj_prefetch_list_len / pdc_client_mpi_size_g;
+    // sample_per_rank = obj_prefetch_list_len / pdc_client_mpi_size_g;
 
-    // Get the list of object id for each rank that should be prefetched
-    for (i = pdc_client_mpi_rank_g * sample_per_rank; i < (pdc_client_mpi_rank_g + 1) * sample_per_rank;
-         i++) {
-        obj_prefetch_list[item_idx] = PDCobj_open(obj_array[i], pdc_id);
-        PDCobj_close(obj_prefetch_list[item_idx]);
+    // // Get the list of object id for each rank that should be prefetched
+    // for (i = pdc_client_mpi_rank_g * sample_per_rank; i < (pdc_client_mpi_rank_g + 1) * sample_per_rank;
+    //      i++) {
+    //     obj_prefetch_list[item_idx] = PDCobj_open(obj_array[i], pdc_id);
+    //     PDCobj_close(obj_prefetch_list[item_idx]);
 
-        item_idx++;
-    }
+    //     item_idx++;
+    // }
 
 done:
     fflush(stdout);
@@ -52,7 +53,7 @@ perr_t
 PDCregion_prefetch_by_objid()
 {
     perr_t ret_value = SUCCEED;
-    int    i;
+    int    i, is_cached;
 
     FUNC_ENTER(NULL);
 
@@ -67,7 +68,7 @@ PDCregion_prefetch_by_objid()
     ret_value = pdc_region_dl_collect_global_metadata();
 
     for (i = 0; i < obj_prefetch_list_len; i++) {
-        ret_value = pdc_region_dl_global_search(obj_prefetch_list[i]);
+        is_cached = pdc_region_dl_global_search(obj_prefetch_list[i]);
     }
 
     free(obj_prefetch_list);
