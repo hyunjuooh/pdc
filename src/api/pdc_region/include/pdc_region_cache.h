@@ -28,7 +28,6 @@
 #include "pdc_public.h"
 #include "pdc_obj.h"
 
-
 extern pdcid_t pdc_id;
 
 /****************************************************/
@@ -52,4 +51,3 @@ void pdc_region_cache_timelog(double start_time, const char *message);
 
 perr_t pdc_region_cache_finalize();
 #endif /* PDC_REGION_CACHE_H */
-

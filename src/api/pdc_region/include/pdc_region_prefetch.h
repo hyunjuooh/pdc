@@ -28,7 +28,6 @@
 #include "pdc_public.h"
 #include "pdc_obj.h"
 
+perr_t pdc_region_receive_prefetch_hint(const char **obj_array, int obj_array_len);
 
-perr_t pdc_region_receive_prefetch_hint (const char **obj_array, int obj_array_len);
-
-perr_t pdc_region_prefetch_by_objid ();
+perr_t pdc_region_prefetch_by_objid();
