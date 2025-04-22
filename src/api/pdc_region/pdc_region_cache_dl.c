@@ -15,12 +15,12 @@
 #include "pdc_client_connect.h"
 
 #define MAX_CACHE_SIZE 4294967296
-#define MAX_ITEM_NUM 1000
+#define MAX_ITEM_NUM   1000
 
 MPI_Comm client_cache_comm;
 
-int      init_object_cache       = 0;
-int      obj_cache_list_item_num = 0; // Tracks the number of objects cached within the list
+int init_object_cache       = 0;
+int obj_cache_list_item_num = 0; // Tracks the number of objects cached within the list
 
 // Object cache list that will be used for object cache management
 struct pdc_object_cache *        obj_cache_list;
@@ -29,8 +29,8 @@ struct pdc_object_list_metadata *obj_cache_list_metadata;
 char * metadata_base_ptr;
 size_t metadata_size;
 
-void * global_metadata_list = NULL;
-int    global_metadata_list_collected = 0;
+void *global_metadata_list           = NULL;
+int   global_metadata_list_collected = 0;
 
 // For global cache creation
 MPI_Win  shared_obj_cache_win;
@@ -294,10 +294,11 @@ pdc_region_dl_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, 
     // Find if region is cached into local object list cache
     // If region contained, return the rank that contains the region
     item_idx = obj_cache_list_metadata->head_idx;
-    
+
     while (item_idx != -1) {
         if (obj_cache_list[item_idx].obj_id == obj_id) {
-            is_cached = detect_region_contained(offset, size, obj_cache_list[item_idx].reg_offset, obj_cache_list[item_idx].reg_size, ndim);
+            is_cached = detect_region_contained(offset, size, obj_cache_list[item_idx].reg_offset,
+                                                obj_cache_list[item_idx].reg_size, ndim);
 
             if (is_cached) {
                 // If region contained, memcpy cached region data into transfer_request->buf
@@ -305,19 +306,19 @@ pdc_region_dl_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, 
                 start = MPI_Wtime();
                 PDC_region_overlap_detect(ndim, offset, size, obj_cache_list[item_idx].reg_offset,
                                           obj_cache_list[item_idx].reg_size, &overlap_offset, &overlap_size);
-        
+
                 // memcpy the overlapped region
-                memcpy_overlap_subregion(obj_cache_list[item_idx].reg_ndim, unit,
-                                         region_buf + obj_cache_list[item_idx].buf_offset,
-                                         obj_cache_list[item_idx].reg_offset, obj_cache_list[item_idx].reg_size, buf,
-                                         offset, size, overlap_offset, overlap_size);
-        
+                memcpy_overlap_subregion(
+                    obj_cache_list[item_idx].reg_ndim, unit, region_buf + obj_cache_list[item_idx].buf_offset,
+                    obj_cache_list[item_idx].reg_offset, obj_cache_list[item_idx].reg_size, buf, offset, size,
+                    overlap_offset, overlap_size);
+
                 // Follow the LRU policy
                 pdc_region_dl_delete(item_idx);
                 pdc_region_dl_prepend(item_idx);
-        
+
                 free(overlap_offset);
-        
+
                 pdc_region_cache_timelog(start, "pdc_region_dl_search - local cache hit time");
 
                 break;
@@ -335,13 +336,14 @@ done:
 }
 
 perr_t
-pdc_region_dl_global_search(pdcid_t obj_id) {
+pdc_region_dl_global_search(pdcid_t obj_id)
+{
     perr_t ret_value = SUCCEED;
 
     void *                    current_metadata_list;
     pdc_object_list_metadata *current_metadata;
     pdc_object_cache *        current_cache_list;
-    char *buf;
+    char *                    buf;
 
     FUNC_ENTER(NULL);
 
@@ -351,11 +353,11 @@ pdc_region_dl_global_search(pdcid_t obj_id) {
                    pdc_client_mpi_rank_g, (void *)global_metadata_list);
         goto done;
     }
-    
+
     for (i = 0; i < pdc_client_mpi_size_g; i++) {
         if (i == pdc_client_mpi_rank_g)
             continue;
-        
+
         current_metadata_list = (char *)global_metadata_list + (i * metadata_size);
 
         current_metadata = (pdc_object_list_metadata *)current_metadata_list;
@@ -364,27 +366,29 @@ pdc_region_dl_global_search(pdcid_t obj_id) {
 
         while (item_idx != -1) {
             if (current_cache_list[item_idx].obj_id == obj_id) {
-                buf = (char *) PDC_malloc(current_cache_list[item_idx].buf_size);
+                buf = (char *)PDC_malloc(current_cache_list[item_idx].buf_size);
 
                 MPI_Win_lock(MPI_LOCK_SHARED, target_rank, 0, shared_obj_cache_win);
-                
-                MPI_Get(buf, current_cache_list[item_idx].buf_size, MPI_BYTE, i, current_cache_list[item_idx].buf_offset,
-                        current_cache_list[item_idx].buf_size, MPI_BYTE, shared_obj_cache_win);
+
+                MPI_Get(buf, current_cache_list[item_idx].buf_size, MPI_BYTE, i,
+                        current_cache_list[item_idx].buf_offset, current_cache_list[item_idx].buf_size,
+                        MPI_BYTE, shared_obj_cache_win);
 
                 MPI_Win_flush(target_rank, shared_obj_cache_win);
                 MPI_Win_unlock(target_rank, shared_obj_cache_win);
 
-                ret_value = pdc_region_cache_insert(current_cache_list[item_idx].obj_id, current_cache_list[item_idx].reg_ndim, current_cache_list[item_idx].unit, 
-                                        current_cache_list[item_idx].offset, current_cache_list[item_idx].size, buf);
+                ret_value = pdc_region_cache_insert(
+                    current_cache_list[item_idx].obj_id, current_cache_list[item_idx].reg_ndim,
+                    current_cache_list[item_idx].unit, current_cache_list[item_idx].offset,
+                    current_cache_list[item_idx].size, buf);
 
                 free(buf);
 
                 is_cached = 1;
                 break;
             }
-            
-            item_idx = current_cache_list[item_idx].next;
 
+            item_idx = current_cache_list[item_idx].next;
         }
     }
 done:
