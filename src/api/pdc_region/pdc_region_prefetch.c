@@ -16,8 +16,6 @@
 
 pdcid_t *obj_prefetch_list;
 int      obj_prefetch_list_len;
-int      current_rank    = pdc_client_mpi_rank_g;
-int      total_rank_size = pdc_client_mpi_size_g;
 
 perr_t
 PDCregion_receive_prefetch_hint(const char **obj_array, int obj_array_len)
@@ -34,10 +32,10 @@ PDCregion_receive_prefetch_hint(const char **obj_array, int obj_array_len)
     obj_prefetch_list_len = obj_array_len;
     obj_prefetch_list     = (pdcid_t *)PDC_malloc(obj_prefetch_list_len * sizeof(pdcid_t));
 
-    sample_per_rank = obj_prefetch_list_len / total_rank_size;
+    sample_per_rank = obj_prefetch_list_len / pdc_client_mpi_size_g;
 
     // Get the list of object id for each rank that should be prefetched
-    for (i = current_rank * sample_per_rank; i < (current_rank + 1) * sample_per_rank; i++) {
+    for (i = pdc_client_mpi_rank_g * sample_per_rank; i < (pdc_client_mpi_rank_g + 1) * sample_per_rank; i++) {
         obj_prefetch_list[item_idx] = PDCobj_open(obj_array[i], pdc_id);
         PDCobj_close(obj_prefetch_list[item_idx]);
 
