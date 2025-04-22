@@ -152,7 +152,7 @@ set(PDC_HEADERS
   ${PDC_SOURCE_DIR}/src/api/pdc_region/include/pdc_region.h
   ${PDC_SOURCE_DIR}/src/api/pdc_region/include/pdc_region_cache.h
   ${PDC_SOURCE_DIR}/src/api/pdc_region/include/pdc_region_cache_dl.h
-  ${PDC_SOURCE_DIR}/src/api/pdc_region/include/pdc_region_cache_prefetch.h
+  ${PDC_SOURCE_DIR}/src/api/pdc_region/include/pdc_region_prefetch.h
   ${PDC_SOURCE_DIR}/src/api/pdc_obj/include/pdc_prop.h
   ${PDC_SOURCE_DIR}/src/api/pdc_obj/include/pdc_cont_pkg.h
   ${PDC_SOURCE_DIR}/src/api/pdc_obj/include/pdc_obj_pkg.h
