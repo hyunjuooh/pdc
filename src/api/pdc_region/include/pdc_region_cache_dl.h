@@ -74,8 +74,7 @@ perr_t pdc_region_dl_collect_global_metadata();
 int pdc_region_dl_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size, void *buf,
                          uint64_t read_size);
 
-int pdc_region_global_dl_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size,
-                                void *buf, uint64_t read_size, int local_region_contained);
+perr_t pdc_region_dl_global_search(pdcid_t obj_id);
 
 perr_t pdc_region_dl_insert(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size,
                             void *buf, uint64_t read_size);
