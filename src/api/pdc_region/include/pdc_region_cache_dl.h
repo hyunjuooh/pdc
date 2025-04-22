@@ -34,7 +34,7 @@
 
 typedef struct pdc_object_cache {
     // PDC Object information
-    pdcid_t obj_id;
+    pdcid_t  obj_id;
     uint64_t unit;
 
     // Remote region information

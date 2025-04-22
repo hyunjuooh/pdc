@@ -16,24 +16,25 @@
 
 pdcid_t *obj_prefetch_list;
 int      obj_prefetch_list_len;
-int      current_rank = pdc_client_mpi_rank_g;
+int      current_rank    = pdc_client_mpi_rank_g;
 int      total_rank_size = pdc_client_mpi_size_g;
 
 perr_t
-pdc_region_receive_prefetch_hint (const char **obj_array, int obj_array_len) {
+pdc_region_receive_prefetch_hint(const char **obj_array, int obj_array_len)
+{
     perr_t ret_value = SUCCEED;
     int    i, sample_per_rank, item_idx = 0;
 
     FUNC_ENTER(NULL);
-    
+
     for (i = 0; i < obj_array_len; i++) {
         printf("String %d: %s\n", i, obj_array[i]);
     }
-    
-    obj_prefetch_list_len = obj_array_len;
-    obj_prefetch_list = (pdcid_t *) PDC_malloc(obj_prefetch_list_len * sizeof(pdcid_t));
 
-    sample_per_rank  = obj_prefetch_list_len / total_rank_size;
+    obj_prefetch_list_len = obj_array_len;
+    obj_prefetch_list     = (pdcid_t *)PDC_malloc(obj_prefetch_list_len * sizeof(pdcid_t));
+
+    sample_per_rank = obj_prefetch_list_len / total_rank_size;
 
     // Get the list of object id for each rank that should be prefetched
     for (i = current_rank * sample_per_rank; i < (current_rank + 1) * sample_per_rank; i++) {
@@ -49,16 +50,18 @@ done:
 }
 
 perr_t
-pdc_region_prefetch_by_objid () {
+pdc_region_prefetch_by_objid()
+{
     perr_t ret_value = SUCCEED;
-    int i;
+    int    i;
 
     FUNC_ENTER(NULL);
 
     if (obj_prefetch_list == NULL) {
         if (pdc_client_mpi_rank_g == 0)
-            printf("[RANK %d] pdc_region_prefetch_by_objid - object list not created\n", pdc_client_mpi_rank_g);
-        
+            printf("[RANK %d] pdc_region_prefetch_by_objid - object list not created\n",
+                   pdc_client_mpi_rank_g);
+
         goto done;
     }
 
@@ -69,9 +72,8 @@ pdc_region_prefetch_by_objid () {
     }
 
     free(obj_prefetch_list);
-    
+
 done:
     fflush(stdout);
     FUNC_LEAVE(ret_value);
 }
-
