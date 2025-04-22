@@ -35,3 +35,5 @@
 perr_t PDCregion_receive_prefetch_hint(const char **obj_array, int obj_array_len);
 
 perr_t PDCregion_prefetch_by_objid();
+
+#endif /* PDC_REGION_PREFETCH_H */
