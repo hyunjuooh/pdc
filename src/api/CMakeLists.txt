@@ -82,6 +82,7 @@ set(PDC_SRCS
   ${PDC_SOURCE_DIR}/src/api/pdc_region/pdc_region_transfer.c
   ${PDC_SOURCE_DIR}/src/api/pdc_region/pdc_region_cache.c
   ${PDC_SOURCE_DIR}/src/api/pdc_region/pdc_region_cache_dl.c
+  ${PDC_SOURCE_DIR}/src/api/pdc_region/pdc_region_prefetch.c
   ${PDC_SOURCE_DIR}/src/api/pdc_transform/pdc_transform.c
   ${PDC_SOURCE_DIR}/src/api/pdc_transform/pdc_transforms_common.c
   ${PDC_SOURCE_DIR}/src/server/pdc_client_server_common.c
@@ -149,6 +150,9 @@ set(PDC_HEADERS
   ${PDC_SOURCE_DIR}/src/api/pdc_obj/include/pdc_mpi.h
   ${PDC_SOURCE_DIR}/src/api/pdc_obj/include/pdc_obj.h
   ${PDC_SOURCE_DIR}/src/api/pdc_region/include/pdc_region.h
+  ${PDC_SOURCE_DIR}/src/api/pdc_region/include/pdc_region_cache.h
+  ${PDC_SOURCE_DIR}/src/api/pdc_region/include/pdc_region_cache_dl.h
+  ${PDC_SOURCE_DIR}/src/api/pdc_region/include/pdc_region_cache_prefetch.h
   ${PDC_SOURCE_DIR}/src/api/pdc_obj/include/pdc_prop.h
   ${PDC_SOURCE_DIR}/src/api/pdc_obj/include/pdc_cont_pkg.h
   ${PDC_SOURCE_DIR}/src/api/pdc_obj/include/pdc_obj_pkg.h
