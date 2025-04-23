@@ -138,6 +138,8 @@ pdc_region_cache_insert(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offse
     }
 
     pdc_region_cache_timelog(start, "pdc_region_cache_insert - total time");
+    // printf("[RANK %d] pdc_region_cache_insert - total size: %zu bytes, total item num: %d \n", pdc_client_mpi_rank_g, total_buf_size, total_item_num);
+    // fflush(stdout);
 
 done:
     fflush(stdout);
@@ -196,6 +198,10 @@ pdc_region_cache_evict(size_t required_size, int by_size)
     total_item_num -= eviction_result.deleted_item_num;
 
     pdc_region_cache_timelog(start, "pdc_region_cache_evict - pdc_region_dl_evict time");
+
+    // start     = MPI_Wtime();
+    // ret_value = pdc_region_dl_clean_list();
+    // pdc_region_cache_timelog(start, "pdc_region_cache_update - pdc_region_dl_clean_list time");
 
 done:
     fflush(stdout);
