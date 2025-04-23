@@ -202,13 +202,13 @@ pdc_region_dl_insert(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, 
                      uint64_t read_size)
 {
     perr_t ret_value = SUCCEED;
-    
+
     int    new_item_idx;
     double start;
 
     FUNC_ENTER(NULL);
 
-    if (!init_object_cache) 
+    if (!init_object_cache)
         PGOTO_ERROR(FAIL, "pdc_region_dl_insert - object cache list not initialized");
 
     new_item_idx = obj_cache_new_item_index();
@@ -301,7 +301,7 @@ pdc_region_dl_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, 
 
     FUNC_ENTER(NULL);
 
-    if (!init_object_cache) 
+    if (!init_object_cache)
         PGOTO_ERROR(FAIL, "pdc_region_dl_search - object cache list not initialized");
 
     // Find if region is cached into local object list cache
@@ -407,7 +407,7 @@ pdc_region_dl_global_search(pdcid_t obj_id)
             item_idx = current_cache_list[item_idx].next;
         }
     }
-    
+
 done:
     fflush(stdout);
     FUNC_LEAVE(is_cached);
@@ -484,7 +484,7 @@ pdc_region_dl_evict_by_size(size_t required_size)
     }
 
     item_idx = obj_cache_list_metadata->tail_idx;
-    
+
     // Delete item from end of list (following LRU policy)
     while (item_idx != -1) {
         required_size -= obj_cache_list[item_idx].buf_size;
@@ -506,7 +506,7 @@ pdc_region_dl_evict_by_size(size_t required_size)
         if (required_size < MAX_CACHE_SIZE) {
             break;
         }
-        
+
         item_idx = obj_cache_list_metadata->tail_idx;
     }
 
