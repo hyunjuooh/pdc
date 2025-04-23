@@ -65,6 +65,11 @@ pdc_region_dl_prepend(int item_idx)
 
     FUNC_ENTER(NULL);
 
+    // If it was deleted for prepend
+    if (obj_cache_list_metadata->free_idx == item_idx) {
+        obj_cache_list_metadata->free_idx = obj_cache_list[item_idx].next;
+    }
+
     // Update metadata list information
     // Current item will be prepended to the head node
     obj_cache_list[item_idx].next = obj_cache_list_metadata->head_idx;
@@ -160,6 +165,11 @@ pdc_region_dl_init()
 
     pdc_region_cache_timelog(start, "pdc_region_dl_init - Init metadata memory buffer");
 
+    // Shared memory global metadata allocation
+    global_metadata_list = (char *)PDC_malloc(metadata_size * pdc_client_mpi_size_g);
+    if (!global_metadata_list)
+        PGOTO_ERROR(FAIL, "global metadata memory allocation failed");
+
     // Continuous memory
     obj_cache_list_metadata = (pdc_object_list_metadata *)metadata_base_ptr;
     obj_cache_list = (pdc_object_cache *)((char *)metadata_base_ptr + sizeof(pdc_object_list_metadata));
@@ -192,15 +202,14 @@ pdc_region_dl_insert(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, 
                      uint64_t read_size)
 {
     perr_t ret_value = SUCCEED;
+    
     int    new_item_idx;
     double start;
 
     FUNC_ENTER(NULL);
 
-    if (!init_object_cache) {
-        // ret_value = pdc_region_dl_init();
+    if (!init_object_cache) 
         PGOTO_ERROR(FAIL, "pdc_region_dl_insert - object cache list not initialized");
-    }
 
     new_item_idx = obj_cache_new_item_index();
     if (new_item_idx == -1)
@@ -258,11 +267,6 @@ pdc_region_dl_collect_global_metadata()
 
     FUNC_ENTER(NULL);
 
-    // if (global_metadata_list != NULL) {
-    //     free(global_metadata_list);
-    //     global_metadata_list = NULL;
-    // }
-
     start = MPI_Wtime();
     memcpy(shared_buf, region_buf, MAX_CACHE_SIZE);
     pdc_region_cache_timelog(start, "pdc_region_dl_collect_global_metadata - memcpy time");
@@ -297,13 +301,8 @@ pdc_region_dl_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, 
 
     FUNC_ENTER(NULL);
 
-    if (!init_object_cache) {
-        return is_cached;
-    }
-
-    if (!obj_cache_list_item_num) {
-        return is_cached;
-    }
+    if (!init_object_cache) 
+        PGOTO_ERROR(FAIL, "pdc_region_dl_search - object cache list not initialized");
 
     // Find if region is cached into local object list cache
     // If region contained, return the rank that contains the region
@@ -379,6 +378,8 @@ pdc_region_dl_global_search(pdcid_t obj_id)
         current_cache_list =
             (pdc_object_cache *)((char *)current_metadata_list + sizeof(pdc_object_list_metadata));
 
+        item_idx = current_metadata->head_idx;
+
         while (item_idx != -1) {
             if (current_cache_list[item_idx].obj_id == obj_id) {
                 buf = (char *)PDC_malloc(current_cache_list[item_idx].buf_size);
@@ -406,6 +407,7 @@ pdc_region_dl_global_search(pdcid_t obj_id)
             item_idx = current_cache_list[item_idx].next;
         }
     }
+    
 done:
     fflush(stdout);
     FUNC_LEAVE(is_cached);
@@ -481,10 +483,10 @@ pdc_region_dl_evict_by_size(size_t required_size)
         return result;
     }
 
+    item_idx = obj_cache_list_metadata->tail_idx;
+    
     // Delete item from end of list (following LRU policy)
     while (item_idx != -1) {
-        item_idx = obj_cache_list_metadata->tail_idx;
-
         required_size -= obj_cache_list[item_idx].buf_size;
         deleted_size += obj_cache_list[item_idx].buf_size;
 
@@ -504,6 +506,8 @@ pdc_region_dl_evict_by_size(size_t required_size)
         if (required_size < MAX_CACHE_SIZE) {
             break;
         }
+        
+        item_idx = obj_cache_list_metadata->tail_idx;
     }
 
     result.deleted_size     = deleted_size;
@@ -534,11 +538,11 @@ pdc_region_dl_evict_by_num()
     // Delete one item from end of list (following LRU policy)
     item_idx = obj_cache_list_metadata->tail_idx;
 
-    ret_value = pdc_region_dl_delete(item_idx);
-
     // Update the region_buf_offset for global data buffer
     // Applies only when evicting the last item
     region_buf_offset -= obj_cache_list[item_idx].buf_size;
+
+    ret_value = pdc_region_dl_delete(item_idx);
 
     if (ret_value != SUCCEED)
         PGOTO_ERROR(FAIL, "pdc_region_dl_evict - Deleting item failed");
