@@ -138,8 +138,8 @@ pdc_region_cache_insert(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offse
     }
 
     pdc_region_cache_timelog(start, "pdc_region_cache_insert - total time");
-    // printf("[RANK %d] pdc_region_cache_insert - total size: %zu bytes, total item num: %d \n", pdc_client_mpi_rank_g, total_buf_size, total_item_num);
-    // fflush(stdout);
+    // printf("[RANK %d] pdc_region_cache_insert - total size: %zu bytes, total item num: %d \n",
+    // pdc_client_mpi_rank_g, total_buf_size, total_item_num); fflush(stdout);
 
 done:
     fflush(stdout);
