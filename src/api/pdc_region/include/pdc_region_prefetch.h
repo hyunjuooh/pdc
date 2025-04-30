@@ -32,10 +32,9 @@
 /* Public Functions for Client-side Region Prefetching */
 /****************************************************/
 
-perr_t PDCregion_receive_dataset(const char **dataset_array, int obj_array_len);
-
-perr_t PDCregion_receive_prefetch_hint(int *obj_array, int obj_array_len);
-
+// perr_t PDCregion_receive_prefetch_hint(const char** arr, int obj_array_len);
+perr_t PDCregion_receive_prefetch_hint(const pdcid_t* arr, int obj_array_len);
+    
 perr_t PDCregion_prefetch_by_objid();
 
 #endif /* PDC_REGION_PREFETCH_H */
