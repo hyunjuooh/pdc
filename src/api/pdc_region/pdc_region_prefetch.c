@@ -18,12 +18,12 @@ pdcid_t *obj_prefetch_list;
 int      obj_prefetch_list_len;
 
 perr_t
-PDCregion_receive_prefetch_hint(const pdcid_t* arr, int obj_array_len)
+PDCregion_receive_prefetch_hint(const pdcid_t *arr, int obj_array_len)
 {
     perr_t ret_value = SUCCEED;
-    
-    int    i, item_idx = 0;
-    int    current_rank = pdc_client_mpi_rank_g;
+
+    int     i, item_idx = 0;
+    int     current_rank = pdc_client_mpi_rank_g;
     pdcid_t obj_item;
 
     FUNC_ENTER(NULL);
@@ -37,7 +37,8 @@ PDCregion_receive_prefetch_hint(const pdcid_t* arr, int obj_array_len)
     memcpy(obj_prefetch_list, arr, obj_prefetch_list_len);
 
     if (pdc_client_mpi_rank_g == 0)
-        printf("[RANK %d] PDCregion_receive_prefetch_hint - object list item length %d \n", pdc_client_mpi_rank_g, obj_prefetch_list_len);
+        printf("[RANK %d] PDCregion_receive_prefetch_hint - object list item length %d \n",
+               pdc_client_mpi_rank_g, obj_prefetch_list_len);
 
     // // Get the list of object id for each rank that should be prefetched
     // for (i = 0; i < obj_prefetch_list_len; i++) {
