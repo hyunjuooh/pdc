@@ -17,8 +17,8 @@
 #define MAX_CACHE_SIZE 4294967296
 #define MAX_ITEM_NUM   1000
 
-static size_t total_buf_size;
-static int    total_item_num;
+size_t total_buf_size = 0;
+int    total_item_num = 0;
 
 pdcid_t pdc_id;
 

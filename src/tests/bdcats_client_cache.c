@@ -47,14 +47,21 @@ print_usage()
     printf("Usage: srun -n ./bdcats #particles #transfer_request\n");
 }
 
+int 
+get_random_offset(int min, int max) {
+    return min + rand() % (max - min + 1);
+}
+
 int
 main(int argc, char *argv[])
 {
     int     rank = 0, size = 1, i = 0, j = 0;
-    int     num_transfer_request = 0;
+    int     num_transfer_request = 0, access_pattern = 0, random_offset = 0;
     double  t0, t1, start, end;
     pdcid_t pdc_id, cont_id;
     pdcid_t obj_xx, obj_yy, obj_zz, obj_pxx, obj_pyy, obj_pzz, obj_id11, obj_id22;
+    pdcid_t prefetch_arr[8];
+    pdcid_t reg_prefetch_arr[8];
     pdcid_t region_x, region_y, region_z, region_px, region_py, region_pz, region_id1, region_id2;
     pdcid_t region_xx, region_yy, region_zz, region_pxx, region_pyy, region_pzz, region_id11, region_id22;
     perr_t  ret;
@@ -90,6 +97,7 @@ main(int argc, char *argv[])
     }
 
     num_transfer_request = atoi(argv[2]);
+    access_pattern = atoi(argv[3]);
 
     x = (float *)malloc(numparticles * sizeof(float));
     y = (float *)malloc(numparticles * sizeof(float));
@@ -152,6 +160,19 @@ main(int argc, char *argv[])
         exit(-1);
     }
 
+    if (access_pattern == 3) {
+        srand(time(NULL) + rank);
+    
+        prefetch_arr[0] = obj_xx;
+        prefetch_arr[1] = obj_yy;
+        prefetch_arr[2] = obj_zz;
+        prefetch_arr[3] = obj_pxx;
+        prefetch_arr[4] = obj_pyy;
+        prefetch_arr[5] = obj_pzz;
+        prefetch_arr[6] = obj_id11;
+        prefetch_arr[7] = obj_id22;
+    }
+
     offset           = (uint64_t *)malloc(sizeof(uint64_t) * ndim);
     offset_remote    = (uint64_t *)malloc(sizeof(uint64_t) * ndim);
     mysize           = (uint64_t *)malloc(sizeof(uint64_t) * ndim);
@@ -177,6 +198,7 @@ main(int argc, char *argv[])
     region_pzz  = PDCregion_create(ndim, offset_remote, mysize);
     region_id11 = PDCregion_create(ndim, offset_remote, mysize);
     region_id22 = PDCregion_create(ndim, offset_remote, mysize);
+
 
 #ifdef ENABLE_MPI
     MPI_Barrier(MPI_COMM_WORLD);
@@ -321,31 +343,24 @@ main(int argc, char *argv[])
         }
     }
 
-    // PDCregion_collect_global_cache();
-
 #ifdef ENABLE_MPI
     MPI_Barrier(MPI_COMM_WORLD);
-    start = MPI_Wtime();
 #endif
 
     mysize[0] = numparticles / num_transfer_request;
-    if (mysize[0] == numparticles) {
-        // For pattern1
-        offset_remote[0] = rank * numparticles + (mysize[0] * 0);
 
-        // For pattern3
-        // if (rank != (size - 1)) {
-        //     offset_remote[0] = (rank + 1) * numparticles;
-        // }
-        // else {
-        //     offset_remote[0] = 0;
-        // }
+    if (access_pattern == 1) {
+        offset_remote[0] = rank * numparticles;
+    } 
+    else if (access_pattern == 2) {
+        offset_remote[0] = rank * numparticles + mysize[0];
+    } 
+    else if (access_pattern == 3) {
+        random_offset = get_random_offset(0, size-1);
+        offset_remote[0] = random_offset * numparticles;
+	printf("[RANK %d] Random offset %d\n", rank, random_offset);
     }
-    else {
-        // For pattern2
-        offset_remote[0] = rank * numparticles + (mysize[0] * 1);
-    }
-
+    
     // create a region
     region_x   = PDCregion_create(ndim, offset, mysize);
     region_y   = PDCregion_create(ndim, offset, mysize);
@@ -365,8 +380,24 @@ main(int argc, char *argv[])
     region_id11 = PDCregion_create(ndim, offset_remote, mysize);
     region_id22 = PDCregion_create(ndim, offset_remote, mysize);
 
+    if (access_pattern == 3) {
+        reg_prefetch_arr[0] = region_xx;
+        reg_prefetch_arr[1] = region_yy;
+        reg_prefetch_arr[2] = region_zz;
+        reg_prefetch_arr[3] = region_pxx;
+        reg_prefetch_arr[4] = region_pyy;
+        reg_prefetch_arr[5] = region_pzz;
+        reg_prefetch_arr[6] = region_id11;
+        reg_prefetch_arr[7] = region_id22;
+
+	// Prefetch the regions from global ranks
+        PDCregion_receive_prefetch_hint(prefetch_arr, reg_prefetch_arr, 8);
+        PDCregion_prefetch_by_objid();
+    }
+
 #ifdef ENABLE_MPI
     MPI_Barrier(MPI_COMM_WORLD);
+    start = MPI_Wtime();
     t0 = MPI_Wtime();
 #endif
 
@@ -448,7 +479,7 @@ main(int argc, char *argv[])
 
     // Check if data written previously has been correctly read.
     // For pattern 1 and 3
-    if (mysize[0] == numparticles) {
+    if (access_pattern == 1 || access_pattern == 3) {
         for (j = 0; j < numparticles; ++j) {
             if (id1[j] != j) {
                 printf("[Rank %d] id1 wrong value %d!=%d @ line %d\n", rank, id1[j], j, __LINE__);
@@ -461,15 +492,17 @@ main(int argc, char *argv[])
         }
     }
     else {
-        for (j = offset_remote[0]; j < offset_remote[0] + mysize[0]; ++j) {
-            if (id1[j] != j) {
-                printf("[Rank %d] id1 wrong value %d!=%d @ line %d\n", rank, id1[j], j, __LINE__);
+        i = mysize[0];
+        for (j = 0; j < mysize[0]; ++j) {
+            if (id1[j] != i) {
+                printf("[Rank %d] iter %d, id1 wrong value %d!=%d @ line %d\n", rank, j, id1[j], i, __LINE__);
                 break;
             }
-            if (id2[j] != j * 2) {
-                printf("[Rank %d] id2 wrong value %d!=%d @ line %d\n", rank, id2[j], j * 2, __LINE__);
+            if (id2[j] != i * 2) {
+                printf("[Rank %d] id2 wrong value %d!=%d @ line %d\n", rank, id2[j], i * 2, __LINE__);
                 break;
             }
+            i++;
         }
     }
 
