@@ -29,7 +29,7 @@ struct pdc_object_list_metadata *obj_cache_list_metadata;
 char * metadata_base_ptr = NULL;
 size_t metadata_size;
 
-void *global_metadata_list           = NULL;
+void *global_metadata_list = NULL;
 
 // For global cache creation
 MPI_Win  shared_obj_cache_win = MPI_WIN_NULL;
@@ -63,7 +63,7 @@ pdc_region_dl_list_init()
 {
     perr_t ret_value = SUCCEED;
 
-    int i;
+    int    i;
     double start = MPI_Wtime();
 
     FUNC_ENTER(NULL);
@@ -87,7 +87,7 @@ pdc_region_dl_list_init()
     obj_cache_list[MAX_ITEM_NUM - 1].next = -1;
 
     // Initialize offset and cached item number
-    region_buf_offset = 0;
+    region_buf_offset       = 0;
     obj_cache_list_item_num = 0;
 
     // From pdc_region_cache
@@ -95,7 +95,7 @@ pdc_region_dl_list_init()
     total_item_num = 0;
 
     pdc_region_cache_timelog(start, "pdc_region_dl_list_init - total time");
-    
+
 done:
     fflush(stdout);
     FUNC_LEAVE(ret_value);
@@ -172,7 +172,7 @@ pdc_region_dl_init()
 {
     perr_t ret_value = SUCCEED;
 
-    int      mpi_alloc_error, i;
+    int mpi_alloc_error, i;
     // MPI_Aint buffer_win_size;
 
     double start;
@@ -183,8 +183,8 @@ pdc_region_dl_init()
     MPI_Comm_dup(MPI_COMM_WORLD, &client_cache_comm);
 
     // Region buffer memory allocation
-    start             = MPI_Wtime();
-    buffer_win_size   = MAX_CACHE_SIZE * sizeof(char);
+    start           = MPI_Wtime();
+    buffer_win_size = MAX_CACHE_SIZE * sizeof(char);
 
     region_buf = (char *)PDC_malloc(MAX_CACHE_SIZE * sizeof(char));
 
@@ -204,7 +204,7 @@ pdc_region_dl_init()
     ret_value = pdc_region_dl_list_init();
 
     init_object_cache = 1;
-    
+
 done:
     fflush(stdout);
     FUNC_LEAVE(ret_value);
@@ -351,15 +351,17 @@ pdc_region_dl_collect_global_metadata()
         ret_value = pdc_region_global_metadata_free();
 
     // Create window to expose local cache to other ranks
-    start = MPI_Wtime();
+    start      = MPI_Wtime();
     shared_buf = (char *)PDC_malloc(MAX_CACHE_SIZE * sizeof(char));
 
     mpi_alloc_error = MPI_Win_create(shared_buf, buffer_win_size, sizeof(char), MPI_INFO_NULL,
                                      client_cache_comm, &shared_obj_cache_win);
 
     if (mpi_alloc_error != MPI_SUCCESS)
-        PGOTO_ERROR(FAIL, "pdc_region_dl_collect_global_metadata - MPI shared allocation for shared_obj_cache_win failed");
-    
+        PGOTO_ERROR(
+            FAIL,
+            "pdc_region_dl_collect_global_metadata - MPI shared allocation for shared_obj_cache_win failed");
+
     if (shared_obj_cache_win == MPI_WIN_NULL)
         PGOTO_ERROR(FAIL, "pdc_region_dl_collect_global_metadata - MPI shared_obj_cache_win creation failed");
 
@@ -371,7 +373,7 @@ pdc_region_dl_collect_global_metadata()
     pdc_region_cache_timelog(start, "pdc_region_dl_collect_global_metadata - memcpy time");
 
     // Shared global metadata memory allocation
-    start = MPI_Wtime();
+    start                = MPI_Wtime();
     global_metadata_list = (char *)PDC_malloc(metadata_size * pdc_client_mpi_size_g);
     if (!global_metadata_list)
         PGOTO_ERROR(FAIL, "global metadata memory allocation failed");
@@ -385,7 +387,8 @@ pdc_region_dl_collect_global_metadata()
     /*printf("[RANK %d] pdc_region_dl_collect_global_metadata - global metadata list created %p\n",
            pdc_client_mpi_rank_g, (void *)global_metadata_list); */
 
-    pdc_region_cache_timelog(start, "pdc_region_dl_collect_global_metadata - global metadata collection time");
+    pdc_region_cache_timelog(start,
+                             "pdc_region_dl_collect_global_metadata - global metadata collection time");
 
 done:
     fflush(stdout);
@@ -393,16 +396,17 @@ done:
 }
 
 perr_t
-pdc_region_global_metadata_free() {
+pdc_region_global_metadata_free()
+{
     perr_t ret_value = SUCCEED;
-    double start = MPI_Wtime();
+    double start     = MPI_Wtime();
 
     FUNC_ENTER(NULL);
 
     MPI_Barrier(client_cache_comm);
-     
+
     if (shared_obj_cache_win != MPI_WIN_NULL) {
-	MPI_Win_free(&shared_obj_cache_win);
+        MPI_Win_free(&shared_obj_cache_win);
         free(shared_buf);
         free(global_metadata_list);
     }
@@ -411,7 +415,7 @@ pdc_region_global_metadata_free() {
 
 done:
     fflush(stdout);
-    FUNC_LEAVE(ret_value);    
+    FUNC_LEAVE(ret_value);
 }
 
 int
@@ -424,7 +428,7 @@ pdc_region_dl_global_search(pdcid_t obj_id, uint64_t *offset, uint64_t *size)
     pdc_object_list_metadata *current_metadata;
     pdc_object_cache *        current_cache_list;
     char *                    buf;
-    double start;
+    double                    start;
 
     FUNC_ENTER(NULL);
 
@@ -440,8 +444,8 @@ pdc_region_dl_global_search(pdcid_t obj_id, uint64_t *offset, uint64_t *size)
                pdc_client_mpi_rank_g, (void *)global_metadata_list);
     */
 
-    //MPI_Win_fence(0, shared_obj_cache_win);
-    
+    // MPI_Win_fence(0, shared_obj_cache_win);
+
     for (i = 0; i < pdc_client_mpi_size_g; i++) {
         current_metadata_list = (char *)global_metadata_list + (i * metadata_size);
 
@@ -453,18 +457,21 @@ pdc_region_dl_global_search(pdcid_t obj_id, uint64_t *offset, uint64_t *size)
 
         while (item_idx != -1) {
             /*if (pdc_client_mpi_rank_g == 0)
-                printf("[RANK %d] pdc_region_dl_global_search - object id %d %d\n", pdc_client_mpi_rank_g, current_cache_list[item_idx].obj_id, obj_id);
+                printf("[RANK %d] pdc_region_dl_global_search - object id %d %d\n", pdc_client_mpi_rank_g,
+               current_cache_list[item_idx].obj_id, obj_id);
             */
             if (current_cache_list[item_idx].obj_id == obj_id) {
-		//printf("[RANK %d] pdc_region_dl_global_search - object id %d %d\n", pdc_client_mpi_rank_g, current_cache_list[item_idx].obj_id, obj_id);
-		if (offset != NULL) {
-		    is_contained = detect_region_contained(offset, size, current_cache_list[item_idx].reg_offset,
-                                                    current_cache_list[item_idx].reg_size, current_cache_list[item_idx].reg_ndim);
-		}
+                // printf("[RANK %d] pdc_region_dl_global_search - object id %d %d\n", pdc_client_mpi_rank_g,
+                // current_cache_list[item_idx].obj_id, obj_id);
+                if (offset != NULL) {
+                    is_contained = detect_region_contained(
+                        offset, size, current_cache_list[item_idx].reg_offset,
+                        current_cache_list[item_idx].reg_size, current_cache_list[item_idx].reg_ndim);
+                }
 
                 if (is_contained) {
                     start = MPI_Wtime();
-                
+
                     buf = (char *)PDC_malloc(current_cache_list[item_idx].buf_size);
 
                     MPI_Win_lock(MPI_LOCK_SHARED, i, 0, shared_obj_cache_win);
@@ -484,22 +491,22 @@ pdc_region_dl_global_search(pdcid_t obj_id, uint64_t *offset, uint64_t *size)
 
                     free(buf);
 
-		    is_cached = 1;
-                
+                    is_cached = 1;
+
                     pdc_region_cache_timelog(start, "pdc_region_dl_search - global cache hit time");
-                
+
                     break;
-		}
+                }
             }
 
             item_idx = current_cache_list[item_idx].next;
         }
 
-	if (is_cached)
-	    break;
+        if (is_cached)
+            break;
     }
 
-    //MPI_Win_fence(0, shared_obj_cache_win);
+    // MPI_Win_fence(0, shared_obj_cache_win);
 
 done:
     fflush(stdout);
@@ -711,7 +718,7 @@ pdc_region_dl_finalize()
     MPI_Barrier(client_cache_comm);
 
     ret_value = pdc_region_global_metadata_free();
-    
+
     free(metadata_base_ptr);
     free(region_buf);
 

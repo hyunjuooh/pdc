@@ -29,8 +29,8 @@
 #include "pdc_obj.h"
 
 extern pdcid_t pdc_id;
-extern size_t total_buf_size;
-extern int    total_item_num;
+extern size_t  total_buf_size;
+extern int     total_item_num;
 
 /****************************************************/
 /* Private Functions for Client-side Region Caching */
