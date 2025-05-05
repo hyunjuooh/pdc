@@ -69,12 +69,16 @@ typedef struct item_delete_info {
 
 perr_t pdc_region_dl_init();
 
-perr_t pdc_region_dl_collect_global_metadata();
+perr_t pdc_region_dl_list_init();
 
 int pdc_region_dl_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size, void *buf,
                          uint64_t read_size);
 
-int pdc_region_dl_global_search(pdcid_t obj_id);
+perr_t pdc_region_dl_collect_global_metadata();
+
+perr_t pdc_region_global_metadata_free();
+
+int pdc_region_dl_global_search(pdcid_t obj_id, uint64_t *offset, uint64_t *size);
 
 perr_t pdc_region_dl_insert(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size,
                             void *buf, uint64_t read_size);
