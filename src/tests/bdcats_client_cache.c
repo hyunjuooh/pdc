@@ -47,8 +47,9 @@ print_usage()
     printf("Usage: srun -n ./bdcats #particles #transfer_request\n");
 }
 
-int 
-get_random_offset(int min, int max) {
+int
+get_random_offset(int min, int max)
+{
     return min + rand() % (max - min + 1);
 }
 
@@ -97,7 +98,7 @@ main(int argc, char *argv[])
     }
 
     num_transfer_request = atoi(argv[2]);
-    access_pattern = atoi(argv[3]);
+    access_pattern       = atoi(argv[3]);
 
     x = (float *)malloc(numparticles * sizeof(float));
     y = (float *)malloc(numparticles * sizeof(float));
@@ -162,7 +163,7 @@ main(int argc, char *argv[])
 
     if (access_pattern == 3) {
         srand(time(NULL) + rank);
-    
+
         prefetch_arr[0] = obj_xx;
         prefetch_arr[1] = obj_yy;
         prefetch_arr[2] = obj_zz;
@@ -198,7 +199,6 @@ main(int argc, char *argv[])
     region_pzz  = PDCregion_create(ndim, offset_remote, mysize);
     region_id11 = PDCregion_create(ndim, offset_remote, mysize);
     region_id22 = PDCregion_create(ndim, offset_remote, mysize);
-
 
 #ifdef ENABLE_MPI
     MPI_Barrier(MPI_COMM_WORLD);
@@ -351,16 +351,16 @@ main(int argc, char *argv[])
 
     if (access_pattern == 1) {
         offset_remote[0] = rank * numparticles;
-    } 
+    }
     else if (access_pattern == 2) {
         offset_remote[0] = rank * numparticles + mysize[0];
-    } 
-    else if (access_pattern == 3) {
-        random_offset = get_random_offset(0, size-1);
-        offset_remote[0] = random_offset * numparticles;
-	printf("[RANK %d] Random offset %d\n", rank, random_offset);
     }
-    
+    else if (access_pattern == 3) {
+        random_offset    = get_random_offset(0, size - 1);
+        offset_remote[0] = random_offset * numparticles;
+        printf("[RANK %d] Random offset %d\n", rank, random_offset);
+    }
+
     // create a region
     region_x   = PDCregion_create(ndim, offset, mysize);
     region_y   = PDCregion_create(ndim, offset, mysize);
@@ -390,7 +390,7 @@ main(int argc, char *argv[])
         reg_prefetch_arr[6] = region_id11;
         reg_prefetch_arr[7] = region_id22;
 
-	// Prefetch the regions from global ranks
+        // Prefetch the regions from global ranks
         PDCregion_receive_prefetch_hint(prefetch_arr, reg_prefetch_arr, 8);
         PDCregion_prefetch_by_objid();
     }
@@ -398,7 +398,7 @@ main(int argc, char *argv[])
 #ifdef ENABLE_MPI
     MPI_Barrier(MPI_COMM_WORLD);
     start = MPI_Wtime();
-    t0 = MPI_Wtime();
+    t0    = MPI_Wtime();
 #endif
 
     transfer_request_x   = PDCregion_transfer_create(&x[0], PDC_READ, obj_xx, region_x, region_xx);
