@@ -17,11 +17,11 @@
 #include "pdc_client_connect.h"
 
 // pdcid_t * obj_prefetch_list = NULL;
-char     **obj_prefetch_list;
+char **   obj_prefetch_list;
 uint64_t *reg_offset_list;
-int       reg_dim;
-int       obj_prefetch_list_len;
 
+int reg_dim;
+int obj_prefetch_list_len;
 
 perr_t
 pdc_region_prefetch_init()
@@ -30,20 +30,21 @@ pdc_region_prefetch_init()
 
     FUNC_ENTER(NULL);
 
-    obj_prefetch_list = NULL;
-    reg_offset_list = NULL;
-    reg_dim = 1;
+    obj_prefetch_list     = NULL;
+    reg_offset_list       = NULL;
+    reg_dim               = 1;
     obj_prefetch_list_len = 0;
-    
+
 done:
     fflush(stdout);
     FUNC_LEAVE(ret_value);
 }
 
 perr_t
-PDCregion_print_prefetch_list() {
+PDCregion_print_prefetch_list()
+{
     perr_t ret_value = SUCCEED;
-    int i;
+    int    i;
 
     FUNC_ENTER(NULL);
 
@@ -59,19 +60,19 @@ PDCregion_receive_prefetch_hint(char *arr[], pdcid_t *arr2, int obj_array_len)
 {
     perr_t ret_value = SUCCEED;
 
-    struct _pdc_id_info    *reginfo2;
+    struct _pdc_id_info *   reginfo2;
     struct pdc_region_info *reg2;
-    
-    uint64_t *              ptr;
-    int                     i;
-    double start;
+
+    uint64_t *ptr;
+    int       i;
+    double    start;
 
     FUNC_ENTER(NULL);
 
     start = MPI_Wtime();
 
     obj_prefetch_list_len = obj_array_len;
-    obj_prefetch_list = (char *)PDC_malloc(obj_prefetch_list_len * sizeof(char*));
+    obj_prefetch_list     = (char *)PDC_malloc(obj_prefetch_list_len * sizeof(char *));
 
     // If arr2 is null, it will read the whole region of the object
     if (arr2 != NULL) {
@@ -87,10 +88,10 @@ PDCregion_receive_prefetch_hint(char *arr[], pdcid_t *arr2, int obj_array_len)
         ptr             = reg_offset_list;
     }
 
-    //Convert received object id
+    // Convert received object id
     for (i = 0; i < obj_prefetch_list_len; i++) {
-        //obj_prefetch_list[i] = arr[i];
-        obj_prefetch_list[i] = strdup(arr[i]); 
+        // obj_prefetch_list[i] = arr[i];
+        obj_prefetch_list[i] = strdup(arr[i]);
         if (obj_prefetch_list[i] == NULL) {
             PGOTO_ERROR(FAIL, "Fail to copy object name");
         }
@@ -109,12 +110,15 @@ PDCregion_receive_prefetch_hint(char *arr[], pdcid_t *arr2, int obj_array_len)
         }
     }
 
-    PDCregion_print_prefetch_list();
-    
-    printf("[RANK %d] PDCregion_receive_prefetch_hint: pid=%d, var_a=%d, &var_a=%p, PDCregion_print_prefetch_list=%p\n", pdc_client_mpi_rank_g, getpid(), obj_prefetch_list_len, (void*)&obj_prefetch_list_len, (void*)PDCregion_print_prefetch_list);
-    
+    // PDCregion_print_prefetch_list();
+
+    // printf("[RANK %d] PDCregion_receive_prefetch_hint: pid=%d, var_a=%d, &var_a=%p, "
+    //        "PDCregion_print_prefetch_list=%p\n",
+    //        pdc_client_mpi_rank_g, getpid(), obj_prefetch_list_len, (void *)&obj_prefetch_list_len,
+    //        (void *)PDCregion_print_prefetch_list);
+
     pdc_region_cache_timelog(start, "PDCregion_receive_prefetch_hint - Total time");
-    
+
 done:
     fflush(stdout);
     FUNC_LEAVE(ret_value);
@@ -126,7 +130,7 @@ PDCregion_prefetch_by_objid()
     perr_t    ret_value = SUCCEED;
     uint64_t *offset, *size, *ptr;
     int       i, is_cached;
-    double start;
+    double    start;
 
     FUNC_ENTER(NULL);
 
@@ -142,7 +146,7 @@ PDCregion_prefetch_by_objid()
 
     ret_value = pdc_region_dl_collect_global_metadata();
 
-    //ret_value = pdc_region_dl_list_init();
+    ret_value = pdc_region_dl_list_init();
 
     ptr    = reg_offset_list;
     offset = (uint64_t *)PDC_malloc(sizeof(uint64_t) * reg_dim);
@@ -172,12 +176,12 @@ PDCregion_prefetch_by_objid()
         free(obj_prefetch_list[i]);
     }
     free(obj_prefetch_list);
-    
+
     obj_prefetch_list = NULL;
 
-    if (reg_offset_list != NULL){
+    if (reg_offset_list != NULL) {
         free(reg_offset_list);
-    	reg_offset_list = NULL;
+        reg_offset_list = NULL;
     }
 
     pdc_region_cache_timelog(start, "PDCregion_prefetch_by_objid - Total time");
