@@ -14,8 +14,8 @@
 #include "pdc_region_cache_dl.h"
 #include "pdc_client_connect.h"
 
-pdcid_t * obj_prefetch_list;
-uint64_t *reg_offset_list;
+pdcid_t * obj_prefetch_list = NULL;
+uint64_t *reg_offset_list = NULL;
 int       reg_dim;
 int       obj_prefetch_list_len;
 
@@ -24,9 +24,9 @@ PDCregion_receive_prefetch_hint(const pdcid_t *arr, const pdcid_t *arr2, int obj
 {
     perr_t ret_value = SUCCEED;
 
-    struct _pdc_id_info *   objinfo2, *reginfo2;
-    struct _pdc_obj_info *  obj2;
+    struct _pdc_id_info    *reginfo2;
     struct pdc_region_info *reg2;
+    
     uint64_t *              ptr;
     int                     i;
 
@@ -49,16 +49,11 @@ PDCregion_receive_prefetch_hint(const pdcid_t *arr, const pdcid_t *arr2, int obj
         ptr             = reg_offset_list;
     }
 
-    // Convert received object id
+    //Convert received object id
     for (i = 0; i < obj_prefetch_list_len; i++) {
-        objinfo2 = PDC_find_id(arr[i]);
-        if (objinfo2 == NULL)
-            PGOTO_ERROR(FAIL, "cannot locate remote object ID");
-        obj2 = (struct _pdc_obj_info *)(objinfo2->obj_ptr);
+        obj_prefetch_list[i] = arr[i];
 
-        obj_prefetch_list[i] = obj2->obj_info_pub->meta_id;
-
-        if (reg_offset_list != NULL) {
+        if (arr2 != NULL) {
             reginfo2 = PDC_find_id(arr2[i]);
             if (reginfo2 == NULL)
                 PGOTO_ERROR(FAIL, "cannot locate remote region ID");
@@ -71,12 +66,12 @@ PDCregion_receive_prefetch_hint(const pdcid_t *arr, const pdcid_t *arr2, int obj
             ptr += reg_dim;
         }
 
-        /*if (pdc_client_mpi_rank_g == 0)
-            printf("[RANK %d] Object id item %d finished\n",
-                   pdc_client_mpi_rank_g, i);
-        fflush(stdout);*/
+        if (pdc_client_mpi_rank_g == 0)
+            printf("[RANK %d] Object id %d finished\n",
+                   pdc_client_mpi_rank_g, obj_prefetch_list[i]);
+        fflush(stdout);
     }
-
+    
 done:
     fflush(stdout);
     FUNC_LEAVE(ret_value);
@@ -134,9 +129,12 @@ PDCregion_prefetch_by_objid()
     free(offset);
     free(size);
     free(obj_prefetch_list);
+    obj_prefetch_list = NULL;
 
-    if (reg_offset_list != NULL)
+    if (reg_offset_list != NULL){
         free(reg_offset_list);
+	reg_offset_list = NULL;
+    }
 
 done:
     fflush(stdout);

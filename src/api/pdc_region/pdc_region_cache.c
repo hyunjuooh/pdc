@@ -45,25 +45,6 @@ done:
     FUNC_LEAVE(ret_value);
 }
 
-// perr_t
-// PDCregion_collect_global_cache()
-// {
-//     perr_t ret_value = SUCCEED;
-//     double start;
-
-//     FUNC_ENTER(NULL);
-
-//     start = MPI_Wtime();
-
-//     ret_value = pdc_region_dl_collect_global_metadata();
-
-//     pdc_region_cache_timelog(start, "PDCregion_collect_global_cache - total time");
-
-// done:
-//     fflush(stdout);
-//     FUNC_LEAVE(ret_value);
-// }
-
 // TODO:
 // Implement when the region is overlapping - partially containing
 // Need to manage the object's offset cache information
@@ -198,10 +179,6 @@ pdc_region_cache_evict(size_t required_size, int by_size)
     total_item_num -= eviction_result.deleted_item_num;
 
     pdc_region_cache_timelog(start, "pdc_region_cache_evict - pdc_region_dl_evict time");
-
-    // start     = MPI_Wtime();
-    // ret_value = pdc_region_dl_clean_list();
-    // pdc_region_cache_timelog(start, "pdc_region_cache_update - pdc_region_dl_clean_list time");
 
 done:
     fflush(stdout);
