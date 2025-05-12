@@ -39,7 +39,6 @@ perr_t PDCregion_receive_prefetch_hint(char *arr[], pdcid_t *arr2, int obj_array
 perr_t PDCregion_prefetch_by_objid();
 perr_t PDCregion_print_prefetch_list();
 
-
 /*******************************************************/
 /* Private Functions for Client-side Region Prefetching */
 /*******************************************************/
