@@ -74,9 +74,9 @@ pdc_region_cache_search(char *obj_name, int ndim, uint64_t unit, uint64_t *offse
     // PDCregion_print_prefetch_list();
 
     // printf(
-    //     "[RANK %d] pdc_region_cache_search: pid=%d, var_a=%d, &var_a=%p, PDCregion_print_prefetch_list=%p\n",
-    //     pdc_client_mpi_rank_g, getpid(), obj_prefetch_list_len, (void *)&obj_prefetch_list_len,
-    //     (void *)PDCregion_print_prefetch_list);
+    //     "[RANK %d] pdc_region_cache_search: pid=%d, var_a=%d, &var_a=%p,
+    //     PDCregion_print_prefetch_list=%p\n", pdc_client_mpi_rank_g, getpid(), obj_prefetch_list_len, (void
+    //     *)&obj_prefetch_list_len, (void *)PDCregion_print_prefetch_list);
 
     pdc_region_cache_timelog(start, "pdc_region_cache_search - total time");
 
@@ -130,9 +130,9 @@ pdc_region_cache_insert(char *obj_name, int ndim, uint64_t unit, uint64_t *offse
     // PDCregion_print_prefetch_list();
 
     // printf(
-    //     "[RANK %d] pdc_region_cache_insert: pid=%d, var_a=%d, &var_a=%p, PDCregion_print_prefetch_list=%p\n",
-    //     pdc_client_mpi_rank_g, getpid(), obj_prefetch_list_len, (void *)&obj_prefetch_list_len,
-    //     (void *)PDCregion_print_prefetch_list);
+    //     "[RANK %d] pdc_region_cache_insert: pid=%d, var_a=%d, &var_a=%p,
+    //     PDCregion_print_prefetch_list=%p\n", pdc_client_mpi_rank_g, getpid(), obj_prefetch_list_len, (void
+    //     *)&obj_prefetch_list_len, (void *)PDCregion_print_prefetch_list);
 
     pdc_region_cache_timelog(start, "pdc_region_cache_insert - total time");
     // printf("[RANK %d] pdc_region_cache_insert - total size: %zu bytes, total item num: %d \n",
