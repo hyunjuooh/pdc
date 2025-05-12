@@ -112,6 +112,7 @@ PDCinit(const char *pdc_name)
     if (PDC_Client_init() < 0)
         PGOTO_ERROR(0, "PDC client init error");
 
+    printf("[C] pdc.c init pid=%d\n", getpid());
     // PDC Client Cache init
     pdc_region_cache_init(pdcid);
     
