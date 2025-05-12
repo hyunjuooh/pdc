@@ -390,7 +390,7 @@ PDCregion_transfer_close(pdcid_t transfer_request_id)
     pdc_transfer_request *transfer_request;
     perr_t                ret_value = SUCCEED;
     double start = MPI_Wtime();
-    
+
 
     if ((transferinfo = PDC_find_id(transfer_request_id)) == NULL)
         PGOTO_ERROR(FAIL, "Failed to find PDC ID: %d", transfer_request_id);
@@ -2233,8 +2233,6 @@ PDCregion_transfer_wait(pdcid_t transfer_request_id)
         // metadata is freed with previous wait (e.g. with posix consistency)
         ret_value = SUCCEED;
     }
-
-    
 
 done:
     pdc_region_cache_timelog(start, "PDCregion_transfer_wait - total time");
