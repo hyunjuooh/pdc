@@ -73,7 +73,10 @@ pdc_region_cache_search(char *obj_name, int ndim, uint64_t unit, uint64_t *offse
 
     PDCregion_print_prefetch_list();
 
-    printf("[RANK %d] pdc_region_cache_search: pid=%d, var_a=%d, &var_a=%p, PDCregion_print_prefetch_list=%p\n", pdc_client_mpi_rank_g, getpid(), obj_prefetch_list_len, (void*)&obj_prefetch_list_len, (void*)PDCregion_print_prefetch_list);
+    printf(
+        "[RANK %d] pdc_region_cache_search: pid=%d, var_a=%d, &var_a=%p, PDCregion_print_prefetch_list=%p\n",
+        pdc_client_mpi_rank_g, getpid(), obj_prefetch_list_len, (void *)&obj_prefetch_list_len,
+        (void *)PDCregion_print_prefetch_list);
 
     pdc_region_cache_timelog(start, "pdc_region_cache_search - total time");
 
@@ -126,7 +129,10 @@ pdc_region_cache_insert(char *obj_name, int ndim, uint64_t unit, uint64_t *offse
 
     PDCregion_print_prefetch_list();
 
-    printf("[RANK %d] pdc_region_cache_insert: pid=%d, var_a=%d, &var_a=%p, PDCregion_print_prefetch_list=%p\n", pdc_client_mpi_rank_g, getpid(), obj_prefetch_list_len, (void*)&obj_prefetch_list_len, (void*)PDCregion_print_prefetch_list);
+    printf(
+        "[RANK %d] pdc_region_cache_insert: pid=%d, var_a=%d, &var_a=%p, PDCregion_print_prefetch_list=%p\n",
+        pdc_client_mpi_rank_g, getpid(), obj_prefetch_list_len, (void *)&obj_prefetch_list_len,
+        (void *)PDCregion_print_prefetch_list);
 
     pdc_region_cache_timelog(start, "pdc_region_cache_insert - total time");
     // printf("[RANK %d] pdc_region_cache_insert - total size: %zu bytes, total item num: %d \n",
@@ -140,7 +146,7 @@ done:
 // Check if there are overlapping parts when PDC_WRITE transfer_request is executed
 // If there is evict that item since it is out of date
 perr_t
-pdc_region_cache_update(char* obj_name, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size, void *buf)
+pdc_region_cache_update(char *obj_name, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size, void *buf)
 {
     perr_t ret_value = SUCCEED;
 

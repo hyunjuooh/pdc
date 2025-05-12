@@ -108,7 +108,7 @@ typedef struct pdc_transfer_request {
     uint64_t  total_data_size;
 
     // hjoh: Used for client-side cache
-    int region_in_cache;
+    int  region_in_cache;
     char obj_name[MAX_NAME_LEN];
 
     // Object dimensions
@@ -235,7 +235,6 @@ PDCregion_transfer_create(void *buf, pdc_access_t access_type, pdcid_t obj_id, p
 
     obj2 = (struct _pdc_obj_info *)(objinfo2->obj_ptr);
     // remote_meta_id = obj2->obj_info_pub->meta_id;
-
 
     printf("[C] transfer request create pid=%d\n", getpid());
 

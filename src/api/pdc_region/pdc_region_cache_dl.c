@@ -234,8 +234,9 @@ pdc_region_dl_insert(char *obj_name, int ndim, uint64_t unit, uint64_t *offset, 
 
     // Create obj_cache_list item
     // obj_cache_list[new_item_idx].obj_id   = obj_id;
-    snprintf(obj_cache_list[new_item_idx].obj_name, sizeof(obj_cache_list[new_item_idx].obj_name), "%s", obj_name);
-    
+    snprintf(obj_cache_list[new_item_idx].obj_name, sizeof(obj_cache_list[new_item_idx].obj_name), "%s",
+             obj_name);
+
     obj_cache_list[new_item_idx].unit     = unit;
     obj_cache_list[new_item_idx].reg_ndim = ndim;
     obj_cache_list[new_item_idx].buf_size = read_size;
@@ -299,7 +300,7 @@ pdc_region_dl_search(char *obj_name, int ndim, uint64_t unit, uint64_t *offset, 
     // Find if region is cached into local object list cache
     // If region contained, return the rank that contains the region
     item_idx = obj_cache_list_metadata->head_idx;
-    
+
     while (item_idx != -1) {
         // if (obj_cache_list[item_idx].obj_id == obj_id) {
         if (strcmp(obj_cache_list[item_idx].obj_name, obj_name) == 0) {
@@ -438,7 +439,8 @@ pdc_region_dl_global_search(char *obj_name, uint64_t *offset, uint64_t *size)
         goto done;
     }
 
-    printf("[RANK %d] pdc_region_dl_global_search - local header index %d\n", pdc_client_mpi_rank_g, obj_cache_list_metadata->head_idx);  
+    printf("[RANK %d] pdc_region_dl_global_search - local header index %d\n", pdc_client_mpi_rank_g,
+           obj_cache_list_metadata->head_idx);
 
     // MPI_Win_fence(0, shared_obj_cache_win);
 
@@ -454,8 +456,8 @@ pdc_region_dl_global_search(char *obj_name, uint64_t *offset, uint64_t *size)
         while (item_idx != -1) {
             if (pdc_client_mpi_rank_g == 0)
                 printf("[RANK %d] pdc_region_dl_global_search - object id %s and %s\n", pdc_client_mpi_rank_g,
-                        current_cache_list[item_idx].obj_name, obj_name);
-            
+                       current_cache_list[item_idx].obj_name, obj_name);
+
             // if (current_cache_list[item_idx].obj_id == obj_id) {
             if (strcmp(current_cache_list[item_idx].obj_name, obj_name) == 0) {
                 // printf("[RANK %d] pdc_region_dl_global_search - object id %d %d\n", pdc_client_mpi_rank_g,
