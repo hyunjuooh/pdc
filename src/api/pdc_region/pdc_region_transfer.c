@@ -316,8 +316,6 @@ PDCregion_transfer_create(void *buf, pdc_access_t access_type, pdcid_t obj_id, p
 
     obj2 = (struct _pdc_obj_info *)(objinfo2->obj_ptr);
 
-    printf("[C] transfer request create pid=%d\n", getpid());
-
     p                   = (pdc_transfer_request *)PDC_malloc(sizeof(pdc_transfer_request));
     p->obj_pointer      = obj2;
     p->mem_type         = obj2->obj_pt->obj_prop_pub->type;
@@ -391,6 +389,8 @@ PDCregion_transfer_close(pdcid_t transfer_request_id)
     struct _pdc_id_info * transferinfo;
     pdc_transfer_request *transfer_request;
     perr_t                ret_value = SUCCEED;
+    double start = MPI_Wtime();
+    
 
     if ((transferinfo = PDC_find_id(transfer_request_id)) == NULL)
         PGOTO_ERROR(FAIL, "Failed to find PDC ID: %d", transfer_request_id);
@@ -422,7 +422,7 @@ PDCregion_transfer_close(pdcid_t transfer_request_id)
 done:
     PDC_Client_transfer_pthread_cnt_add(-1);
     PDC_Client_transfer_pthread_terminate();
-
+    pdc_region_cache_timelog(start, "PDCregion_transfer_close - total time");
     FUNC_LEAVE(ret_value);
 }
 
@@ -1727,8 +1727,12 @@ PDCregion_transfer_start(pdcid_t transfer_request_id)
 {
     FUNC_ENTER(NULL);
 
+    double start = MPI_Wtime();
+
     perr_t ret_value = SUCCEED;
     ret_value        = PDCregion_transfer_start_common(transfer_request_id, 0);
+
+    pdc_region_cache_timelog(start, "PDCregion_transfer_start - total time");
 
     FUNC_LEAVE(ret_value);
 }
@@ -2144,6 +2148,7 @@ PDCregion_transfer_wait(pdcid_t transfer_request_id)
     pdc_transfer_request *transfer_request;
     size_t                unit;
     int                   i;
+    double start = MPI_Wtime();
 
     if ((transferinfo = PDC_find_id(transfer_request_id)) == NULL)
         PGOTO_DONE(ret_value);
@@ -2229,6 +2234,10 @@ PDCregion_transfer_wait(pdcid_t transfer_request_id)
         ret_value = SUCCEED;
     }
 
+    
+
 done:
+    pdc_region_cache_timelog(start, "PDCregion_transfer_wait - total time");
+    fflush(stdout);
     FUNC_LEAVE(ret_value);
 }
