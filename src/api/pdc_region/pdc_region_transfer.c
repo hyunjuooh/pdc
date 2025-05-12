@@ -307,8 +307,8 @@ PDCregion_transfer_close(pdcid_t transfer_request_id)
     struct _pdc_id_info * transferinfo;
     pdc_transfer_request *transfer_request;
     perr_t                ret_value = SUCCEED;
-    double start = MPI_Wtime();
-    
+    double                start     = MPI_Wtime();
+
     FUNC_ENTER(NULL);
 
     transferinfo = PDC_find_id(transfer_request_id);
@@ -1712,7 +1712,7 @@ perr_t
 PDCregion_transfer_start(pdcid_t transfer_request_id)
 {
     perr_t ret_value = SUCCEED;
-    double start = MPI_Wtime();
+    double start     = MPI_Wtime();
 
     FUNC_ENTER(NULL);
 
@@ -2219,8 +2219,6 @@ PDCregion_transfer_wait(pdcid_t transfer_request_id)
         // metadata is freed with previous wait (e.g. with posix consistency)
         ret_value = SUCCEED;
     }
-
-    
 
 done:
     pdc_region_cache_timelog(start, "PDCregion_transfer_wait - total time");
