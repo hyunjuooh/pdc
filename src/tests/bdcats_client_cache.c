@@ -61,7 +61,8 @@ main(int argc, char *argv[])
     double  t0, t1, start, end;
     pdcid_t pdc_id, cont_id;
     pdcid_t obj_xx, obj_yy, obj_zz, obj_pxx, obj_pyy, obj_pzz, obj_id11, obj_id22;
-    pdcid_t prefetch_arr[8];
+    // pdcid_t prefetch_arr[8];
+    char *prefetch_arr[8];
     pdcid_t reg_prefetch_arr[8];
     pdcid_t region_x, region_y, region_z, region_px, region_py, region_pz, region_id1, region_id2;
     pdcid_t region_xx, region_yy, region_zz, region_pxx, region_pyy, region_pzz, region_id11, region_id22;
@@ -164,14 +165,14 @@ main(int argc, char *argv[])
     if (access_pattern == 3) {
         srand(time(NULL) + rank);
 
-        prefetch_arr[0] = obj_xx;
-        prefetch_arr[1] = obj_yy;
-        prefetch_arr[2] = obj_zz;
-        prefetch_arr[3] = obj_pxx;
-        prefetch_arr[4] = obj_pyy;
-        prefetch_arr[5] = obj_pzz;
-        prefetch_arr[6] = obj_id11;
-        prefetch_arr[7] = obj_id22;
+        prefetch_arr[0] = "obj-var-xx";
+        prefetch_arr[1] = "obj-var-yy";
+        prefetch_arr[2] = "obj-var-zz";
+        prefetch_arr[3] = "obj-var-pxx";
+        prefetch_arr[4] = "obj-var-pyy";
+        prefetch_arr[5] = "obj-var-pzz";
+        prefetch_arr[6] = "id11";
+        prefetch_arr[7] = "id22";
     }
 
     offset           = (uint64_t *)malloc(sizeof(uint64_t) * ndim);

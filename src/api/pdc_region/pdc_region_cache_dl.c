@@ -1,6 +1,7 @@
 #include <time.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <string.h>
 #include <mpi.h>
 
 #include "pdc_utlist.h"
@@ -12,6 +13,7 @@
 #include "pdc_region_pkg.h"
 #include "pdc_region_cache.h"
 #include "pdc_region_cache_dl.h"
+#include "pdc_region_prefetch.h"
 #include "pdc_client_connect.h"
 
 #define MAX_CACHE_SIZE 4294967296
@@ -29,7 +31,7 @@ struct pdc_object_list_metadata *obj_cache_list_metadata;
 char * metadata_base_ptr = NULL;
 size_t metadata_size;
 
-void *global_metadata_list = NULL;
+char *global_metadata_list = NULL;
 
 // For global cache creation
 MPI_Win  shared_obj_cache_win = MPI_WIN_NULL;
@@ -213,7 +215,7 @@ done:
 // TODO:
 // Management of overalapping regions
 perr_t
-pdc_region_dl_insert(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size, void *buf,
+pdc_region_dl_insert(char *obj_name, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size, void *buf,
                      uint64_t read_size)
 {
     perr_t ret_value = SUCCEED;
@@ -231,7 +233,9 @@ pdc_region_dl_insert(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, 
         PGOTO_ERROR(FAIL, "pdc_region_dl_insert - new item index not found");
 
     // Create obj_cache_list item
-    obj_cache_list[new_item_idx].obj_id   = obj_id;
+    // obj_cache_list[new_item_idx].obj_id   = obj_id;
+    snprintf(obj_cache_list[new_item_idx].obj_name, sizeof(obj_cache_list[new_item_idx].obj_name), "%s", obj_name);
+    
     obj_cache_list[new_item_idx].unit     = unit;
     obj_cache_list[new_item_idx].reg_ndim = ndim;
     obj_cache_list[new_item_idx].buf_size = read_size;
@@ -276,7 +280,7 @@ done:
 // Need to manage the object's offset cache information
 // Need to manage when partial region is contained within
 int
-pdc_region_dl_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size, void *buf,
+pdc_region_dl_search(char *obj_name, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size, void *buf,
                      uint64_t read_size)
 {
     perr_t ret_value = SUCCEED;
@@ -295,9 +299,10 @@ pdc_region_dl_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, 
     // Find if region is cached into local object list cache
     // If region contained, return the rank that contains the region
     item_idx = obj_cache_list_metadata->head_idx;
-
+    
     while (item_idx != -1) {
-        if (obj_cache_list[item_idx].obj_id == obj_id) {
+        // if (obj_cache_list[item_idx].obj_id == obj_id) {
+        if (strcmp(obj_cache_list[item_idx].obj_name, obj_name) == 0) {
             is_cached = detect_region_contained(offset, size, obj_cache_list[item_idx].reg_offset,
                                                 obj_cache_list[item_idx].reg_size, ndim);
 
@@ -341,7 +346,7 @@ pdc_region_dl_collect_global_metadata()
 {
     perr_t ret_value = SUCCEED;
 
-    int    mpi_alloc_error;
+    int    mpi_alloc_error, item_idx;
     double start;
 
     FUNC_ENTER(NULL);
@@ -362,9 +367,6 @@ pdc_region_dl_collect_global_metadata()
             FAIL,
             "pdc_region_dl_collect_global_metadata - MPI shared allocation for shared_obj_cache_win failed");
 
-    if (shared_obj_cache_win == MPI_WIN_NULL)
-        PGOTO_ERROR(FAIL, "pdc_region_dl_collect_global_metadata - MPI shared_obj_cache_win creation failed");
-
     pdc_region_cache_timelog(start, "pdc_region_dl_collect_global_metadata - create window");
 
     // Copy local region into the shared window
@@ -379,13 +381,10 @@ pdc_region_dl_collect_global_metadata()
         PGOTO_ERROR(FAIL, "global metadata memory allocation failed");
 
     // Collect the metadata information from all ranks
-    mpi_alloc_error = MPI_Allgather(metadata_base_ptr, metadata_size, MPI_BYTE, global_metadata_list,
-                                    metadata_size, MPI_BYTE, client_cache_comm);
+    mpi_alloc_error = MPI_Allgather(metadata_base_ptr, metadata_size, MPI_CHAR, global_metadata_list,
+                                    metadata_size, MPI_CHAR, client_cache_comm);
     if (mpi_alloc_error != MPI_SUCCESS)
         PGOTO_ERROR(FAIL, "pdc_region_dl_search - MPI Allgather failed");
-
-    /*printf("[RANK %d] pdc_region_dl_collect_global_metadata - global metadata list created %p\n",
-           pdc_client_mpi_rank_g, (void *)global_metadata_list); */
 
     pdc_region_cache_timelog(start,
                              "pdc_region_dl_collect_global_metadata - global metadata collection time");
@@ -419,7 +418,7 @@ done:
 }
 
 int
-pdc_region_dl_global_search(pdcid_t obj_id, uint64_t *offset, uint64_t *size)
+pdc_region_dl_global_search(char *obj_name, uint64_t *offset, uint64_t *size)
 {
     perr_t ret_value = SUCCEED;
 
@@ -439,10 +438,7 @@ pdc_region_dl_global_search(pdcid_t obj_id, uint64_t *offset, uint64_t *size)
         goto done;
     }
 
-    /*if (pdc_client_mpi_rank_g == 0)
-        printf("[RANK %d] pdc_region_dl_global_search - global metadata list created %p\n",
-               pdc_client_mpi_rank_g, (void *)global_metadata_list);
-    */
+    printf("[RANK %d] pdc_region_dl_global_search - local header index %d\n", pdc_client_mpi_rank_g, obj_cache_list_metadata->head_idx);  
 
     // MPI_Win_fence(0, shared_obj_cache_win);
 
@@ -456,11 +452,12 @@ pdc_region_dl_global_search(pdcid_t obj_id, uint64_t *offset, uint64_t *size)
         item_idx = current_metadata->head_idx;
 
         while (item_idx != -1) {
-            /*if (pdc_client_mpi_rank_g == 0)
-                printf("[RANK %d] pdc_region_dl_global_search - object id %d %d\n", pdc_client_mpi_rank_g,
-               current_cache_list[item_idx].obj_id, obj_id);
-            */
-            if (current_cache_list[item_idx].obj_id == obj_id) {
+            if (pdc_client_mpi_rank_g == 0)
+                printf("[RANK %d] pdc_region_dl_global_search - object id %s and %s\n", pdc_client_mpi_rank_g,
+                        current_cache_list[item_idx].obj_name, obj_name);
+            
+            // if (current_cache_list[item_idx].obj_id == obj_id) {
+            if (strcmp(current_cache_list[item_idx].obj_name, obj_name) == 0) {
                 // printf("[RANK %d] pdc_region_dl_global_search - object id %d %d\n", pdc_client_mpi_rank_g,
                 // current_cache_list[item_idx].obj_id, obj_id);
                 if (offset != NULL) {
@@ -485,7 +482,7 @@ pdc_region_dl_global_search(pdcid_t obj_id, uint64_t *offset, uint64_t *size)
 
                     // If the region exist insert it to local cache list
                     ret_value = pdc_region_cache_insert(
-                        current_cache_list[item_idx].obj_id, current_cache_list[item_idx].reg_ndim,
+                        current_cache_list[item_idx].obj_name, current_cache_list[item_idx].reg_ndim,
                         current_cache_list[item_idx].unit, current_cache_list[item_idx].reg_offset,
                         current_cache_list[item_idx].reg_size, buf);
 
@@ -514,7 +511,7 @@ done:
 }
 
 item_delete_info
-pdc_region_dl_update(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size, void *buf)
+pdc_region_dl_update(char *obj_name, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size, void *buf)
 {
     perr_t ret_value = SUCCEED;
 
@@ -535,7 +532,8 @@ pdc_region_dl_update(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, 
 
     while (item_idx != -1) {
         tmp_item_idx = obj_cache_list[item_idx].next;
-        if (obj_cache_list[item_idx].obj_id == obj_id) {
+        // if (obj_cache_list[item_idx].obj_id == obj_id) {
+        if (strcmp(obj_cache_list[item_idx].obj_name, obj_name) == 0) {
             // Compare offset and offset + size and see if there is an overlap
             is_overlapped = check_overlap(ndim, offset, size, obj_cache_list[item_idx].reg_offset,
                                           obj_cache_list[item_idx].reg_size);

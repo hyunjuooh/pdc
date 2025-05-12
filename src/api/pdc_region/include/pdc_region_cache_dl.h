@@ -28,13 +28,16 @@
 #include "pdc_public.h"
 #include "pdc_obj.h"
 
+#define MAX_NAME_LEN 100
+
 /**************************/
 /* Library Private Struct */
 /**************************/
 
 typedef struct pdc_object_cache {
     // PDC Object information
-    pdcid_t  obj_id;
+    // pdcid_t  obj_id;
+    char     obj_name[MAX_NAME_LEN];
     uint64_t unit;
 
     // Remote region information
@@ -71,19 +74,19 @@ perr_t pdc_region_dl_init();
 
 perr_t pdc_region_dl_list_init();
 
-int pdc_region_dl_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size, void *buf,
+int pdc_region_dl_search(char *obj_name, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size, void *buf,
                          uint64_t read_size);
 
 perr_t pdc_region_dl_collect_global_metadata();
 
 perr_t pdc_region_global_metadata_free();
 
-int pdc_region_dl_global_search(pdcid_t obj_id, uint64_t *offset, uint64_t *size);
+int pdc_region_dl_global_search(char *obj_name, uint64_t *offset, uint64_t *size);
 
-perr_t pdc_region_dl_insert(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size,
+perr_t pdc_region_dl_insert(char *obj_name, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size,
                             void *buf, uint64_t read_size);
 
-item_delete_info pdc_region_dl_update(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset,
+item_delete_info pdc_region_dl_update(char *obj_name, int ndim, uint64_t unit, uint64_t *offset,
                                       uint64_t *size, void *buf);
 
 item_delete_info pdc_region_dl_evict_by_size(size_t required_size);

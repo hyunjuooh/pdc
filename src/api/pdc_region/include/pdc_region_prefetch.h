@@ -28,13 +28,22 @@
 #include "pdc_public.h"
 #include "pdc_obj.h"
 
-/****************************************************/
+/*******************************************************/
 /* Public Functions for Client-side Region Prefetching */
-/****************************************************/
+/*******************************************************/
+extern int obj_prefetch_list_len;
 
 // perr_t PDCregion_receive_prefetch_hint(const char** arr, int obj_array_len);
-perr_t PDCregion_receive_prefetch_hint(const pdcid_t *arr, const pdcid_t *arr2, int obj_array_len);
-
+// perr_t PDCregion_receive_prefetch_hint(const pdcid_t *arr, const pdcid_t *arr2, int obj_array_len);
+perr_t PDCregion_receive_prefetch_hint(char *arr[], pdcid_t *arr2, int obj_array_len);
 perr_t PDCregion_prefetch_by_objid();
+perr_t PDCregion_print_prefetch_list();
+
+
+/*******************************************************/
+/* Private Functions for Client-side Region Prefetching */
+/*******************************************************/
+
+perr_t pdc_region_prefetch_init();
 
 #endif /* PDC_REGION_PREFETCH_H */
