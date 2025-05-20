@@ -58,7 +58,7 @@ main(int argc, char *argv[])
 {
     int     rank = 0, size = 1, i = 0, j = 0;
     int     num_transfer_request = 0, access_pattern = 0, random_offset = 0;
-    double  t0, t1, start, end;
+    double  t0, t1, start, end, total_start, total_end;
     pdcid_t pdc_id, cont_id;
     pdcid_t obj_xx, obj_yy, obj_zz, obj_pxx, obj_pyy, obj_pzz, obj_id11, obj_id22;
     // pdcid_t prefetch_arr[8];
@@ -87,6 +87,7 @@ main(int argc, char *argv[])
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
+    total_start = MPI_Wtime();
 #endif
 
     if (argc >= 2) {
@@ -359,7 +360,7 @@ main(int argc, char *argv[])
     else if (access_pattern == 3) {
         random_offset    = get_random_offset(0, size - 1);
         offset_remote[0] = random_offset * numparticles;
-        printf("[RANK %d] Random offset %d\n", rank, random_offset);
+        //printf("[RANK %d] Random offset %d\n", rank, random_offset);
     }
 
     // create a region
@@ -599,6 +600,13 @@ main(int argc, char *argv[])
     free(mysize);
 
 #ifdef ENABLE_MPI
+    total_end = MPI_Wtime();
+    if (rank <= 5) {
+        cur_time = time(NULL);
+        log_time = localtime(&cur_time);
+        printf("[CACHE_LOG] [%02d:%02d:%02d] [RANK %d] | Total Benchmark Execution Time: %f\n", log_time->tm_hour,
+               log_time->tm_min, log_time->tm_sec, rank, total_end - total_start);
+    }
     MPI_Finalize();
 #endif
 
