@@ -112,7 +112,7 @@ PDCinit(const char *pdc_name)
 
     // PDC Client Cache init
     pdc_region_cache_init(pdcid);
-    
+
 #ifdef PDC_TIMING
     PDC_timing_init();
 #endif

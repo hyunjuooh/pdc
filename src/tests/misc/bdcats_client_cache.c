@@ -360,7 +360,7 @@ main(int argc, char *argv[])
     else if (access_pattern == 3) {
         random_offset    = get_random_offset(0, size - 1);
         offset_remote[0] = random_offset * numparticles;
-        //printf("[RANK %d] Random offset %d\n", rank, random_offset);
+        // printf("[RANK %d] Random offset %d\n", rank, random_offset);
     }
 
     // create a region
@@ -604,8 +604,8 @@ main(int argc, char *argv[])
     if (rank <= 5) {
         cur_time = time(NULL);
         log_time = localtime(&cur_time);
-        printf("[CACHE_LOG] [%02d:%02d:%02d] [RANK %d] | Total Benchmark Execution Time: %f\n", log_time->tm_hour,
-               log_time->tm_min, log_time->tm_sec, rank, total_end - total_start);
+        printf("[CACHE_LOG] [%02d:%02d:%02d] [RANK %d] | Total Benchmark Execution Time: %f\n",
+               log_time->tm_hour, log_time->tm_min, log_time->tm_sec, rank, total_end - total_start);
     }
     MPI_Finalize();
 #endif
