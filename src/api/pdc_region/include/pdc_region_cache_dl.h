@@ -34,7 +34,7 @@
 /* Library Private Struct */
 /**************************/
 
-typedef struct pdc_object_cache {
+/*typedef struct pdc_object_cache {
     // PDC Object information
     // pdcid_t  obj_id;
     char     obj_name[MAX_NAME_LEN];
@@ -53,13 +53,30 @@ typedef struct pdc_object_cache {
     int next;
     int prev;
 } pdc_object_cache;
+*/
 
-typedef struct pdc_object_list_metadata {
-    int head_idx;
-    int tail_idx;
-    int free_idx;
-    int cached_item_num;
-} pdc_object_list_metadata;
+// Linked list version structure
+typedef struct pdc_object_cache {
+    // PDC Object information
+    char     obj_name[MAX_NAME_LEN];
+    uint64_t unit;
+
+    // Remote region information
+    int      reg_ndim;
+    uint64_t reg_offset[3];
+    uint64_t reg_size[3];
+
+    // Region data information
+    uint64_t buf_size;
+    char *buf;
+
+    // Data exchange
+    int target_rank;
+
+    // Double linked list for cached object list
+    struct pdc_object_cache *prev;
+    struct pdc_object_cache *next;
+} pdc_object_cache;
 
 typedef struct item_delete_info {
     size_t deleted_size;
@@ -72,16 +89,12 @@ typedef struct item_delete_info {
 
 perr_t pdc_region_dl_init();
 
-perr_t pdc_region_dl_list_init();
-
 int pdc_region_dl_search(char *obj_name, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size, void *buf,
                          uint64_t read_size);
 
-perr_t pdc_region_dl_collect_global_metadata();
+perr_t pdc_region_dl_prepare_data_exchange(char **global_prefetch_list, int *global_list_len, int *global_list_item_len);
 
-perr_t pdc_region_global_metadata_free();
-
-int pdc_region_dl_global_search(char *obj_name, uint64_t *offset, uint64_t *size);
+int pdc_region_dl_global_data_exchange(int recv_num);
 
 perr_t pdc_region_dl_insert(char *obj_name, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size,
                             void *buf, uint64_t read_size);
@@ -89,11 +102,7 @@ perr_t pdc_region_dl_insert(char *obj_name, int ndim, uint64_t unit, uint64_t *o
 item_delete_info pdc_region_dl_update(char *obj_name, int ndim, uint64_t unit, uint64_t *offset,
                                       uint64_t *size, void *buf);
 
-item_delete_info pdc_region_dl_evict_by_size(size_t required_size);
-
-item_delete_info pdc_region_dl_evict_by_num();
-
-perr_t pdc_region_dl_clean_list();
+item_delete_info pdc_region_dl_evict(size_t required_size);
 
 perr_t pdc_region_dl_finalize();
 

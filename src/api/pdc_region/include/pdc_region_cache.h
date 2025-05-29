@@ -47,7 +47,7 @@ perr_t pdc_region_cache_insert(char *obj_name, int ndim, uint64_t unit, uint64_t
 perr_t pdc_region_cache_update(char *obj_name, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size,
                                void *buf);
 
-perr_t pdc_region_cache_evict(size_t required_size, int by_size);
+perr_t pdc_region_cache_evict(size_t required_size);
 
 void pdc_region_cache_timelog(double start_time, const char *message);
 
