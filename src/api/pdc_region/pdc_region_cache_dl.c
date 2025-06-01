@@ -25,19 +25,19 @@ MPI_Comm client_cache_comm;
 int init_object_cache = 0;
 
 // Tracks the number of objects cached within the list
-int cached_obj_num = 0;
-int max_obj_size = 0;
+int cached_obj_num      = 0;
+int max_obj_size        = 0;
 int global_max_obj_size = 0;
 
 // Object cache list that will be used for object cache management
-struct pdc_object_cache *        obj_cache_list, *obj_cache_list_end;
+struct pdc_object_cache *obj_cache_list, *obj_cache_list_end;
 
 perr_t
 pdc_region_dl_init()
 {
     perr_t ret_value = SUCCEED;
 
-    int mpi_alloc_error, i;
+    int    mpi_alloc_error, i;
     double start = MPI_Wtime();
 
     FUNC_ENTER(NULL);
@@ -45,7 +45,7 @@ pdc_region_dl_init()
     // Duplicate MPI_COMM_WORLD for client cache
     MPI_Comm_dup(MPI_COMM_WORLD, &client_cache_comm);
 
-    obj_cache_list = NULL;
+    obj_cache_list     = NULL;
     obj_cache_list_end = NULL;
 
     pdc_region_cache_timelog(start, "pdc_region_dl_init - Total time");
@@ -66,7 +66,7 @@ pdc_region_dl_insert(char *obj_name, int ndim, uint64_t unit, uint64_t *offset, 
     perr_t ret_value = SUCCEED;
 
     struct pdc_object_cache *obj_cache_item = NULL;
-    double start, total_start = MPI_Wtime();
+    double                   start, total_start = MPI_Wtime();
 
     FUNC_ENTER(NULL);
 
@@ -76,14 +76,14 @@ pdc_region_dl_insert(char *obj_name, int ndim, uint64_t unit, uint64_t *offset, 
     obj_cache_item = (struct pdc_object_cache *)PDC_malloc(sizeof(struct pdc_object_cache));
     if (!obj_cache_item)
         PGOTO_ERROR(FAIL, "PDC region cache - obj_cache_item memory allocation failed");
-    
+
     // Create obj_cache_list item
     // obj_cache_list[new_item_idx].obj_id   = obj_id;
     snprintf(obj_cache_item->obj_name, sizeof(obj_cache_item->obj_name), "%s", obj_name);
 
-    obj_cache_item->unit     = unit;
-    obj_cache_item->reg_ndim = ndim;
-    obj_cache_item->buf_size = read_size;
+    obj_cache_item->unit        = unit;
+    obj_cache_item->reg_ndim    = ndim;
+    obj_cache_item->buf_size    = read_size;
     obj_cache_item->target_rank = -1;
 
     obj_cache_item->reg_offset[0] = offset[0];
@@ -133,7 +133,7 @@ pdc_region_dl_search(char *obj_name, int ndim, uint64_t unit, uint64_t *offset, 
     perr_t ret_value = SUCCEED;
 
     struct pdc_object_cache *obj_cache_iter;
-    uint64_t                *overlap_offset, *overlap_size;
+    uint64_t *               overlap_offset, *overlap_size;
     int                      i, is_cached = 0, one_item_obj_list = 0;
     double                   start, total_start = MPI_Wtime();
 
@@ -148,21 +148,21 @@ pdc_region_dl_search(char *obj_name, int ndim, uint64_t unit, uint64_t *offset, 
 
     while (obj_cache_iter != NULL) {
         if (strcmp(obj_cache_iter->obj_name, obj_name) == 0) {
-            is_cached = detect_region_contained(offset, size, obj_cache_iter->reg_offset, obj_cache_iter->reg_size, ndim);
+            is_cached = detect_region_contained(offset, size, obj_cache_iter->reg_offset,
+                                                obj_cache_iter->reg_size, ndim);
 
             // If region contained, memcpy cached region data into transfer_request->buf
             if (is_cached) {
                 start = MPI_Wtime();
-                
+
                 // Detect the offset range that is overlapped
                 PDC_region_overlap_detect(ndim, offset, size, obj_cache_iter->reg_offset,
                                           obj_cache_iter->reg_size, &overlap_offset, &overlap_size);
 
                 // memcpy the overlapped region
-                memcpy_overlap_subregion(
-                    obj_cache_iter->reg_ndim, unit, obj_cache_iter->buf,
-                    obj_cache_iter->reg_offset, obj_cache_iter->reg_size, buf, offset, size,
-                    overlap_offset, overlap_size);
+                memcpy_overlap_subregion(obj_cache_iter->reg_ndim, unit, obj_cache_iter->buf,
+                                         obj_cache_iter->reg_offset, obj_cache_iter->reg_size, buf, offset,
+                                         size, overlap_offset, overlap_size);
 
                 // Follow the LRU policy
                 // Update the obj_cache_list_end information
@@ -200,222 +200,217 @@ done:
 }
 
 perr_t
-pdc_region_dl_prepare_data_exchange(char **global_prefetch_list, int *global_list_len, int *global_list_item_len)
+pdc_region_dl_prepare_data_exchange(char **global_prefetch_list, int *global_list_len,
+                                    int *global_list_item_len)
 {
     perr_t ret_value = SUCCEED;
 
-    int    mpi_alloc_error, i, j, item_idx = 0;
+    int                      mpi_alloc_error, i, j, item_idx = 0;
     struct pdc_object_cache *obj_cache_iter;
-    double start;
+    double                   start;
 
     FUNC_ENTER(NULL);
 
     // Set the target rank for local cached object item
     obj_cache_iter = obj_cache_list;
-    while (obj_cache_iter != NULL) { {
-        for (i = 0; i < pdc_client_mpi_size_g; i++) {
-            for (j = 0; j < global_list_len[i]; j++) {
-                if (strcmp(obj_cache_iter->obj_name, global_prefetch_list[item_idx]) == 0) {
-                    obj_cache_iter->target_rank = i;
+    while (obj_cache_iter != NULL) {
+        {
+            for (i = 0; i < pdc_client_mpi_size_g; i++) {
+                for (j = 0; j < global_list_len[i]; j++) {
+                    if (strcmp(obj_cache_iter->obj_name, global_prefetch_list[item_idx]) == 0) {
+                        obj_cache_iter->target_rank = i;
+                        break;
+                    }
+                    item_idx++;
+                }
+                if (obj_cache_iter->target_rank != -1) {
                     break;
                 }
-                item_idx++;
             }
-            if (obj_cache_iter->target_rank != -1) {
+            obj_cache_iter = obj_cache_iter->next;
+            item_idx       = 0;
+        }
+
+        pdc_region_cache_timelog(start,
+                                 "pdc_region_dl_collect_global_metadata - global metadata collection time");
+
+done:
+        fflush(stdout);
+        FUNC_LEAVE(ret_value);
+    }
+
+    int pdc_region_dl_global_data_exchange(int recv_num)
+    {
+        perr_t ret_value = SUCCEED;
+        int    is_cached = 0;
+        char * data_exchange_buf;
+        double start;
+
+        FUNC_ENTER(NULL);
+
+        // Find the larget object size for data exchange buffer
+        MPI_Allreduce(&max_obj_size, &global_max_obj_size, 1, MPI_INT, MPI_MAX, client_cache_comm);
+
+        // Allocate data exchange buffer
+        data_exchange_buf = (char *)PDC_malloc(global_max_obj_size);
+        if (!data_exchange_buf)
+            PGOTO_ERROR(FAIL, "pdc_region_dl_global_data_exchange - data exchange memory allocation failed");
+
+done:
+        fflush(stdout);
+        FUNC_LEAVE(is_cached);
+    }
+
+    item_delete_info pdc_region_dl_update(char *obj_name, int ndim, uint64_t unit, uint64_t *offset,
+                                          uint64_t *size, void *buf)
+    {
+        perr_t ret_value = SUCCEED;
+
+        struct pdc_object_cache *obj_cache_iter, *obj_cache_item;
+        size_t                   updated_size  = 0;
+        int                      is_overlapped = 0, updated_item_num = 0, one_item_obj_list = 0;
+        item_delete_info         result;
+
+        FUNC_ENTER(NULL);
+
+        if (cached_obj_num == 0) {
+            result.deleted_size     = updated_size;
+            result.deleted_item_num = updated_item_num;
+            return result;
+        }
+
+        // Find overlapping regions from the head of the list
+        obj_cache_iter = obj_cache_list;
+
+        while (obj_cache_iter != NULL) {
+            obj_cache_item = obj_cache_iter;
+            obj_cache_iter = obj_cache_iter->next;
+
+            if (strcmp(obj_cache_item->obj_name, obj_name) == 0) {
+                // Compare offset and offset + size and see if there is an overlap
+                is_overlapped =
+                    check_overlap(ndim, offset, size, obj_cache_item->reg_offset, obj_cache_item->reg_size);
+
+                // If there is overlapping region remove item from list
+                if (is_overlapped) {
+                    updated_size += obj_cache_item->buf_size;
+
+                    if (obj_cache_item == obj_cache_list_end) {
+                        if (obj_cache_list_end->prev) {
+                            obj_cache_list_end = obj_cache_list_end->prev;
+                        }
+                    }
+
+                    // Delete the overlapped object item
+                    DL_DELETE(obj_cache_list, obj_cache_item);
+
+                    free(obj_cache_item->buf);
+                    free(obj_cache_item);
+
+                    cached_obj_num--;
+                    updated_item_num++;
+                }
+            }
+        }
+
+        result.deleted_size     = updated_size;
+        result.deleted_item_num = updated_item_num;
+
+done:
+        fflush(stdout);
+        FUNC_LEAVE(result);
+    }
+
+    item_delete_info pdc_region_dl_evict(size_t required_size)
+    {
+        perr_t ret_value = SUCCEED;
+
+        struct pdc_object_cache *obj_cache_iter, *obj_cache_item;
+        size_t                   deleted_size     = 0;
+        int                      deleted_item_num = 0;
+        item_delete_info         result;
+
+        FUNC_ENTER(NULL);
+
+        if (cached_obj_num == 0) {
+            result.deleted_size     = deleted_size;
+            result.deleted_item_num = 0;
+            return result;
+        }
+
+        obj_cache_iter = obj_cache_list_end;
+
+        // Delete item from end of list (following LRU policy)
+        while (obj_cache_iter != NULL) {
+            obj_cache_item = obj_cache_iter;
+
+            // Update the list end item
+            obj_cache_iter     = obj_cache_iter->prev;
+            obj_cache_list_end = obj_cache_iter;
+
+            required_size -= obj_cache_item->buf_size;
+            deleted_size += obj_cache_item->buf_size;
+
+            // Delete the last item of the list and free the buffer
+            DL_DELETE(obj_cache_list, obj_cache_item);
+
+            free(obj_cache_item->buf);
+            free(obj_cache_item);
+
+            cached_obj_num--;
+            deleted_item_num++;
+
+            if (required_size < MAX_CACHE_SIZE) {
                 break;
             }
         }
-        obj_cache_iter = obj_cache_iter->next;
-        item_idx = 0;
-    }
 
-    pdc_region_cache_timelog(start,
-                             "pdc_region_dl_collect_global_metadata - global metadata collection time");
-
-done:
-    fflush(stdout);
-    FUNC_LEAVE(ret_value);
-}
-
-int
-pdc_region_dl_global_data_exchange(int recv_num)
-{
-    perr_t                    ret_value = SUCCEED;
-    int                       is_cached=0;
-    char                     *data_exchange_buf;
-    double                    start;
-
-    FUNC_ENTER(NULL);
-
-    // Find the larget object size for data exchange buffer
-    MPI_Allreduce(&max_obj_size, &global_max_obj_size, 1, MPI_INT, MPI_MAX, client_cache_comm);
-
-    // Allocate data exchange buffer
-    data_exchange_buf = (char *)PDC_malloc(global_max_obj_size);
-    if (!data_exchange_buf)
-        PGOTO_ERROR(FAIL, "pdc_region_dl_global_data_exchange - data exchange memory allocation failed");
-
-    
-    
-    
-
-done:
-    fflush(stdout);
-    FUNC_LEAVE(is_cached);
-}
-
-item_delete_info
-pdc_region_dl_update(char *obj_name, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size, void *buf)
-{
-    perr_t ret_value = SUCCEED;
-
-    struct pdc_object_cache *obj_cache_iter, *obj_cache_item;
-    size_t                   updated_size  = 0;
-    int                      is_overlapped = 0, updated_item_num = 0, one_item_obj_list = 0;
-    item_delete_info         result;
-
-    FUNC_ENTER(NULL);
-
-    if (cached_obj_num == 0) {
-        result.deleted_size     = updated_size;
-        result.deleted_item_num = updated_item_num;
-        return result;
-    }
-
-    // Find overlapping regions from the head of the list
-    obj_cache_iter = obj_cache_list;
-
-    while (obj_cache_iter != NULL) {
-        obj_cache_item = obj_cache_iter;
-        obj_cache_iter = obj_cache_iter->next;
-        
-        if (strcmp(obj_cache_item->obj_name, obj_name) == 0) {
-            // Compare offset and offset + size and see if there is an overlap
-            is_overlapped = check_overlap(ndim, offset, size, obj_cache_item->reg_offset,
-                                          obj_cache_item->reg_size);
-
-            // If there is overlapping region remove item from list
-            if (is_overlapped) {
-                updated_size += obj_cache_item->buf_size;
-
-                if (obj_cache_item == obj_cache_list_end) {
-                    if (obj_cache_list_end->prev) {
-                        obj_cache_list_end = obj_cache_list_end->prev;
-                    }
-                }
-
-                // Delete the overlapped object item
-                DL_DELETE(obj_cache_list, obj_cache_item);
-
-                free(obj_cache_item->buf);
-                free(obj_cache_item);
-
-                cached_obj_num--;
-                updated_item_num++;
-            }
-        }
-    }
-
-    result.deleted_size     = updated_size;
-    result.deleted_item_num = updated_item_num;
-
-done:
-    fflush(stdout);
-    FUNC_LEAVE(result);
-}
-
-item_delete_info
-pdc_region_dl_evict(size_t required_size)
-{
-    perr_t ret_value = SUCCEED;
-
-    struct pdc_object_cache *obj_cache_iter, *obj_cache_item;
-    size_t           deleted_size = 0;
-    int              deleted_item_num = 0;
-    item_delete_info result;
-
-    FUNC_ENTER(NULL);
-
-    if (cached_obj_num == 0) {
         result.deleted_size     = deleted_size;
-        result.deleted_item_num = 0;
-        return result;
+        result.deleted_item_num = deleted_item_num;
+
+done:
+        fflush(stdout);
+        FUNC_LEAVE(result);
     }
 
-    obj_cache_iter = obj_cache_list_end;
+    perr_t pdc_region_dl_finalize()
+    {
+        perr_t                   ret_value = SUCCEED;
+        double                   start     = MPI_Wtime();
+        struct pdc_object_cache *obj_cache_iter, *obj_cache_item;
 
-    // Delete item from end of list (following LRU policy)
-    while (obj_cache_iter != NULL) {
-        obj_cache_item = obj_cache_iter;
+        FUNC_ENTER(NULL);
 
-        // Update the list end item
-        obj_cache_iter     = obj_cache_iter->prev;
-        obj_cache_list_end = obj_cache_iter;
-        
-        required_size -= obj_cache_item->buf_size;
-        deleted_size += obj_cache_item->buf_size;
+        if (!init_object_cache)
+            return ret_value;
 
-        // Delete the last item of the list and free the buffer
-        DL_DELETE(obj_cache_list, obj_cache_item);
+        // Make sure no shared memory is currently used
+        MPI_Barrier(client_cache_comm);
 
-        free(obj_cache_item->buf);
-        free(obj_cache_item);
+        obj_cache_iter = obj_cache_list;
 
-        cached_obj_num--;
-        deleted_item_num++;
+        while (obj_cache_iter != NULL) {
+            obj_cache_item = obj_cache_iter;
 
-        if (required_size < MAX_CACHE_SIZE) {
-            break;
+            // Update the list end item
+            obj_cache_iter     = obj_cache_iter->prev;
+            obj_cache_list_end = obj_cache_iter;
+
+            // Delete the last item of the list and free the buffer
+            DL_DELETE(obj_cache_list, obj_cache_item);
+
+            free(obj_cache_item->buf);
+            free(obj_cache_item);
         }
-    }
 
-    result.deleted_size     = deleted_size;
-    result.deleted_item_num = deleted_item_num;
+        MPI_Comm_free(&client_cache_comm);
 
-done:
-    fflush(stdout);
-    FUNC_LEAVE(result);
-}
+        init_object_cache = 0;
+        cached_obj_num    = 0
 
-perr_t
-pdc_region_dl_finalize()
-{
-    perr_t ret_value = SUCCEED;
-    double start     = MPI_Wtime();
-    struct pdc_object_cache *obj_cache_iter, *obj_cache_item;
-
-    FUNC_ENTER(NULL);
-
-    if (!init_object_cache)
-        return ret_value;
-
-    // Make sure no shared memory is currently used
-    MPI_Barrier(client_cache_comm);
-
-    obj_cache_iter = obj_cache_list;
-
-    while (obj_cache_iter != NULL) {
-        obj_cache_item = obj_cache_iter;
-
-        // Update the list end item
-        obj_cache_iter     = obj_cache_iter->prev;
-        obj_cache_list_end = obj_cache_iter;
-
-        // Delete the last item of the list and free the buffer
-        DL_DELETE(obj_cache_list, obj_cache_item);
-
-        free(obj_cache_item->buf);
-        free(obj_cache_item);
-    }
-
-    MPI_Comm_free(&client_cache_comm);
-
-    init_object_cache = 0;
-    cached_obj_num = 0
-
-    pdc_region_cache_timelog(start, "pdc_region_dl_finalize - finalization time");
+            pdc_region_cache_timelog(start, "pdc_region_dl_finalize - finalization time");
 
 done:
-    fflush(stdout);
-    FUNC_LEAVE(ret_value);
-}
+        fflush(stdout);
+        FUNC_LEAVE(ret_value);
+    }

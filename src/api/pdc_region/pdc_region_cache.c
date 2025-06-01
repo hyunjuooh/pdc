@@ -100,7 +100,7 @@ pdc_region_cache_insert(char *obj_name, int ndim, uint64_t unit, uint64_t *offse
     if (total_buf_size + read_size > MAX_CACHE_SIZE) {
         pdc_region_cache_evict(total_buf_size + read_size);
     }
-    
+
     pdc_region_cache_timelog(start, "pdc_region_cache_insert - pdc_region_cache_evict time");
 
     ret_value = pdc_region_dl_insert(obj_name, ndim, unit, offset, size, buf, read_size);
@@ -109,7 +109,7 @@ pdc_region_cache_insert(char *obj_name, int ndim, uint64_t unit, uint64_t *offse
         total_buf_size += read_size;
         total_item_num += 1;
     }
-    
+
     pdc_region_cache_timelog(start, "pdc_region_cache_insert - total time");
 
 done:

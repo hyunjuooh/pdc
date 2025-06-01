@@ -68,7 +68,7 @@ typedef struct pdc_object_cache {
 
     // Region data information
     uint64_t buf_size;
-    char *buf;
+    char *   buf;
 
     // Data exchange
     int target_rank;
@@ -92,7 +92,8 @@ perr_t pdc_region_dl_init();
 int pdc_region_dl_search(char *obj_name, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size, void *buf,
                          uint64_t read_size);
 
-perr_t pdc_region_dl_prepare_data_exchange(char **global_prefetch_list, int *global_list_len, int *global_list_item_len);
+perr_t pdc_region_dl_prepare_data_exchange(char **global_prefetch_list, int *global_list_len,
+                                           int *global_list_item_len);
 
 int pdc_region_dl_global_data_exchange(int recv_num);
 
