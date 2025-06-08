@@ -25,6 +25,7 @@
 #ifndef PDC_REGION_CACHE_DL_H
 #define PDC_REGION_CACHE_DL_H
 
+#include <mpi.h>
 #include "pdc_public.h"
 #include "pdc_obj.h"
 
@@ -44,6 +45,13 @@ typedef struct pdc_object_cache {
     int      reg_ndim;
     uint64_t reg_offset[3];
     uint64_t reg_size[3];
+
+    // Data exchange
+    int target_rank;
+    int tag;                    // MPI tag for this segment
+    MPI_Request request;        // MPI_Request for non-blocking operations
+    int is_initiated;           // Flag: 0 = not yet started, 1 = MPI op initiated
+    int is_completed;
 
     // Region data information
     uint64_t buf_offset;
@@ -77,11 +85,13 @@ perr_t pdc_region_dl_list_init();
 int pdc_region_dl_search(char *obj_name, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size, void *buf,
                          uint64_t read_size);
 
-perr_t pdc_region_dl_collect_global_metadata();
 
-perr_t pdc_region_global_metadata_free();
 
-int pdc_region_dl_global_search(char *obj_name, uint64_t *offset, uint64_t *size);
+// perr_t pdc_region_dl_collect_global_metadata();
+
+// perr_t pdc_region_global_metadata_free();
+
+// int pdc_region_dl_global_search(char *obj_name, uint64_t *offset, uint64_t *size);
 
 perr_t pdc_region_dl_insert(char *obj_name, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size,
                             void *buf, uint64_t read_size);
