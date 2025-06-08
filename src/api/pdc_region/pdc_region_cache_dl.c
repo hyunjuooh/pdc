@@ -33,9 +33,9 @@ char * metadata_base_ptr = NULL;
 size_t metadata_size;
 
 // Data exchange related variables
-char *global_metadata_list = NULL;
-uint64_t global_max_obj_size = 0;
-uint64_t local_max_obj_size = 0;
+char *   global_metadata_list = NULL;
+uint64_t global_max_obj_size  = 0;
+uint64_t local_max_obj_size   = 0;
 
 // For global cache creation
 MPI_Win  shared_obj_cache_win = MPI_WIN_NULL;
@@ -182,7 +182,7 @@ pdc_region_dl_init()
 {
     perr_t ret_value = SUCCEED;
 
-    int mpi_alloc_error, i;
+    int    mpi_alloc_error, i;
     double start;
 
     FUNC_ENTER(NULL);
@@ -194,7 +194,7 @@ pdc_region_dl_init()
     start           = MPI_Wtime();
     buffer_win_size = MAX_CACHE_SIZE * sizeof(char);
 
-    region_buf = (char *)PDC_malloc(MAX_CACHE_SIZE * sizeof(char));
+    region_buf         = (char *)PDC_malloc(MAX_CACHE_SIZE * sizeof(char));
     region_buf_end_ptr = region_buf + (MAX_CACHE_SIZE * sizeof(char));
 
     pdc_region_cache_timelog(start, "pdc_region_dl_init - Init region memory buffer");
@@ -205,7 +205,8 @@ pdc_region_dl_init()
     // if (mpi_alloc_error != MPI_SUCCESS)
     //     PGOTO_ERROR(
     //         FAIL,
-    //         "pdc_region_dl_collect_global_metadata - MPI shared allocation for shared_obj_cache_win failed");
+    //         "pdc_region_dl_collect_global_metadata - MPI shared allocation for shared_obj_cache_win
+    //         failed");
 
     pdc_region_cache_timelog(start, "pdc_region_dl_init - create window");
 
@@ -261,13 +262,13 @@ pdc_region_dl_insert(char *obj_name, int ndim, uint64_t unit, uint64_t *offset, 
     obj_cache_list[new_item_idx].unit     = unit;
     obj_cache_list[new_item_idx].reg_ndim = ndim;
     obj_cache_list[new_item_idx].buf_size = read_size;
-    
+
     // Initialize data exchange metadata info
-    obj_cache_list[item_idx].target_rank = -1;
+    obj_cache_list[item_idx].target_rank  = -1;
     obj_cache_list[item_idx].is_initiated = 0;
     obj_cache_list[item_idx].is_completed = 0;
-    obj_cache_list[item_idx].request = MPI_REQUEST_NULL;
-    
+    obj_cache_list[item_idx].request      = MPI_REQUEST_NULL;
+
     obj_cache_list[new_item_idx].reg_offset[0] = offset[0];
     obj_cache_list[new_item_idx].reg_size[0]   = size[0];
 
@@ -287,7 +288,8 @@ pdc_region_dl_insert(char *obj_name, int ndim, uint64_t unit, uint64_t *offset, 
         obj_cache_list[new_item_idx].buf_offset = region_buf_offset;
         memcpy(region_buf + region_buf_offset, buf, sizeof(char) * read_size);
         region_buf_offset += (sizeof(char) * read_size);
-    } else {
+    }
+    else {
         region_buf_offset += (sizeof(char) * read_size);
         memcpy(region_buf_end_ptr - region_buf_offset, buf, sizeof(char) * read_size);
         obj_cache_list[new_item_idx].buf_offset = region_buf_offset;
@@ -354,14 +356,16 @@ pdc_region_dl_search(char *obj_name, int ndim, uint64_t unit, uint64_t *offset, 
                 if (!region_buf_backward) {
                     // memcpy the overlapped region
                     memcpy_overlap_subregion(
-                        obj_cache_list[item_idx].reg_ndim, unit, region_buf + obj_cache_list[item_idx].buf_offset,
-                        obj_cache_list[item_idx].reg_offset, obj_cache_list[item_idx].reg_size, buf, offset, size,
-                        overlap_offset, overlap_size);
-                } else {
-                    memcpy_overlap_subregion(
-                        obj_cache_list[item_idx].reg_ndim, unit, region_buf_end_ptr + obj_cache_list[item_idx].buf_offset,
-                        obj_cache_list[item_idx].reg_offset, obj_cache_list[item_idx].reg_size, buf, offset, size,
-                        overlap_offset, overlap_size);
+                        obj_cache_list[item_idx].reg_ndim, unit,
+                        region_buf + obj_cache_list[item_idx].buf_offset, obj_cache_list[item_idx].reg_offset,
+                        obj_cache_list[item_idx].reg_size, buf, offset, size, overlap_offset, overlap_size);
+                }
+                else {
+                    memcpy_overlap_subregion(obj_cache_list[item_idx].reg_ndim, unit,
+                                             region_buf_end_ptr + obj_cache_list[item_idx].buf_offset,
+                                             obj_cache_list[item_idx].reg_offset,
+                                             obj_cache_list[item_idx].reg_size, buf, offset, size,
+                                             overlap_offset, overlap_size);
                 }
 
                 // Follow the LRU policy
@@ -387,11 +391,12 @@ done:
 }
 
 perr_t
-pdc_region_dl_prepare_data_exchange(char **global_prefetch_list, uint64_t *offset, uint64_t *size, int *global_list_len)
+pdc_region_dl_prepare_data_exchange(char **global_prefetch_list, uint64_t *offset, uint64_t *size,
+                                    int *global_list_len)
 {
-    perr_t                   ret_value = SUCCEED;
-    int                      i, j, item_idx, prefetch_list_idx=0, region_compare=0, is_contained=0;
-    double                   start;
+    perr_t ret_value = SUCCEED;
+    int    i, j, item_idx, prefetch_list_idx = 0, region_compare = 0, is_contained = 0;
+    double start;
 
     FUNC_ENTER(NULL);
 
@@ -401,7 +406,7 @@ pdc_region_dl_prepare_data_exchange(char **global_prefetch_list, uint64_t *offse
 
     // Set the target rank for local cached object item
     item_idx = obj_cache_list_metadata->head_idx;
-    
+
     while (item_idx != -1) {
         for (i = 0; i < pdc_client_mpi_size_g; i++) {
             for (j = 0; j < global_list_len[i]; j++) {
@@ -411,9 +416,11 @@ pdc_region_dl_prepare_data_exchange(char **global_prefetch_list, uint64_t *offse
                     if (!region_compare) {
                         obj_cache_list[item_idx].target_rank = i;
                         break;
-                    } else {
-                        is_contained = detect_region_contained(offset, size, obj_cache_list[item_idx].reg_offset,
-                                                obj_cache_list[item_idx].reg_size, obj_cache_list[item_idx].reg_ndim);
+                    }
+                    else {
+                        is_contained = detect_region_contained(
+                            offset, size, obj_cache_list[item_idx].reg_offset,
+                            obj_cache_list[item_idx].reg_size, obj_cache_list[item_idx].reg_ndim);
 
                         // If the prefetch list is contained within the local object cache list
                         if (is_contained) {
@@ -428,7 +435,7 @@ pdc_region_dl_prepare_data_exchange(char **global_prefetch_list, uint64_t *offse
                 break;
             }
         }
-        item_idx = obj_cache_list[item_idx].next;
+        item_idx          = obj_cache_list[item_idx].next;
         prefetch_list_idx = 0;
     }
 
@@ -441,26 +448,37 @@ done:
 }
 
 perr_t
-pdc_region_dl_data_pack(char *recv_buf, int item_idx, int total_size) {
-    perr_t                   ret_value = SUCCEED;
-    int                      position = 0;
+pdc_region_dl_data_pack(char *recv_buf, int item_idx, int total_size)
+{
+    perr_t ret_value = SUCCEED;
+    int    position  = 0;
 
     FUNC_ENTER(NULL);
 
-    MPI_Pack(obj_cache_list[item_idx].obj_name, MAX_NAME_LEN, MPI_CHAR, recv_buf, total_size, &position, client_cache_comm);
-    MPI_Pack(obj_cache_list[item_idx].unit, 1, MPI_UINT64_T, recv_buf, total_size, &position, client_cache_comm);
+    MPI_Pack(obj_cache_list[item_idx].obj_name, MAX_NAME_LEN, MPI_CHAR, recv_buf, total_size, &position,
+             client_cache_comm);
+    MPI_Pack(obj_cache_list[item_idx].unit, 1, MPI_UINT64_T, recv_buf, total_size, &position,
+             client_cache_comm);
 
-    MPI_Pack(obj_cache_list[item_idx].reg_ndim, 1, MPI_INT, recv_buf, total_size, &position, client_cache_comm);
-    MPI_Pack(obj_cache_list[item_idx].reg_offset, 3, MPI_UINT64_T, recv_buf, total_size, &position, client_cache_comm);
-    MPI_Pack(obj_cache_list[item_idx].reg_size, 3, MPI_UINT64_T, recv_buf, total_size, &position, client_cache_comm);
+    MPI_Pack(obj_cache_list[item_idx].reg_ndim, 1, MPI_INT, recv_buf, total_size, &position,
+             client_cache_comm);
+    MPI_Pack(obj_cache_list[item_idx].reg_offset, 3, MPI_UINT64_T, recv_buf, total_size, &position,
+             client_cache_comm);
+    MPI_Pack(obj_cache_list[item_idx].reg_size, 3, MPI_UINT64_T, recv_buf, total_size, &position,
+             client_cache_comm);
 
-    // MPI_Pack(obj_cache_list[item_idx].buf_offset, 1, MPI_UINT64_T, recv_buf, total_size, &position, client_cache_comm);
-    MPI_Pack(obj_cache_list[item_idx].buf_size, 1, MPI_UINT64_T, recv_buf, total_size, &position, client_cache_comm);
+    // MPI_Pack(obj_cache_list[item_idx].buf_offset, 1, MPI_UINT64_T, recv_buf, total_size, &position,
+    // client_cache_comm);
+    MPI_Pack(obj_cache_list[item_idx].buf_size, 1, MPI_UINT64_T, recv_buf, total_size, &position,
+             client_cache_comm);
 
     if (!region_buf_backward) {
-        MPI_Pack(region_buf + obj_cache_list[item_idx].buf_offset, obj_cache_list[item_idx].buf_size, MPI_INT, recv_buf, total_size, &position, client_cache_comm);
-    } else {
-	MPI_Pack(region_buf_end_ptr - obj_cache_list[item_idx].buf_offset, obj_cache_list[item_idx].buf_size, MPI_INT, recv_buf, total_size, &position, client_cache_comm);
+        MPI_Pack(region_buf + obj_cache_list[item_idx].buf_offset, obj_cache_list[item_idx].buf_size, MPI_INT,
+                 recv_buf, total_size, &position, client_cache_comm);
+    }
+    else {
+        MPI_Pack(region_buf_end_ptr - obj_cache_list[item_idx].buf_offset, obj_cache_list[item_idx].buf_size,
+                 MPI_INT, recv_buf, total_size, &position, client_cache_comm);
     }
 
 done:
@@ -471,12 +489,12 @@ done:
 perr_t
 pdc_region_dl_data_exchange(char **global_prefetch_list, int obj_prefetch_list_len)
 {
-    perr_t                   ret_value = SUCCEED;
-    char                    *receive_buffer = NULL, *send_buffer = NULL;
-    int                      sends_completed_count = 0;
-    int                      receives_completed_count = 0;
-    int                      sends_initiated_idx = 0, item_idx;
-    double                   start;
+    perr_t ret_value      = SUCCEED;
+    char * receive_buffer = NULL, *send_buffer = NULL;
+    int    sends_completed_count    = 0;
+    int    receives_completed_count = 0;
+    int    sends_initiated_idx      = 0, item_idx;
+    double start;
 
     FUNC_ENTER(NULL);
 
@@ -485,56 +503,66 @@ pdc_region_dl_data_exchange(char **global_prefetch_list, int obj_prefetch_list_l
 
     int total_size = 0, temp_size;
 
-    MPI_Pack_size(MAX_NAME_LEN, MPI_CHAR, client_cache_comm, &temp_size); total_size += temp_size;
-    MPI_Pack_size(1, MPI_UINT64_T, client_cache_comm, &temp_size); total_size += temp_size;
-    
-    MPI_Pack_size(1, MPI_INT, client_cache_comm, &temp_size); total_size += temp_size;
-    MPI_Pack_size(3, MPI_UINT64_T, client_cache_comm, &temp_size); total_size += temp_size;
-    MPI_Pack_size(3, MPI_UINT64_T, client_cache_comm, &temp_size); total_size += temp_size;
+    MPI_Pack_size(MAX_NAME_LEN, MPI_CHAR, client_cache_comm, &temp_size);
+    total_size += temp_size;
+    MPI_Pack_size(1, MPI_UINT64_T, client_cache_comm, &temp_size);
+    total_size += temp_size;
+
+    MPI_Pack_size(1, MPI_INT, client_cache_comm, &temp_size);
+    total_size += temp_size;
+    MPI_Pack_size(3, MPI_UINT64_T, client_cache_comm, &temp_size);
+    total_size += temp_size;
+    MPI_Pack_size(3, MPI_UINT64_T, client_cache_comm, &temp_size);
+    total_size += temp_size;
 
     // MPI_Pack_size(1, MPI_UINT64_T, client_cache_comm, &temp_size); total_size += temp_size;
-    MPI_Pack_size(1, MPI_UINT64_T, client_cache_comm, &temp_size); total_size += temp_size;
+    MPI_Pack_size(1, MPI_UINT64_T, client_cache_comm, &temp_size);
+    total_size += temp_size;
 
-    MPI_Pack_size(global_max_obj_size, MPI_CHAR, MPI_COMM_WORLD, &temp_size); total_size += temp_size;
+    MPI_Pack_size(global_max_obj_size, MPI_CHAR, MPI_COMM_WORLD, &temp_size);
+    total_size += temp_size;
 
     if (global_max_obj_size > 0) {
-	send_buffer = (char *)malloc(total_size);
+        send_buffer    = (char *)malloc(total_size);
         receive_buffer = (char *)malloc(total_size);
         if (!receive_buffer || !send_buffer) {
-            fprintf(stderr, "[Rank %d] Failed to allocate receive_buffer (size %d)\n", my_rank, global_max_obj_size);
+            fprintf(stderr, "[Rank %d] Failed to allocate receive_buffer (size %d)\n", my_rank,
+                    global_max_obj_size);
             MPI_Abort(client_cache_comm, 1);
         }
-    } else {
+    }
+    else {
         PGOTO_ERROR(FAIL, "pdc_region_dl_data_exchange - global_max_obj_size not specified");
     }
 
     // Post initial receive if data exchange expected
     if (obj_prefetch_list_len > 0 && global_max_obj_size > 0) {
-        MPI_Irecv(receive_buffer, global_max_obj_size, MPI_BYTE,
-                  MPI_ANY_SOURCE, MPI_ANY_TAG, client_cache_comm, &current_recv_request);
+        MPI_Irecv(receive_buffer, global_max_obj_size, MPI_BYTE, MPI_ANY_SOURCE, MPI_ANY_TAG,
+                  client_cache_comm, &current_recv_request);
         // printf("[Rank %d] Posted initial MPI_Irecv.\n", my_rank);
     }
 
     int global_all_done = 0;
     while (!global_all_done) {
-        int local_sends_done = (sends_completed_count == obj_cache_list_item_num);
+        int local_sends_done    = (sends_completed_count == obj_cache_list_item_num);
         int local_receives_done = (receives_completed_count == obj_prefetch_list_len);
 
         // --- Try to initiate sends ---
-	sends_initiated_idx = obj_cache_list_metadata->head_idx;
+        sends_initiated_idx = obj_cache_list_metadata->head_idx;
         if (!local_sends_done && (sends_initiated_idx != -1)) {
             // SegmentInfo *current_send_segment = &segments_to_send[sends_initiated_idx];
-	    
-	    // MPI_Pack the node item to send
-	    pdc_region_dl_data_pack(send_buffer, item_idx, total_size);
+
+            // MPI_Pack the node item to send
+            pdc_region_dl_data_pack(send_buffer, item_idx, total_size);
 
             if (!current_send_segment->is_initiated) {
-                 // printf("[Rank %d] Initiating send for segment ID %d to Rank %d (Size %d, Tag %d)\n",
-                 //       my_rank, current_send_segment->original_segment_id, current_send_segment->partner_rank,
-                 //       current_send_segment->size, current_send_segment->tag);
+                // printf("[Rank %d] Initiating send for segment ID %d to Rank %d (Size %d, Tag %d)\n",
+                //       my_rank, current_send_segment->original_segment_id,
+                //       current_send_segment->partner_rank, current_send_segment->size,
+                //       current_send_segment->tag);
                 MPI_Isend(current_send_segment->data, current_send_segment->size, MPI_BYTE,
-                          current_send_segment->partner_rank, current_send_segment->tag,
-                          MPI_COMM_WORLD, &current_send_segment->request);
+                          current_send_segment->partner_rank, current_send_segment->tag, MPI_COMM_WORLD,
+                          &current_send_segment->request);
                 current_send_segment->is_initiated = 1;
                 sends_initiated_idx++;
             }
@@ -545,13 +573,14 @@ pdc_region_dl_data_exchange(char **global_prefetch_list, int obj_prefetch_list_l
             for (int i = 0; i < sends_initiated_idx; ++i) {
                 SegmentInfo *seg = &segments_to_send[i];
                 if (seg->is_initiated && !seg->is_completed) {
-                    int flag = 0;
+                    int        flag = 0;
                     MPI_Status send_status;
                     MPI_Test(&seg->request, &flag, &send_status);
                     if (flag) {
-                        // printf("[Rank %d] Send for segment ID %d to Rank %d completed.\n", my_rank, seg->original_segment_id, seg->partner_rank);
+                        // printf("[Rank %d] Send for segment ID %d to Rank %d completed.\n", my_rank,
+                        // seg->original_segment_id, seg->partner_rank);
                         free(seg->data); // Free the sent data buffer
-                        seg->data = NULL;
+                        seg->data         = NULL;
                         seg->is_completed = 1;
                         sends_completed_count++;
                     }
@@ -561,7 +590,7 @@ pdc_region_dl_data_exchange(char **global_prefetch_list, int obj_prefetch_list_l
 
         // --- Check for completed receives ---
         if (!local_receives_done && current_recv_request != MPI_REQUEST_NULL) {
-            int flag = 0;
+            int        flag = 0;
             MPI_Status recv_status;
             MPI_Test(&current_recv_request, &flag, &recv_status);
 
@@ -572,7 +601,7 @@ pdc_region_dl_data_exchange(char **global_prefetch_list, int obj_prefetch_list_l
                 // Find which expected segment this corresponds to (for verification)
                 // This matching is crucial. For simplicity, we assume source/tag identify it.
                 int matched_expected_idx = -1;
-                for(int i=0; i < num_segments_to_receive; ++i) {
+                for (int i = 0; i < num_segments_to_receive; ++i) {
                     if (!expected_segments_info[i].is_completed &&
                         expected_segments_info[i].partner_rank == recv_status.MPI_SOURCE &&
                         expected_segments_info[i].tag == recv_status.MPI_TAG) {
@@ -587,60 +616,66 @@ pdc_region_dl_data_exchange(char **global_prefetch_list, int obj_prefetch_list_l
                         fprintf(stderr, "[Rank %d] Failed to allocate for received data store\n", my_rank);
                         MPI_Abort(MPI_COMM_WORLD, 1);
                     }
-                    memcpy(expected_segments_info[matched_expected_idx].data, receive_buffer, actual_recv_size);
+                    memcpy(expected_segments_info[matched_expected_idx].data, receive_buffer,
+                           actual_recv_size);
                     expected_segments_info[matched_expected_idx].size = actual_recv_size; // Store actual size
-                    expected_segments_info[matched_expected_idx].is_completed = 1; // Mark as processed from buffer
+                    expected_segments_info[matched_expected_idx].is_completed =
+                        1; // Mark as processed from buffer
 
-                    printf("[Rank %d] Received segment from Rank %d, Tag %d (Size %d, Checksum %d). Expected ID %d. Stored.\n",
+                    printf("[Rank %d] Received segment from Rank %d, Tag %d (Size %d, Checksum %d). Expected "
+                           "ID %d. Stored.\n",
                            my_rank, recv_status.MPI_SOURCE, recv_status.MPI_TAG, actual_recv_size,
-                           calculate_checksum(expected_segments_info[matched_expected_idx].data, actual_recv_size),
+                           calculate_checksum(expected_segments_info[matched_expected_idx].data,
+                                              actual_recv_size),
                            expected_segments_info[matched_expected_idx].original_segment_id);
 
                     receives_completed_count++;
-                } else {
+                }
+                else {
                     // This is an unexpected message or a logic error in matching
-                    fprintf(stderr, "[Rank %d] Received UNEXPECTED segment from Rank %d, Tag %d, Size %d. Aborting or ignoring.\n",
-                           my_rank, recv_status.MPI_SOURCE, recv_status.MPI_TAG, actual_recv_size);
+                    fprintf(stderr,
+                            "[Rank %d] Received UNEXPECTED segment from Rank %d, Tag %d, Size %d. Aborting "
+                            "or ignoring.\n",
+                            my_rank, recv_status.MPI_SOURCE, recv_status.MPI_TAG, actual_recv_size);
                     // Potentially handle this error, for now, we'll just note it.
                     // If not aborting, this message effectively "uses up" the Irecv.
                 }
-
 
                 current_recv_request = MPI_REQUEST_NULL; // Receive buffer is now free for another Irecv
 
                 // Post next receive if more are expected and buffer is free
                 if (receives_completed_count < num_segments_to_receive && global_max_segment_size > 0) {
-                    MPI_Irecv(receive_buffer, global_max_segment_size, MPI_BYTE,
-                              MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &current_recv_request);
+                    MPI_Irecv(receive_buffer, global_max_segment_size, MPI_BYTE, MPI_ANY_SOURCE, MPI_ANY_TAG,
+                              MPI_COMM_WORLD, &current_recv_request);
                     // printf("[Rank %d] Posted next MPI_Irecv.\n", my_rank);
                 }
             }
-        } else if (!local_receives_done && current_recv_request == MPI_REQUEST_NULL && num_segments_to_receive > 0 && global_max_segment_size > 0) {
-             // This case: current_recv_request was null (e.g. after processing one, or initially if first post failed/not done)
-             // AND we still expect more.
-             MPI_Irecv(receive_buffer, global_max_segment_size, MPI_BYTE,
-                       MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &current_recv_request);
-             // printf("[Rank %d] Re-posted MPI_Irecv because current was NULL and expecting more.\n", my_rank);
+        }
+        else if (!local_receives_done && current_recv_request == MPI_REQUEST_NULL &&
+                 num_segments_to_receive > 0 && global_max_segment_size > 0) {
+            // This case: current_recv_request was null (e.g. after processing one, or initially if first post
+            // failed/not done) AND we still expect more.
+            MPI_Irecv(receive_buffer, global_max_segment_size, MPI_BYTE, MPI_ANY_SOURCE, MPI_ANY_TAG,
+                      MPI_COMM_WORLD, &current_recv_request);
+            // printf("[Rank %d] Re-posted MPI_Irecv because current was NULL and expecting more.\n",
+            // my_rank);
         }
 
-
         // --- Global Termination Check ---
-        local_sends_done = (sends_completed_count == num_segments_to_send);
+        local_sends_done    = (sends_completed_count == num_segments_to_send);
         local_receives_done = (receives_completed_count == num_segments_to_receive);
-        int local_all_done = (local_sends_done && local_receives_done);
+        int local_all_done  = (local_sends_done && local_receives_done);
 
         MPI_Allreduce(&local_all_done, &global_all_done, 1, MPI_INT, MPI_LAND, MPI_COMM_WORLD);
     }
 
-    printf("[Rank %d] Shuffling loop completed. Sent: %d/%d. Received: %d/%d.\n",
-           my_rank, sends_completed_count, num_segments_to_send,
-           receives_completed_count, num_segments_to_receive);
-    
+    printf("[Rank %d] Shuffling loop completed. Sent: %d/%d. Received: %d/%d.\n", my_rank,
+           sends_completed_count, num_segments_to_send, receives_completed_count, num_segments_to_receive);
+
 done:
     fflush(stdout);
     FUNC_LEAVE(ret_value);
 }
-
 
 item_delete_info
 pdc_region_dl_update(char *obj_name, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size, void *buf)
@@ -858,7 +893,7 @@ pdc_region_dl_finalize()
     if (shared_obj_cache_win != MPI_WIN_NULL) {
         MPI_Win_free(&shared_obj_cache_win);
     }
-    
+
     free(global_metadata_list);
     free(metadata_base_ptr);
     free(region_buf);

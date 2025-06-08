@@ -47,11 +47,11 @@ typedef struct pdc_object_cache {
     uint64_t reg_size[3];
 
     // Data exchange
-    int target_rank;
-    int tag;                    // MPI tag for this segment
-    MPI_Request request;        // MPI_Request for non-blocking operations
-    int is_initiated;           // Flag: 0 = not yet started, 1 = MPI op initiated
-    int is_completed;
+    int         target_rank;
+    int         tag;          // MPI tag for this segment
+    MPI_Request request;      // MPI_Request for non-blocking operations
+    int         is_initiated; // Flag: 0 = not yet started, 1 = MPI op initiated
+    int         is_completed;
 
     // Region data information
     uint64_t buf_offset;
@@ -84,8 +84,6 @@ perr_t pdc_region_dl_list_init();
 
 int pdc_region_dl_search(char *obj_name, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size, void *buf,
                          uint64_t read_size);
-
-
 
 // perr_t pdc_region_dl_collect_global_metadata();
 
