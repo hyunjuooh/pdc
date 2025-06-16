@@ -31,7 +31,6 @@ uint64_t *global_offset_list;
 uint64_t *global_size_list;
 int       global_list_size;
 
-
 perr_t
 pdc_region_prefetch_init()
 {
@@ -97,9 +96,9 @@ PDCregion_receive_prefetch_hint(char *arr[], pdcid_t *arr2, int obj_array_len)
         // reg_size_list   = (uint64_t *)PDC_malloc(sizeof(uint64_t) * reg_dim * obj_prefetch_list_len);
         reg_offset_list = (uint64_t *)PDC_malloc(sizeof(uint64_t) * reg_dim);
         reg_size_list   = (uint64_t *)PDC_malloc(sizeof(uint64_t) * reg_dim);
-        
-        ptr             = reg_offset_list;
-        ptr2            = reg_size_list;
+
+        ptr  = reg_offset_list;
+        ptr2 = reg_size_list;
     }
 
     // Convert received object id
@@ -120,7 +119,6 @@ PDCregion_receive_prefetch_hint(char *arr[], pdcid_t *arr2, int obj_array_len)
             // memcpy(ptr, reg2->offset, sizeof(uint64_t) * reg_dim);
             // ptr += reg_dim;
 
-            
             memcpy(reg_size_list, reg2->size, sizeof(uint64_t) * reg_dim);
             // memcpy(ptr2, reg2->size, sizeof(uint64_t) * reg_dim);
             // ptr2 += reg_dim;
@@ -215,7 +213,7 @@ pdc_region_prepare_global_prefetch_list()
 
     // Reconstruct global char** list
     global_obj_prefetch_list = (char *)PDC_malloc(total_strings * sizeof(char *));
-    int    offset                   = 0;
+    int offset               = 0;
     for (int i = 0; i < total_strings; i++) {
         global_obj_prefetch_list[i] = strdup(global_flat + offset);
         offset += recv_lengths[i];
@@ -224,17 +222,17 @@ pdc_region_prepare_global_prefetch_list()
     global_list_size = total_strings;
 
     if (reg_offset_list != NULL) {
-        global_offset_list =
-            (uint64_t *)PDC_malloc(reg_dim * pdc_client_mpi_size_g * sizeof(uint64_t));
-        global_size_list = (uint64_t *)PDC_malloc(reg_dim * pdc_client_mpi_size_g * sizeof(uint64_t));
-    
-        MPI_Allgather(reg_offset_list, reg_dim, MPI_UINT64_T, global_offset_list,
-                      reg_dim, MPI_UINT64_T, MPI_COMM_WORLD);
-        MPI_Allgather(reg_size_list, reg_dim, MPI_UINT64_T, global_size_list, reg_dim,
-                      MPI_UINT64_T, MPI_COMM_WORLD);
-    } else {
+        global_offset_list = (uint64_t *)PDC_malloc(reg_dim * pdc_client_mpi_size_g * sizeof(uint64_t));
+        global_size_list   = (uint64_t *)PDC_malloc(reg_dim * pdc_client_mpi_size_g * sizeof(uint64_t));
+
+        MPI_Allgather(reg_offset_list, reg_dim, MPI_UINT64_T, global_offset_list, reg_dim, MPI_UINT64_T,
+                      MPI_COMM_WORLD);
+        MPI_Allgather(reg_size_list, reg_dim, MPI_UINT64_T, global_size_list, reg_dim, MPI_UINT64_T,
+                      MPI_COMM_WORLD);
+    }
+    else {
         global_offset_list = NULL;
-        global_size_list = NULL;
+        global_size_list   = NULL;
     }
 
     // Print gathered result at each rank
@@ -295,8 +293,8 @@ PDCregion_prefetch_by_objid()
     }
 
     ret_value = pdc_region_prepare_global_prefetch_list();
-    ret_value = pdc_region_dl_prepare_data_exchange(global_obj_prefetch_list, global_offset_list, global_size_list, 
-                                                    global_list_len);
+    ret_value = pdc_region_dl_prepare_data_exchange(global_obj_prefetch_list, global_offset_list,
+                                                    global_size_list, global_list_len);
 
     ret_value = pdc_region_dl_data_exchange(obj_prefetch_list_len);
 
@@ -307,7 +305,7 @@ PDCregion_prefetch_by_objid()
     for (i = 0; i < global_list_size; i++) {
         free(global_obj_prefetch_list[i]);
     }
-    
+
     free(obj_prefetch_list);
     free(global_obj_prefetch_list);
     free(global_offset_list);
@@ -315,14 +313,13 @@ PDCregion_prefetch_by_objid()
     free(reg_offset_list);
     free(reg_size_list);
 
-
-    obj_prefetch_list = NULL;
+    obj_prefetch_list        = NULL;
     global_obj_prefetch_list = NULL;
-    global_offset_list = NULL;
-    global_size_list = NULL;
-    reg_offset_list = NULL;
-    reg_size_list = NULL;
-    
+    global_offset_list       = NULL;
+    global_size_list         = NULL;
+    reg_offset_list          = NULL;
+    reg_size_list            = NULL;
+
     pdc_region_cache_timelog(start, "PDCregion_prefetch_by_objid - Total time");
 
 done:

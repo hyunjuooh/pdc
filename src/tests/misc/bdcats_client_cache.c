@@ -41,12 +41,14 @@ uniform_random_number()
     return (((double)rand()) / ((double)(RAND_MAX)));
 }
 
-void shuffle(int *arr, int n) {
+void
+shuffle(int *arr, int n)
+{
     for (int i = n - 1; i > 0; i--) {
-        int j = rand() % (i + 1);
+        int j   = rand() % (i + 1);
         int tmp = arr[i];
-        arr[i] = arr[j];
-        arr[j] = tmp;
+        arr[i]  = arr[j];
+        arr[j]  = tmp;
     }
 }
 
@@ -71,11 +73,11 @@ main(int argc, char *argv[])
     pdcid_t pdc_id, cont_id;
     pdcid_t obj_xx, obj_yy, obj_zz, obj_pxx, obj_pyy, obj_pzz, obj_id11, obj_id22;
     // pdcid_t prefetch_arr[8];
-    
+
     char *  prefetch_arr[8];
     pdcid_t reg_prefetch_arr[8];
-    int rank_arr[64];
-    
+    int     rank_arr[64];
+
     pdcid_t region_x, region_y, region_z, region_px, region_py, region_pz, region_id1, region_id2;
     pdcid_t region_xx, region_yy, region_zz, region_pxx, region_pyy, region_pzz, region_id11, region_id22;
     perr_t  ret;
@@ -376,7 +378,7 @@ main(int argc, char *argv[])
             shuffle(rank_arr, size);
         }
         MPI_Scatter(rank_arr, 1, MPI_INT, &random_offset, 1, MPI_INT, 0, MPI_COMM_WORLD);
-        
+
         // random_offset = rank_arr[rank];
         // random_offset    = get_random_offset(0, size - 1);
         offset_remote[0] = random_offset * numparticles;

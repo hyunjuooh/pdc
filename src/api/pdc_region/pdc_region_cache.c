@@ -17,7 +17,7 @@
 
 #define MAX_CACHE_SIZE 268435456
 // #define MAX_CACHE_SIZE 4294967296
-#define MAX_ITEM_NUM   1000
+#define MAX_ITEM_NUM 1000
 
 size_t total_buf_size = 0;
 int    total_item_num = 0;
@@ -77,7 +77,8 @@ pdc_region_cache_search(char *obj_name, int ndim, uint64_t unit, uint64_t *offse
 
 // Insert the region to the list
 perr_t
-pdc_region_cache_insert(int data_exchange, char *obj_name, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size, void *buf)
+pdc_region_cache_insert(int data_exchange, char *obj_name, int ndim, uint64_t unit, uint64_t *offset,
+                        uint64_t *size, void *buf)
 {
     perr_t ret_value = SUCCEED;
 
@@ -133,7 +134,7 @@ pdc_region_cache_update(char *obj_name, int ndim, uint64_t unit, uint64_t *offse
 
     update_result = pdc_region_dl_update(obj_name, ndim, unit, offset, size, buf);
     fflush(stdout);
-    
+
     pdc_region_cache_timelog(start, "pdc_region_cache_update - total time");
 
     total_buf_size -= update_result.deleted_size;
@@ -173,8 +174,8 @@ perr_t
 pdc_region_cache_delete(size_t deleted_size, int deleted_item_num)
 {
     perr_t ret_value = SUCCEED;
-    
-    double           start;
+
+    double start;
 
     start = MPI_Wtime();
 
