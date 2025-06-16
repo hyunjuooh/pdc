@@ -17,15 +17,20 @@
 #include "pdc_client_connect.h"
 
 // pdcid_t * obj_prefetch_list = NULL;
-char **obj_prefetch_list;
-char **global_prefetch_list;
-int *  global_list_len;
-int *  global_list_item_len;
-
+char **   obj_prefetch_list;
 uint64_t *reg_offset_list;
+uint64_t *reg_size_list;
 
 int reg_dim;
 int obj_prefetch_list_len;
+
+// Global prefetch list
+char **   global_obj_prefetch_list;
+int *     global_list_len;
+uint64_t *global_offset_list;
+uint64_t *global_size_list;
+int       global_list_size;
+
 
 perr_t
 pdc_region_prefetch_init()
@@ -67,7 +72,7 @@ PDCregion_receive_prefetch_hint(char *arr[], pdcid_t *arr2, int obj_array_len)
     struct _pdc_id_info *   reginfo2;
     struct pdc_region_info *reg2;
 
-    uint64_t *ptr;
+    uint64_t *ptr, *ptr2;
     int       i;
     double    start;
 
@@ -88,8 +93,13 @@ PDCregion_receive_prefetch_hint(char *arr[], pdcid_t *arr2, int obj_array_len)
 
         reg_dim = reg2->ndim;
 
-        reg_offset_list = (uint64_t *)PDC_malloc(sizeof(uint64_t) * reg_dim * 2 * obj_prefetch_list_len);
+        // reg_offset_list = (uint64_t *)PDC_malloc(sizeof(uint64_t) * reg_dim * obj_prefetch_list_len);
+        // reg_size_list   = (uint64_t *)PDC_malloc(sizeof(uint64_t) * reg_dim * obj_prefetch_list_len);
+        reg_offset_list = (uint64_t *)PDC_malloc(sizeof(uint64_t) * reg_dim);
+        reg_size_list   = (uint64_t *)PDC_malloc(sizeof(uint64_t) * reg_dim);
+        
         ptr             = reg_offset_list;
+        ptr2            = reg_size_list;
     }
 
     // Convert received object id
@@ -106,15 +116,23 @@ PDCregion_receive_prefetch_hint(char *arr[], pdcid_t *arr2, int obj_array_len)
                 PGOTO_ERROR(FAIL, "cannot locate remote region ID");
 
             reg2 = (struct pdc_region_info *)(reginfo2->obj_ptr);
-            memcpy(ptr, reg2->offset, sizeof(uint64_t) * reg_dim);
-            ptr += reg_dim;
+            memcpy(reg_offset_list, reg2->offset, sizeof(uint64_t) * reg_dim);
+            // memcpy(ptr, reg2->offset, sizeof(uint64_t) * reg_dim);
+            // ptr += reg_dim;
 
-            memcpy(ptr, reg2->size, sizeof(uint64_t) * reg_dim);
-            ptr += reg_dim;
+            
+            memcpy(reg_size_list, reg2->size, sizeof(uint64_t) * reg_dim);
+            // memcpy(ptr2, reg2->size, sizeof(uint64_t) * reg_dim);
+            // ptr2 += reg_dim;
         }
     }
 
     // PDCregion_print_prefetch_list();
+
+    // printf("[RANK %d] PDCregion_receive_prefetch_hint: pid=%d, var_a=%d, &var_a=%p, "
+    //        "PDCregion_print_prefetch_list=%p\n",
+    //        pdc_client_mpi_rank_g, getpid(), obj_prefetch_list_len, (void *)&obj_prefetch_list_len,
+    //        (void *)PDCregion_print_prefetch_list);
 
     pdc_region_cache_timelog(start, "PDCregion_receive_prefetch_hint - Total time");
 
@@ -123,83 +141,133 @@ done:
     FUNC_LEAVE(ret_value);
 }
 
+void
+flatten_strings(char **src, int count, char **flat_buf, int **lengths, int *total_bytes)
+{
+    *lengths     = malloc(count * sizeof(int));
+    *total_bytes = 0;
+    for (int i = 0; i < count; i++) {
+        (*lengths)[i] = strlen(src[i]) + 1; // include null terminator
+        *total_bytes += (*lengths)[i];
+    }
+
+    *flat_buf  = malloc(*total_bytes);
+    int offset = 0;
+    for (int i = 0; i < count; i++) {
+        memcpy(*flat_buf + offset, src[i], (*lengths)[i]);
+        offset += (*lengths)[i];
+    }
+}
+
 perr_t
 pdc_region_prepare_global_prefetch_list()
 {
     perr_t ret_value = SUCCEED;
-    int *  displs, *list_item_len, *global_bytes;
-    int    local_bytes = 0, pos = 0, total_item_num = 0, total_bytes = 0;
-    char * sendlist, *recvlist;
-    int    i;
     double start;
 
     FUNC_ENTER(NULL);
 
-    // Collect all list length globally
+    start = MPI_Wtime();
+
+    // Gather how many strings each rank has
     global_list_len = (int *)PDC_malloc(pdc_client_mpi_size_g * sizeof(int));
     MPI_Allgather(&obj_prefetch_list_len, 1, MPI_INT, global_list_len, 1, MPI_INT, MPI_COMM_WORLD);
 
-    displs    = (int *)PDC_malloc(pdc_client_mpi_size_g * sizeof(int));
-    displs[0] = 0;
-    for (i = 0; i < pdc_client_mpi_size_g; i++) {
-        total_item_num += global_list_len[i];
-        if (i > 0) {
-            displs[i] = displs[i - 1] + global_list_len[i - 1];
+    // Flatten local strings and gather lengths
+    char *flat_data;
+    int * lengths, total_bytes;
+    flatten_strings(obj_prefetch_list, obj_prefetch_list_len, &flat_data, &lengths, &total_bytes);
+
+    // Gather string lengths from all ranks
+    int  total_strings       = 0;
+    int *recv_lengths        = NULL;
+    int *recv_lengths_displs = (int *)PDC_malloc(pdc_client_mpi_size_g * sizeof(int));
+    int *recv_lengths_counts = (int *)PDC_malloc(pdc_client_mpi_size_g * sizeof(int));
+    recv_lengths_displs[0]   = 0;
+    for (int i = 0; i < pdc_client_mpi_size_g; i++) {
+        recv_lengths_counts[i] = global_list_len[i];
+        if (i > 0)
+            recv_lengths_displs[i] = recv_lengths_displs[i - 1] + global_list_len[i - 1];
+        total_strings += global_list_len[i];
+    }
+    recv_lengths = (int *)PDC_malloc(total_strings * sizeof(int));
+    MPI_Allgatherv(lengths, obj_prefetch_list_len, MPI_INT, recv_lengths, recv_lengths_counts,
+                   recv_lengths_displs, MPI_INT, MPI_COMM_WORLD);
+
+    // Gather flattened data
+    int *local_bytes = (int *)PDC_malloc(sizeof(int));
+    *local_bytes     = total_bytes;
+    int *recv_bytes  = (int *)PDC_malloc(pdc_client_mpi_size_g * sizeof(int));
+    MPI_Allgather(local_bytes, 1, MPI_INT, recv_bytes, 1, MPI_INT, MPI_COMM_WORLD);
+
+    int *recv_bytes_displs = (int *)PDC_malloc(pdc_client_mpi_size_g * sizeof(int));
+    recv_bytes_displs[0]   = 0;
+    for (int i = 1; i < pdc_client_mpi_size_g; i++) {
+        recv_bytes_displs[i] = recv_bytes_displs[i - 1] + recv_bytes[i - 1];
+    }
+
+    int total_recv_bytes =
+        recv_bytes_displs[pdc_client_mpi_size_g - 1] + recv_bytes[pdc_client_mpi_size_g - 1];
+    char *global_flat = (char *)PDC_malloc(total_recv_bytes);
+
+    MPI_Allgatherv(flat_data, total_bytes, MPI_CHAR, global_flat, recv_bytes, recv_bytes_displs, MPI_CHAR,
+                   MPI_COMM_WORLD);
+
+    // Reconstruct global char** list
+    global_obj_prefetch_list = (char *)PDC_malloc(total_strings * sizeof(char *));
+    int    offset                   = 0;
+    for (int i = 0; i < total_strings; i++) {
+        global_obj_prefetch_list[i] = strdup(global_flat + offset);
+        offset += recv_lengths[i];
+    }
+
+    global_list_size = total_strings;
+
+    if (reg_offset_list != NULL) {
+        global_offset_list =
+            (uint64_t *)PDC_malloc(reg_dim * pdc_client_mpi_size_g * sizeof(uint64_t));
+        global_size_list = (uint64_t *)PDC_malloc(reg_dim * pdc_client_mpi_size_g * sizeof(uint64_t));
+    
+        MPI_Allgather(reg_offset_list, reg_dim, MPI_UINT64_T, global_offset_list,
+                      reg_dim, MPI_UINT64_T, MPI_COMM_WORLD);
+        MPI_Allgather(reg_size_list, reg_dim, MPI_UINT64_T, global_size_list, reg_dim,
+                      MPI_UINT64_T, MPI_COMM_WORLD);
+    } else {
+        global_offset_list = NULL;
+        global_size_list = NULL;
+    }
+
+    // Print gathered result at each rank
+    if (pdc_client_mpi_rank_g == 0) {
+        printf("Rank %d received:\n", pdc_client_mpi_rank_g);
+        // for (int i = 0; i < total_strings; i++) {
+        //     printf("  [%d] %s\n", i, global_obj_prefetch_list[i]);
+        // }
+
+        // for (int i = 0; i < pdc_client_mpi_size_g; i++) {
+        //     printf("  [%d] %d\n", i, global_list_len[i]);
+        // }
+
+        printf("  From rank %d: list1 =", pdc_client_mpi_rank_g);
+        for (int i = 0; i < pdc_client_mpi_size_g; i++) {
+            printf(" %" PRIu64, global_offset_list[i]);
         }
-    }
-
-    list_item_len = (int *)PDC_malloc(obj_prefetch_list_len * sizeof(int));
-    for (int i = 0; i < obj_prefetch_list_len; i++) {
-        // Include null terminator for string
-        list_item_len[i] = strlen(obj_prefetch_list[i]) + 1;
-    }
-
-    global_list_item_len = (int *)PDC_malloc(total_item_num * sizeof(int));
-    MPI_Allgatherv(list_item_len, total_item_num, MPI_INT, global_list_item_len, global_list_len, displs,
-                   MPI_INT, MPI_COMM_WORLD);
-
-    // Flatten prefetch obj name list for collection
-    for (i = 0; i < obj_prefetch_list_len; i++) {
-        local_bytes += list_item_len[i];
-    }
-
-    sendlist = (char *)PDC_malloc(local_bytes);
-    for (i = 0; i < obj_prefetch_list_len; i++) {
-        memcpy(sendlist + pos, obj_prefetch_list[i], list_item_len[i]);
-        pos += list_item_len[i];
-    }
-
-    // Prepare data size and displacements for collection of flatten prefetch list
-    global_bytes = (int *)PDC_malloc(pdc_client_mpi_size_g * sizeof(int));
-    MPI_Allgather(&local_bytes, 1, MPI_INT, global_bytes, 1, MPI_INT, MPI_COMM_WORLD);
-
-    displs[0] = 0;
-    for (i = 0; i < pdc_client_mpi_size_g; i++) {
-        total_bytes += global_bytes[i];
-        if (i > 0) {
-            displs[i] = displs[i - 1] + global_bytes[i - 1];
+        printf(" | list2 =");
+        for (int i = 0; i < pdc_client_mpi_size_g; i++) {
+            printf(" %" PRIu64, global_size_list[i]);
         }
+        printf("\n");
     }
 
-    // Collect flatten prefetch list
-    recvlist = (char *)PDC_malloc(total_bytes);
-    MPI_Allgatherv(sendlist, local_bytes, MPI_CHAR, recvlist, total_bytes, displs, MPI_CHAR, MPI_COMM_WORLD);
-
-    // Create a global list for each rank
-    global_prefetch_list = (char *)PDC_malloc(total_item_num * sizeof(char *));
-
-    pos = 0;
-    for (i = 0; i < total_item_num; i++) {
-        global_prefetch_list[i] = (char *)PDC_malloc(global_list_item_len[i]);
-        memcpy(global_prefetch_list[i], recvlist + pos, global_list_item_len[i]);
-        pos += global_list_item_len[i];
-    }
-
-    free(displs);
-    free(list_item_len);
-    free(sendlist);
-    free(global_bytes);
-    free(recvlist);
+    free(flat_data);
+    free(lengths);
+    free(local_bytes);
+    free(recv_lengths);
+    free(recv_lengths_displs);
+    free(recv_lengths_counts);
+    free(recv_bytes);
+    free(recv_bytes_displs);
+    free(global_flat);
 
 done:
     fflush(stdout);
@@ -210,7 +278,7 @@ perr_t
 PDCregion_prefetch_by_objid()
 {
     perr_t    ret_value = SUCCEED;
-    uint64_t *offset, *size, *ptr;
+    uint64_t *offset, *size, *ptr, *ptr2;
     int       i, is_cached;
     double    start;
 
@@ -227,48 +295,34 @@ PDCregion_prefetch_by_objid()
     }
 
     ret_value = pdc_region_prepare_global_prefetch_list();
-    ret_value =
-        pdc_region_dl_prepare_data_exchange(global_prefetch_list, global_list_len, global_list_item_len);
-    ret_value = pdc_region_dl_global_data_exchange(obj_prefetch_list_len);
+    ret_value = pdc_region_dl_prepare_data_exchange(global_obj_prefetch_list, global_offset_list, global_size_list, 
+                                                    global_list_len);
 
-    // ret_value = pdc_region_dl_list_init();
+    ret_value = pdc_region_dl_data_exchange(obj_prefetch_list_len);
 
-    // ptr    = reg_offset_list;
-    // offset = (uint64_t *)PDC_malloc(sizeof(uint64_t) * reg_dim);
-    // size   = (uint64_t *)PDC_malloc(sizeof(uint64_t) * reg_dim);
+    for (i = 0; i < obj_prefetch_list_len; i++) {
+        free(obj_prefetch_list[i]);
+    }
 
-    // for (i = 0; i < obj_prefetch_list_len; i++) {
-    //     if (ptr != NULL) {
-    //         memcpy(offset, ptr, sizeof(uint64_t) * reg_dim);
-    //         ptr += reg_dim;
+    for (i = 0; i < global_list_size; i++) {
+        free(global_obj_prefetch_list[i]);
+    }
+    
+    free(obj_prefetch_list);
+    free(global_obj_prefetch_list);
+    free(global_offset_list);
+    free(global_size_list);
+    free(reg_offset_list);
+    free(reg_size_list);
 
-    //         memcpy(size, ptr, sizeof(uint64_t) * reg_dim);
-    //         ptr += reg_dim;
 
-    //         is_cached = pdc_region_dl_global_search(obj_prefetch_list[i], offset, size);
-    //     }
-    //     else {
-    //         is_cached = pdc_region_dl_global_search(obj_prefetch_list[i], NULL, NULL);
-    //     }
-    // }
-
-    // ret_value = pdc_region_global_metadata_free();
-
-    // free(offset);
-    // free(size);
-
-    // for (i = 0; i < obj_prefetch_list_len; i++) {
-    //     free(obj_prefetch_list[i]);
-    // }
-    // free(obj_prefetch_list);
-
-    // obj_prefetch_list = NULL;
-
-    // if (reg_offset_list != NULL) {
-    //     free(reg_offset_list);
-    //     reg_offset_list = NULL;
-    // }
-
+    obj_prefetch_list = NULL;
+    global_obj_prefetch_list = NULL;
+    global_offset_list = NULL;
+    global_size_list = NULL;
+    reg_offset_list = NULL;
+    reg_size_list = NULL;
+    
     pdc_region_cache_timelog(start, "PDCregion_prefetch_by_objid - Total time");
 
 done:

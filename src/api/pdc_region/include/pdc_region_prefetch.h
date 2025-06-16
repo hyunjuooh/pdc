@@ -44,5 +44,6 @@ perr_t PDCregion_print_prefetch_list();
 /*******************************************************/
 
 perr_t pdc_region_prefetch_init();
+perr_t pdc_region_prepare_global_prefetch_list();
 
 #endif /* PDC_REGION_PREFETCH_H */

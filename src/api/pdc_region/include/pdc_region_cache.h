@@ -41,11 +41,13 @@ perr_t pdc_region_cache_init(pdcid_t pdcid);
 int pdc_region_cache_search(char *obj_name, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size,
                             void *buf);
 
-perr_t pdc_region_cache_insert(char *obj_name, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size,
+perr_t pdc_region_cache_insert(int data_exchange, char *obj_name, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size,
                                void *buf);
 
 perr_t pdc_region_cache_update(char *obj_name, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size,
                                void *buf);
+
+perr_t pdc_region_cache_delete(size_t deleted_size, int deleted_item_num);
 
 perr_t pdc_region_cache_evict(size_t required_size);
 

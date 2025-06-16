@@ -16,6 +16,7 @@
 #include "pdc_client_connect.h"
 
 #define MAX_CACHE_SIZE 268435456
+// #define MAX_CACHE_SIZE 4294967296
 #define MAX_ITEM_NUM   1000
 
 size_t total_buf_size = 0;
@@ -76,7 +77,7 @@ pdc_region_cache_search(char *obj_name, int ndim, uint64_t unit, uint64_t *offse
 
 // Insert the region to the list
 perr_t
-pdc_region_cache_insert(char *obj_name, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size, void *buf)
+pdc_region_cache_insert(int data_exchange, char *obj_name, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size, void *buf)
 {
     perr_t ret_value = SUCCEED;
 
@@ -97,7 +98,8 @@ pdc_region_cache_insert(char *obj_name, int ndim, uint64_t unit, uint64_t *offse
 
     // Check if there is remaining buffer size to insert region
     // If there is no remaining capacity, free the buffer according to LRU policy
-    if (total_buf_size + read_size > MAX_CACHE_SIZE) {
+    // If it is during data_exchange skip the eviction since it deletes item internally
+    if ((total_buf_size + read_size > MAX_CACHE_SIZE) && !data_exchange) {
         pdc_region_cache_evict(total_buf_size + read_size);
     }
 
@@ -125,13 +127,14 @@ pdc_region_cache_update(char *obj_name, int ndim, uint64_t unit, uint64_t *offse
     perr_t ret_value = SUCCEED;
 
     item_delete_info update_result;
-    double           start;
+    double           start = MPI_Wtime();
 
     FUNC_ENTER(NULL);
 
-    start         = MPI_Wtime();
     update_result = pdc_region_dl_update(obj_name, ndim, unit, offset, size, buf);
-    pdc_region_cache_timelog(start, "pdc_region_cache_update - update time");
+    fflush(stdout);
+    
+    pdc_region_cache_timelog(start, "pdc_region_cache_update - total time");
 
     total_buf_size -= update_result.deleted_size;
     total_item_num -= update_result.deleted_item_num;
@@ -167,6 +170,27 @@ done:
 }
 
 perr_t
+pdc_region_cache_delete(size_t deleted_size, int deleted_item_num)
+{
+    perr_t ret_value = SUCCEED;
+    
+    double           start;
+
+    start = MPI_Wtime();
+
+    FUNC_ENTER(NULL);
+
+    total_buf_size -= deleted_size;
+    total_item_num -= deleted_item_num;
+
+    pdc_region_cache_timelog(start, "pdc_region_cache_evict - pdc_region_dl_evict time");
+
+done:
+    fflush(stdout);
+    FUNC_LEAVE(ret_value);
+}
+
+perr_t
 pdc_region_cache_finalize()
 {
     perr_t ret_value = SUCCEED;
@@ -183,7 +207,7 @@ done:
 void
 pdc_region_cache_timelog(double start_time, const char *message)
 {
-    int        rank_limit = 0;
+    int        rank_limit = 5;
     double     end_time;
     time_t     cur_time = time(NULL);
     struct tm *log_time = localtime(&cur_time);
