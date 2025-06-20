@@ -168,7 +168,7 @@ pdc_region_prepare_global_prefetch_list()
     start = MPI_Wtime();
     printf("Rank %d entered global_prefetch_list creation\n", pdc_client_mpi_rank_g);
     fflush(stdout);
-    
+
     // Gather how many strings each rank has
     global_list_len = (int *)PDC_malloc(pdc_client_mpi_size_g * sizeof(int));
     MPI_Allgather(&obj_prefetch_list_len, 1, MPI_INT, global_list_len, 1, MPI_INT, MPI_COMM_WORLD);

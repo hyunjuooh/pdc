@@ -439,12 +439,12 @@ pdc_region_dl_data_exchange(int obj_prefetch_list_len)
 
     MPI_Request current_recv_request = MPI_REQUEST_NULL;
 
-    int      global_all_done          = 0;
-    int      global_send_completed    = 0;
-    int      global_receive_completed = 0;
-    int      sends_completed_count    = 0;
-    int      receives_completed_count = 0;
-    
+    int global_all_done          = 0;
+    int global_send_completed    = 0;
+    int global_receive_completed = 0;
+    int sends_completed_count    = 0;
+    int receives_completed_count = 0;
+
     // int    num_segments_to_receive =  obj_prefetch_list_len - exist_item_num;
     int      num_segments_to_receive = obj_prefetch_list_len;
     uint64_t total_size;
@@ -608,8 +608,10 @@ pdc_region_dl_data_exchange(int obj_prefetch_list_len)
         // MPI_Allreduce(&local_all_done, &global_all_done, 1, MPI_INT, MPI_LAND, client_cache_comm);
         // MPI_Allreduce(&local_sends_done, &global_all_done, 1, MPI_INT, MPI_LAND, client_cache_comm);
 
-        MPI_Allreduce(&data_exchange_item_num, &global_send_completed, 1, MPI_INT, MPI_SUM, client_cache_comm);
-        MPI_Allreduce(&receives_completed_count, &global_receive_completed, 1, MPI_INT, MPI_SUM, client_cache_comm);
+        MPI_Allreduce(&data_exchange_item_num, &global_send_completed, 1, MPI_INT, MPI_SUM,
+                      client_cache_comm);
+        MPI_Allreduce(&receives_completed_count, &global_receive_completed, 1, MPI_INT, MPI_SUM,
+                      client_cache_comm);
 
         global_all_done = (global_send_completed == global_receive_completed);
     }
