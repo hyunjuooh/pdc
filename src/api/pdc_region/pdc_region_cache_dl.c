@@ -16,8 +16,9 @@
 #include "pdc_region_prefetch.h"
 #include "pdc_client_connect.h"
 
+#define MAX_CACHE_SIZE 34359738368
 // #define MAX_CACHE_SIZE 4294967296
-#define MAX_CACHE_SIZE 268435456
+// #define MAX_CACHE_SIZE 268435456
 
 MPI_Comm client_cache_comm;
 
@@ -438,9 +439,12 @@ pdc_region_dl_data_exchange(int obj_prefetch_list_len)
 
     MPI_Request current_recv_request = MPI_REQUEST_NULL;
 
-    int global_all_done          = 0;
-    int sends_completed_count    = 0;
-    int receives_completed_count = 0;
+    int      global_all_done          = 0;
+    int      global_send_completed    = 0;
+    int      global_receive_completed = 0;
+    int      sends_completed_count    = 0;
+    int      receives_completed_count = 0;
+    
     // int    num_segments_to_receive =  obj_prefetch_list_len - exist_item_num;
     int      num_segments_to_receive = obj_prefetch_list_len;
     uint64_t total_size;
@@ -501,7 +505,7 @@ pdc_region_dl_data_exchange(int obj_prefetch_list_len)
                num_segments_to_receive);
         fflush(stdout);
 
-        // --- Try to initiate sends ---
+        // Initiate send
         if (!local_sends_done && (obj_cache_iter != NULL) && (obj_cache_iter->target_rank != -1) &&
             !(obj_cache_iter->is_initiated) && !send_buffer_flag) {
             printf("[RANK %d] obj_name: %s sent, offset: %d\n", pdc_client_mpi_rank_g,
@@ -514,15 +518,12 @@ pdc_region_dl_data_exchange(int obj_prefetch_list_len)
                       &obj_cache_iter->request);
             obj_cache_iter->is_initiated = 1;
             send_buffer_flag             = 1;
-            // obj_cache_iter = obj_cache_iter->next;
         }
         pdc_region_cache_timelog(start, "pdc_region_dl_data_exchange - initiate send");
 
-        printf("[RANK %d] send_buffer_flag: %d, obj_name: %s\n", pdc_client_mpi_rank_g, send_buffer_flag,
-               obj_cache_iter->obj_name);
         // printf("[RANK %d] send_buffer_flag: %d, obj_name: %s, initiated: %d\n", pdc_client_mpi_rank_g,
-        // send_buffer_flag, obj_cache_iter->obj_name, obj_cache_iter->is_initiated);
-        fflush(stdout);
+        //         send_buffer_flag, obj_cache_iter->obj_name, obj_cache_iter->is_initiated);
+        // fflush(stdout);
 
         // --- Check for completed send ---
         // If send_buffer is currently used make sure that it was sent completely
@@ -560,6 +561,7 @@ pdc_region_dl_data_exchange(int obj_prefetch_list_len)
         pdc_region_cache_timelog(start, "pdc_region_dl_data_exchange - check completed send");
 
         // --- Check for completed receives ---
+        // if (!local_receives_done && (current_recv_request != MPI_REQUEST_NULL)) {
         if (!local_receives_done && (current_recv_request != MPI_REQUEST_NULL)) {
             int        flag = 0;
             MPI_Status recv_status;
@@ -587,7 +589,7 @@ pdc_region_dl_data_exchange(int obj_prefetch_list_len)
                               client_cache_comm, &current_recv_request);
                 }
             }
-            // pdc_region_cache_timelog(start, "pdc_region_dl_data_exchange - check completed receives");
+            pdc_region_cache_timelog(start, "pdc_region_dl_data_exchange - check completed receives");
         }
         else if (!local_receives_done && current_recv_request == MPI_REQUEST_NULL &&
                  obj_prefetch_list_len > 0 && global_max_obj_size > 0) {
@@ -603,7 +605,13 @@ pdc_region_dl_data_exchange(int obj_prefetch_list_len)
         // int local_all_done  = (local_sends_done && local_receives_done);
         local_all_done = (local_sends_done && local_receives_done);
 
-        MPI_Allreduce(&local_all_done, &global_all_done, 1, MPI_INT, MPI_LAND, client_cache_comm);
+        // MPI_Allreduce(&local_all_done, &global_all_done, 1, MPI_INT, MPI_LAND, client_cache_comm);
+        // MPI_Allreduce(&local_sends_done, &global_all_done, 1, MPI_INT, MPI_LAND, client_cache_comm);
+
+        MPI_Allreduce(&data_exchange_item_num, &global_send_completed, 1, MPI_INT, MPI_SUM, client_cache_comm);
+        MPI_Allreduce(&receives_completed_count, &global_receive_completed, 1, MPI_INT, MPI_SUM, client_cache_comm);
+
+        global_all_done = (global_send_completed == global_receive_completed);
     }
 
     printf("[Rank %d] Shuffling loop completed. Sent: %d/%d. Received: %d/%d.\n", pdc_client_mpi_rank_g,
@@ -632,9 +640,6 @@ pdc_region_dl_update(char *obj_name, int ndim, uint64_t unit, uint64_t *offset, 
     item_delete_info         result;
 
     FUNC_ENTER(NULL);
-
-    printf("pdc_region_dl_update - cached_item_num: %d\n", cached_item_num);
-    fflush(stdout);
 
     if (cached_item_num == 0) {
         result.deleted_size     = updated_size;

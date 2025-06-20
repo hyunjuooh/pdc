@@ -15,8 +15,9 @@
 #include "pdc_region_prefetch.h"
 #include "pdc_client_connect.h"
 
-#define MAX_CACHE_SIZE 268435456
+// #define MAX_CACHE_SIZE 268435456
 // #define MAX_CACHE_SIZE 4294967296
+#define MAX_CACHE_SIZE 34359738368
 #define MAX_ITEM_NUM 1000
 
 size_t total_buf_size = 0;
