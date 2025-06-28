@@ -48,7 +48,7 @@
 
 #define PDC_MERGE_TRANSFER_MIN_COUNT 50
 
-#define MAX_NAME_LEN 100
+#define MAX_NAME_LEN 1000
 
 /* #define TANG_DEBUG 1 */
 

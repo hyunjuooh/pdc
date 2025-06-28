@@ -28,7 +28,7 @@
 #include "pdc_public.h"
 #include "pdc_obj.h"
 
-#define MAX_NAME_LEN 100
+#define MAX_NAME_LEN 1000
 
 /**************************/
 /* Library Private Struct */

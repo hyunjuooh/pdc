@@ -315,13 +315,13 @@ pdc_region_dl_prepare_data_exchange(char **global_prefetch_list, uint64_t *offse
         prefetch_list_idx = 0;
     }
 
-    // for debugging purpose
-    obj_cache_iter = obj_cache_list;
-    while (obj_cache_iter != NULL) {
-        printf("rank: %d, obj_name: %s, target_rank: %d\n", pdc_client_mpi_rank_g, obj_cache_iter->obj_name,
-               obj_cache_iter->target_rank);
-        obj_cache_iter = obj_cache_iter->next;
-    }
+    // // for debugging purpose
+    // obj_cache_iter = obj_cache_list;
+    // while (obj_cache_iter != NULL) {
+    //     printf("rank: %d, obj_name: %s, target_rank: %d\n", pdc_client_mpi_rank_g, obj_cache_iter->obj_name,
+    //            obj_cache_iter->target_rank);
+    //     obj_cache_iter = obj_cache_iter->next;
+    // }
 
     pdc_region_cache_timelog(start, "pdc_region_dl_prepare_data_exchange - total time");
 
@@ -439,21 +439,24 @@ pdc_region_dl_data_exchange(int obj_prefetch_list_len)
 
     MPI_Request current_recv_request = MPI_REQUEST_NULL;
 
-    int global_all_done          = 0;
-    int global_send_completed    = 0;
-    int global_receive_completed = 0;
-    int sends_completed_count    = 0;
-    int receives_completed_count = 0;
+    int      sends_completed_count    = 0;
+    int      receives_completed_count = 0;
 
-    // int    num_segments_to_receive =  obj_prefetch_list_len - exist_item_num;
-    int      num_segments_to_receive = obj_prefetch_list_len;
-    uint64_t total_size;
-    int      position            = 0;
-    int      send_buffer_flag    = 0;
-    int      local_sends_done    = (sends_completed_count == data_exchange_item_num);
-    int      local_receives_done = (receives_completed_count == num_segments_to_receive);
-    int      local_all_done      = (local_sends_done && local_receives_done);
+    int      num_segments_to_receive  = obj_prefetch_list_len;
+    
+    int      local_sends_done         = (sends_completed_count == data_exchange_item_num);
+    int      local_receives_done      = (receives_completed_count == num_segments_to_receive);
+    int      local_all_done           = (local_sends_done && local_receives_done);
 
+    int      global_all_done          = 0;
+    int      global_send_completed    = 0;
+    int      global_receive_completed = 0;
+    
+    uint64_t total_size               = 0;
+    int      position                 = 0;
+    int      send_buffer_flag         = 0;
+    
+    
     double start = MPI_Wtime();
 
     FUNC_ENTER(NULL);
@@ -465,6 +468,7 @@ pdc_region_dl_data_exchange(int obj_prefetch_list_len)
 
     total_size = pdc_region_dl_data_exchange_size();
 
+    // Allocate buffer for send and receive buffer
     if (global_max_obj_size > 0) {
         send_buffer    = (char *)PDC_malloc(total_size);
         receive_buffer = (char *)PDC_malloc(total_size);
@@ -493,30 +497,30 @@ pdc_region_dl_data_exchange(int obj_prefetch_list_len)
     obj_cache_iter = obj_cache_list;
 
     while (!global_all_done) {
-        // while (!local_all_done) {
-        // int local_sends_done    = (sends_completed_count == data_exchange_item_num);
-        // int local_receives_done = (receives_completed_count == num_segments_to_receive);
-        local_sends_done    = (sends_completed_count == data_exchange_item_num);
-        local_receives_done = (receives_completed_count == num_segments_to_receive);
+        // local_sends_done    = (sends_completed_count == data_exchange_item_num);
+        // local_receives_done = (receives_completed_count == num_segments_to_receive);
 
-        printf("[RANK %d] sends_completed_count: %d, receives_completed_count: %d, data_exchange_item_num: "
-               "%d, num_segments_to_receive: %d\n",
-               pdc_client_mpi_rank_g, sends_completed_count, receives_completed_count, data_exchange_item_num,
-               num_segments_to_receive);
-        fflush(stdout);
+        // printf("[RANK %d] sends_completed_count: %d, receives_completed_count: %d, data_exchange_item_num: "
+        //        "%d, num_segments_to_receive: %d\n",
+        //        pdc_client_mpi_rank_g, sends_completed_count, receives_completed_count, data_exchange_item_num,
+        //        num_segments_to_receive);
+        // fflush(stdout);
 
         // Initiate send
         if (!local_sends_done && (obj_cache_iter != NULL) && (obj_cache_iter->target_rank != -1) &&
             !(obj_cache_iter->is_initiated) && !send_buffer_flag) {
-            printf("[RANK %d] obj_name: %s sent, offset: %d\n", pdc_client_mpi_rank_g,
-                   obj_cache_iter->obj_name, obj_cache_iter->reg_offset[0]);
-            fflush(stdout);
+            // printf("[RANK %d] obj_name: %s sent, offset: %d\n", pdc_client_mpi_rank_g,
+            //        obj_cache_iter->obj_name, obj_cache_iter->reg_offset[0]);
+            // fflush(stdout);
 
             // MPI_Pack the node item to send
             position = pdc_region_dl_data_pack(send_buffer, obj_cache_iter, total_size);
             MPI_Isend(send_buffer, position, MPI_PACKED, obj_cache_iter->target_rank, 0, client_cache_comm,
                       &obj_cache_iter->request);
+            
             obj_cache_iter->is_initiated = 1;
+
+            // Flag for current send buffer occupation
             send_buffer_flag             = 1;
         }
         pdc_region_cache_timelog(start, "pdc_region_dl_data_exchange - initiate send");
@@ -527,19 +531,20 @@ pdc_region_dl_data_exchange(int obj_prefetch_list_len)
 
         // --- Check for completed send ---
         // If send_buffer is currently used make sure that it was sent completely
-        if (send_buffer_flag && (obj_cache_iter != NULL) && obj_cache_iter->is_initiated) {
+        // if (send_buffer_flag && (obj_cache_iter != NULL) && obj_cache_iter->is_initiated) {
+        if (send_buffer_flag && obj_cache_iter->is_initiated) {
             int        flag = 0;
             MPI_Status send_status;
             MPI_Test(&obj_cache_iter->request, &flag, &send_status);
 
-            printf("[RANK %d] Check completed sends flag: %d, obj_name: %s\n", pdc_client_mpi_rank_g, flag,
-                   obj_cache_iter->obj_name);
-            fflush(stdout);
+            // printf("[RANK %d] Check completed sends flag: %d, obj_name: %s\n", pdc_client_mpi_rank_g, flag,
+            //        obj_cache_iter->obj_name);
+            // fflush(stdout);
 
             if (flag) {
-                printf("[RANK %d] Send completed obj_name: %s deleted offset: %d\n", pdc_client_mpi_rank_g,
-                       obj_cache_iter->obj_name, obj_cache_iter->reg_offset[0]);
-                fflush(stdout);
+                // printf("[RANK %d] Send completed obj_name: %s deleted offset: %d\n", pdc_client_mpi_rank_g,
+                //        obj_cache_iter->obj_name, obj_cache_iter->reg_offset[0]);
+                // fflush(stdout);
 
                 obj_cache_item = obj_cache_iter;
                 obj_cache_iter = obj_cache_iter->next;
@@ -561,7 +566,6 @@ pdc_region_dl_data_exchange(int obj_prefetch_list_len)
         pdc_region_cache_timelog(start, "pdc_region_dl_data_exchange - check completed send");
 
         // --- Check for completed receives ---
-        // if (!local_receives_done && (current_recv_request != MPI_REQUEST_NULL)) {
         if (!local_receives_done && (current_recv_request != MPI_REQUEST_NULL)) {
             int        flag = 0;
             MPI_Status recv_status;
@@ -574,15 +578,16 @@ pdc_region_dl_data_exchange(int obj_prefetch_list_len)
                                                     recv_obj_item->unit, recv_obj_item->reg_offset,
                                                     recv_obj_item->reg_size, recv_obj_item->buf);
 
-                printf(
-                    "[RANK %d] Received obj_name: %s, offset: %d, head_obj_name: %s, head_obj_offset: %d\n",
-                    pdc_client_mpi_rank_g, recv_obj_item->obj_name, recv_obj_item->reg_offset[0],
-                    obj_cache_list->obj_name, obj_cache_list->reg_offset[0]);
-                fflush(stdout);
+                // printf(
+                //     "[RANK %d] Received obj_name: %s, offset: %d, head_obj_name: %s, head_obj_offset: %d\n",
+                //     pdc_client_mpi_rank_g, recv_obj_item->obj_name, recv_obj_item->reg_offset[0],
+                //     obj_cache_list->obj_name, obj_cache_list->reg_offset[0]);
+                // fflush(stdout);
 
                 receives_completed_count++;
                 current_recv_request = MPI_REQUEST_NULL; // Receive buffer is now free for another Irecv
-
+                free(recv_obj_item->buf);
+                
                 // Post next receive if more are expected and buffer is free
                 if (receives_completed_count < num_segments_to_receive && global_max_obj_size > 0) {
                     MPI_Irecv(receive_buffer, total_size, MPI_PACKED, MPI_ANY_SOURCE, MPI_ANY_TAG,
@@ -602,28 +607,36 @@ pdc_region_dl_data_exchange(int obj_prefetch_list_len)
         // --- Global Termination Check ---
         local_sends_done    = (sends_completed_count == data_exchange_item_num);
         local_receives_done = (receives_completed_count == num_segments_to_receive);
-        // int local_all_done  = (local_sends_done && local_receives_done);
         local_all_done = (local_sends_done && local_receives_done);
 
         // MPI_Allreduce(&local_all_done, &global_all_done, 1, MPI_INT, MPI_LAND, client_cache_comm);
-        // MPI_Allreduce(&local_sends_done, &global_all_done, 1, MPI_INT, MPI_LAND, client_cache_comm);
 
         MPI_Allreduce(&data_exchange_item_num, &global_send_completed, 1, MPI_INT, MPI_SUM,
                       client_cache_comm);
+        // MPI_Allreduce(&num_segments_to_send, &global_send_completed, 1, MPI_INT, MPI_SUM,
+        //               client_cache_comm);
         MPI_Allreduce(&receives_completed_count, &global_receive_completed, 1, MPI_INT, MPI_SUM,
                       client_cache_comm);
 
         global_all_done = (global_send_completed == global_receive_completed);
     }
 
-    printf("[Rank %d] Shuffling loop completed. Sent: %d/%d. Received: %d/%d.\n", pdc_client_mpi_rank_g,
-           sends_completed_count, data_exchange_item_num, receives_completed_count, obj_prefetch_list_len);
+    // if (current_recv_request != MPI_REQUEST_NULL) {
+    //     MPI_Status recv_status;
+    //     MPI_Cancel(&current_recv_request);
+    //     MPI_Wait(&current_recv_request, &recv_status);
+    // }
+
+    // printf("[Rank %d] Shuffling loop completed. Sent: %d/%d. Received: %d/%d.\n", pdc_client_mpi_rank_g,
+    //        sends_completed_count, data_exchange_item_num, receives_completed_count, obj_prefetch_list_len);
 
     MPI_Barrier(client_cache_comm);
 
+    pdc_region_cache_timelog(start, "pdc_region_dl_data_exchange - total time");
+
     free(receive_buffer);
     free(send_buffer);
-    free(recv_obj_item->buf);
+    // free(recv_obj_item->buf);
     free(recv_obj_item);
 
 done:
