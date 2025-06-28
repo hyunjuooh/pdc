@@ -193,11 +193,11 @@ main(int argc, char *argv[])
         prefetch_arr[7] = "id22";
     }
 
-    offset           = (uint64_t *)malloc(sizeof(uint64_t) * ndim);
-    offset_remote    = (uint64_t *)malloc(sizeof(uint64_t) * ndim);
-    mysize           = (uint64_t *)malloc(sizeof(uint64_t) * ndim);
-    offset[0]        = 0;
-    mysize[0] = numparticles / num_transfer_request;
+    offset        = (uint64_t *)malloc(sizeof(uint64_t) * ndim);
+    offset_remote = (uint64_t *)malloc(sizeof(uint64_t) * ndim);
+    mysize        = (uint64_t *)malloc(sizeof(uint64_t) * ndim);
+    offset[0]     = 0;
+    mysize[0]     = numparticles / num_transfer_request;
 
     if (access_pattern == 1) {
         offset_remote[0] = rank * numparticles;
