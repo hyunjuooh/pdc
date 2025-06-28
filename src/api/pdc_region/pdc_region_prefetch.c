@@ -126,7 +126,7 @@ PDCregion_receive_prefetch_hint(char *arr[], pdcid_t *arr2, int obj_array_len)
     }
 
     // ret_value = pdc_region_prepare_global_prefetch_list();
-    
+
     // PDCregion_print_prefetch_list();
 
     // printf("[RANK %d] PDCregion_receive_prefetch_hint: pid=%d, var_a=%d, &var_a=%p, "
@@ -163,7 +163,7 @@ perr_t
 pdc_region_prepare_global_prefetch_list()
 {
     perr_t ret_value = SUCCEED;
-    double start = MPI_Wtime();
+    double start     = MPI_Wtime();
 
     FUNC_ENTER(NULL);
 
