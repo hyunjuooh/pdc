@@ -67,13 +67,13 @@ get_random_offset(int min, int max)
 int
 main(int argc, char *argv[])
 {
-    int     rank = 0, size = 1, i = 0, j = 0;
-    int     num_transfer_request = 0, access_pattern = 0, random_offset = 0;
-    double  t0, t1, start, end, total_start, total_end, total_region_start, total_region_end;
+    int    rank = 0, size = 1, i = 0, j = 0;
+    int    num_transfer_request = 0, access_pattern = 0, random_offset = 0;
+    double t0, t1, start, end, total_start, total_end, total_region_start, total_region_end;
 
-    double  transfer_start = .0, transfer_wait = .0, transfer_create = .0, transfer_close = .0,
-                       max_time, min_time, avg_time, total_time;
-    
+    double transfer_start = .0, transfer_wait = .0, transfer_create = .0, transfer_close = .0, max_time,
+           min_time, avg_time, total_time;
+
     pdcid_t pdc_id, cont_id;
     pdcid_t obj_xx, obj_yy, obj_zz, obj_pxx, obj_pyy, obj_pzz, obj_id11, obj_id22;
     // pdcid_t prefetch_arr[8];
@@ -204,7 +204,7 @@ main(int argc, char *argv[])
     MPI_Barrier(MPI_COMM_WORLD);
     total_region_start = MPI_Wtime();
 #endif
-    
+
     // create a region
     region_x   = PDCregion_create(ndim, offset, mysize);
     region_y   = PDCregion_create(ndim, offset, mysize);
@@ -239,7 +239,7 @@ main(int argc, char *argv[])
 
 #ifdef ENABLE_MPI
     transfer_create += MPI_Wtime() - start;
-#endif   
+#endif
 
 #ifdef ENABLE_MPI
     t0    = MPI_Wtime();
@@ -254,11 +254,11 @@ main(int argc, char *argv[])
     ret = PDCregion_transfer_start(transfer_request_pz);
     ret = PDCregion_transfer_start(transfer_request_id1);
     ret = PDCregion_transfer_start(transfer_request_id2);
-    
+
 #ifdef ENABLE_MPI
     transfer_start += MPI_Wtime() - start;
 #endif
-    
+
 #ifdef ENABLE_MPI
     t1 = MPI_Wtime();
     if (rank <= 5) {
@@ -273,7 +273,7 @@ main(int argc, char *argv[])
     sleep(5);
 
 #ifdef ENABLE_MPI
-    t1 = MPI_Wtime();
+    t1    = MPI_Wtime();
     start = MPI_Wtime();
 #endif
 
@@ -291,7 +291,7 @@ main(int argc, char *argv[])
     transfer_wait += end - start;
     start = end;
 #endif
-    
+
 #ifdef ENABLE_MPI
     t0 = MPI_Wtime();
     if (rank <= 5) {
@@ -314,7 +314,7 @@ main(int argc, char *argv[])
 #ifdef ENABLE_MPI
     transfer_close += MPI_Wtime() - start;
 #endif
-    
+
 #ifdef ENABLE_MPI
     MPI_Barrier(MPI_COMM_WORLD);
     t1 = MPI_Wtime();
@@ -330,7 +330,8 @@ main(int argc, char *argv[])
         cur_time = time(NULL);
         log_time = localtime(&cur_time);
         printf("[CACHE_LOG] [%02d:%02d:%02d] [RANK %d] | Initial Read Total Execution Time: %f\n",
-               log_time->tm_hour, log_time->tm_min, log_time->tm_sec, rank, total_region_end - total_region_start);
+               log_time->tm_hour, log_time->tm_min, log_time->tm_sec, rank,
+               total_region_end - total_region_start);
     }
 
     total_time = MPI_Wtime() - total_region_start;
@@ -430,7 +431,7 @@ main(int argc, char *argv[])
         LOG_INFO("total: %lf - %lf - %lf\n", min_time, avg_time / size, max_time);
     }
 #endif
-    
+
     mysize[0] = numparticles / num_transfer_request;
 
     if (access_pattern == 1) {
@@ -451,15 +452,15 @@ main(int argc, char *argv[])
         // random_offset = rank_arr[rank];
         // random_offset    = get_random_offset(0, size - 1);
         offset_remote[0] = random_offset * numparticles;
-        //printf("[RANK %d] Random offset %d\n", rank, random_offset);
+        // printf("[RANK %d] Random offset %d\n", rank, random_offset);
     }
-    
+
 #ifdef ENABLE_MPI
     total_region_start = MPI_Wtime();
-    transfer_start = .0;
-    transfer_wait = .0; 
-    transfer_create = .0; 
-    transfer_close = .0;
+    transfer_start     = .0;
+    transfer_wait      = .0;
+    transfer_create    = .0;
+    transfer_close     = .0;
 #endif
 
     // create a region
@@ -528,7 +529,7 @@ main(int argc, char *argv[])
 #ifdef ENABLE_MPI
     transfer_start += MPI_Wtime() - start;
 #endif
-    
+
 #ifdef ENABLE_MPI
     t1 = MPI_Wtime();
     if (rank <= 5) {
@@ -539,7 +540,7 @@ main(int argc, char *argv[])
     }
     start = MPI_Wtime();
 #endif
-    
+
     ret = PDCregion_transfer_wait(transfer_request_x);
     ret = PDCregion_transfer_wait(transfer_request_y);
     ret = PDCregion_transfer_wait(transfer_request_z);
@@ -554,7 +555,7 @@ main(int argc, char *argv[])
     transfer_wait += end - start;
     start = end;
 #endif
-    
+
 #ifdef ENABLE_MPI
     t0 = MPI_Wtime();
     if (rank <= 5) {
@@ -577,7 +578,7 @@ main(int argc, char *argv[])
 #ifdef ENABLE_MPI
     transfer_close += MPI_Wtime() - start;
 #endif
-    
+
 #ifdef ENABLE_MPI
     MPI_Barrier(MPI_COMM_WORLD);
     t1 = MPI_Wtime();
@@ -593,7 +594,8 @@ main(int argc, char *argv[])
         cur_time = time(NULL);
         log_time = localtime(&cur_time);
         printf("[CACHE_LOG] [%02d:%02d:%02d] [RANK %d] | Read with Cache Total Execution Time: %f\n",
-               log_time->tm_hour, log_time->tm_min, log_time->tm_sec, rank, total_region_end - total_region_start);
+               log_time->tm_hour, log_time->tm_min, log_time->tm_sec, rank,
+               total_region_end - total_region_start);
     }
     total_time = MPI_Wtime() - total_region_start;
 #endif
