@@ -315,14 +315,13 @@ pdc_region_dl_prepare_data_exchange(char **global_prefetch_list, uint64_t *offse
         prefetch_list_idx = 0;
     }
 
-    // // for debugging purpose
-    // obj_cache_iter = obj_cache_list;
-    // while (obj_cache_iter != NULL) {
-    //     printf("rank: %d, obj_name: %s, target_rank: %d\n", pdc_client_mpi_rank_g,
-    //     obj_cache_iter->obj_name,
-    //            obj_cache_iter->target_rank);
-    //     obj_cache_iter = obj_cache_iter->next;
-    // }
+    // for debugging purpose
+    obj_cache_iter = obj_cache_list;
+    while (obj_cache_iter != NULL) {
+        printf("rank: %d, obj_name: %s, target_rank: %d\n", pdc_client_mpi_rank_g,
+                obj_cache_iter->obj_name, obj_cache_iter->target_rank);
+        obj_cache_iter = obj_cache_iter->next;
+    }
 
     pdc_region_cache_timelog(start, "pdc_region_dl_prepare_data_exchange - total time");
 
@@ -461,6 +460,13 @@ pdc_region_dl_data_exchange(int obj_prefetch_list_len)
 
     FUNC_ENTER(NULL);
 
+    // debugging purpose
+    if (data_exchange_item_num > obj_prefetch_list_len) {
+        printf("[RANK %d] data_exchange_item_num: %d, num_segments_to_receive: %d\n", pdc_client_mpi_rank_g, data_exchange_item_num, num_segments_to_receive);
+        fflush(stdout);
+        goto done;
+    }
+
     // Set the receive buffer size
     MPI_Allreduce(&local_max_obj_size, &global_max_obj_size, 1, MPI_UINT64_T, MPI_MAX, client_cache_comm);
 
@@ -500,12 +506,10 @@ pdc_region_dl_data_exchange(int obj_prefetch_list_len)
         // local_sends_done    = (sends_completed_count == data_exchange_item_num);
         // local_receives_done = (receives_completed_count == num_segments_to_receive);
 
-        // printf("[RANK %d] sends_completed_count: %d, receives_completed_count: %d, data_exchange_item_num:
-        // "
-        //        "%d, num_segments_to_receive: %d\n",
-        //        pdc_client_mpi_rank_g, sends_completed_count, receives_completed_count,
-        //        data_exchange_item_num, num_segments_to_receive);
-        // fflush(stdout);
+        printf("[RANK %d] sends_completed_count: %d, receives_completed_count: %d, data_exchange_item_num: %d, num_segments_to_receive: %d\n",
+               pdc_client_mpi_rank_g, sends_completed_count, receives_completed_count,
+               data_exchange_item_num, num_segments_to_receive);
+        fflush(stdout);
 
         // Initiate send
         if (!local_sends_done && (obj_cache_iter != NULL) && (obj_cache_iter->target_rank != -1) &&
