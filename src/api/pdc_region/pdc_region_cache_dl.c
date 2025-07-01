@@ -318,8 +318,8 @@ pdc_region_dl_prepare_data_exchange(char **global_prefetch_list, uint64_t *offse
     // for debugging purpose
     obj_cache_iter = obj_cache_list;
     while (obj_cache_iter != NULL) {
-        printf("rank: %d, obj_name: %s, target_rank: %d\n", pdc_client_mpi_rank_g,
-                obj_cache_iter->obj_name, obj_cache_iter->target_rank);
+        printf("rank: %d, obj_name: %s, target_rank: %d\n", pdc_client_mpi_rank_g, obj_cache_iter->obj_name,
+               obj_cache_iter->target_rank);
         obj_cache_iter = obj_cache_iter->next;
     }
 
@@ -462,7 +462,8 @@ pdc_region_dl_data_exchange(int obj_prefetch_list_len)
 
     // debugging purpose
     if (data_exchange_item_num > obj_prefetch_list_len) {
-        printf("[RANK %d] data_exchange_item_num: %d, num_segments_to_receive: %d\n", pdc_client_mpi_rank_g, data_exchange_item_num, num_segments_to_receive);
+        printf("[RANK %d] data_exchange_item_num: %d, num_segments_to_receive: %d\n", pdc_client_mpi_rank_g,
+               data_exchange_item_num, num_segments_to_receive);
         fflush(stdout);
         goto done;
     }
@@ -506,9 +507,10 @@ pdc_region_dl_data_exchange(int obj_prefetch_list_len)
         // local_sends_done    = (sends_completed_count == data_exchange_item_num);
         // local_receives_done = (receives_completed_count == num_segments_to_receive);
 
-        printf("[RANK %d] sends_completed_count: %d, receives_completed_count: %d, data_exchange_item_num: %d, num_segments_to_receive: %d\n",
-               pdc_client_mpi_rank_g, sends_completed_count, receives_completed_count,
-               data_exchange_item_num, num_segments_to_receive);
+        printf("[RANK %d] sends_completed_count: %d, receives_completed_count: %d, data_exchange_item_num: "
+               "%d, num_segments_to_receive: %d\n",
+               pdc_client_mpi_rank_g, sends_completed_count, receives_completed_count, data_exchange_item_num,
+               num_segments_to_receive);
         fflush(stdout);
 
         // Initiate send
