@@ -107,7 +107,7 @@ main(int argc, char *argv[])
     total_start = MPI_Wtime();
 #endif
 
-    int     rank_arr[size];
+    int rank_arr[size];
 
     if (argc >= 2) {
         numparticles = atoll(argv[1]);
@@ -463,11 +463,11 @@ main(int argc, char *argv[])
 
 #ifdef ENABLE_MPI
     MPI_Barrier(MPI_COMM_WORLD);
-    //total_region_start = MPI_Wtime();
-    transfer_start     = .0;
-    transfer_wait      = .0;
-    transfer_create    = .0;
-    transfer_close     = .0;
+    // total_region_start = MPI_Wtime();
+    transfer_start  = .0;
+    transfer_wait   = .0;
+    transfer_create = .0;
+    transfer_close  = .0;
 #endif
 
     // create a region
@@ -507,7 +507,7 @@ main(int argc, char *argv[])
 #ifdef ENABLE_MPI
     MPI_Barrier(MPI_COMM_WORLD);
     total_region_start = MPI_Wtime();
-    start = MPI_Wtime();
+    start              = MPI_Wtime();
 #endif
 
     transfer_request_x   = PDCregion_transfer_create(&x[0], PDC_READ, obj_xx, region_x, region_xx);
