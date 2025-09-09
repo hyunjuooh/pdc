@@ -29,45 +29,67 @@
 #include "pdc_public.h"
 #include "pdc_obj.h"
 
-#define MAX_NAME_LEN 100
+// #define MAX_NAME_LEN 100
+#define MAX_ITEM_SIZE  134214281
+#define MAX_ITEM_NUM   256
 
 /**************************/
 /* Library Private Struct */
 /**************************/
 
-typedef struct pdc_object_cache {
+typedef struct pdc_object_data {
     // PDC Object information
-    // pdcid_t  obj_id;
-    char     obj_name[MAX_NAME_LEN];
+    pdcid_t  obj_id;
     uint64_t unit;
 
     // Remote region information
     int      reg_ndim;
+
     uint64_t reg_offset[3];
     uint64_t reg_size[3];
+    uint64_t reg_buf_size;
 
-    // Data exchange
-    int         target_rank;
-    int         tag;          // MPI tag for this segment
-    MPI_Request request;      // MPI_Request for non-blocking operations
-    int         is_initiated; // Flag: 0 = not yet started, 1 = MPI op initiated
-    int         is_completed;
+    // Region data
+    char reg_buf[MAX_ITEM_SIZE];
+} pdc_object_data;
 
-    // Region data information
-    uint64_t buf_offset;
-    uint64_t buf_size;
+typedef struct pdc_object_list {
+    pdcid_t  obj_id;
+    int      slot_index;
+    int      target_rank;
 
-    // Double linked list for cached object list
-    int next;
-    int prev;
-} pdc_object_cache;
+    struct pdc_object_list* prev;
+    struct pdc_object_list* next;
+} pdc_object_list;
 
-typedef struct pdc_object_list_metadata {
-    int head_idx;
-    int tail_idx;
-    int free_idx;
-    int cached_item_num;
-} pdc_object_list_metadata;
+// Specifies client specific information
+typedef struct pdc_client_info {
+    // Global and local rank info
+    int world_rank;
+    int world_size;
+
+    int node_rank;
+    int node_size;
+    int node_manager_rank;
+
+    MPI_Win  node_shm_win;
+    MPI_Aint node_shm_size;
+
+    pdc_object_data* node_shm_base; // Shared memory base pointer
+    pdc_object_data* local_shm_base; // Current client's shared memory base pointer
+    pdc_object_data  swap_buffer; // Buffer for data exchange
+
+    pdc_object_list* list_head; // Linked list head
+    pdc_object_list* list_tail; // Linked list head
+    int list_size;
+
+    int free_slot_indices[MAX_ITEM_NUM];
+    int free_slot_count;
+
+    int client_init;
+    
+    int* rank_to_node_id_map;
+} pdc_client_info;
 
 typedef struct item_delete_info {
     size_t deleted_size;
@@ -80,28 +102,15 @@ typedef struct item_delete_info {
 
 perr_t pdc_region_dl_init();
 
-perr_t pdc_region_dl_list_init();
+int pdc_region_dl_local_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size, void *buf,
+                               uint64_t read_size);
 
-int pdc_region_dl_search(char *obj_name, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size, void *buf,
-                         uint64_t read_size);
+perr_t pdc_region_dl_insert(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size, void *buf,
+                            uint64_t read_size);
 
-// perr_t pdc_region_dl_collect_global_metadata();
+item_delete_info pdc_region_dl_update(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size, void *buf);
 
-// perr_t pdc_region_global_metadata_free();
-
-// int pdc_region_dl_global_search(char *obj_name, uint64_t *offset, uint64_t *size);
-
-perr_t pdc_region_dl_insert(char *obj_name, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size,
-                            void *buf, uint64_t read_size);
-
-item_delete_info pdc_region_dl_update(char *obj_name, int ndim, uint64_t unit, uint64_t *offset,
-                                      uint64_t *size, void *buf);
-
-item_delete_info pdc_region_dl_evict_by_size(size_t required_size);
-
-item_delete_info pdc_region_dl_evict_by_num();
-
-perr_t pdc_region_dl_clean_list();
+item_delete_info pdc_region_dl_evict();
 
 perr_t pdc_region_dl_finalize();
 

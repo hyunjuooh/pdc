@@ -38,18 +38,16 @@ extern int     total_item_num;
 
 perr_t pdc_region_cache_init(pdcid_t pdcid);
 
-int pdc_region_cache_search(char *obj_name, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size,
-                            void *buf);
+int pdc_region_cache_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size, void *buf);
 
-perr_t pdc_region_cache_insert(char *obj_name, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size,
-                               void *buf);
+perr_t pdc_region_cache_insert(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size, void *buf);
 
-perr_t pdc_region_cache_update(char *obj_name, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size,
-                               void *buf);
+perr_t pdc_region_cache_update(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size, void *buf);
 
-perr_t pdc_region_cache_evict(size_t required_size, int by_size);
+perr_t pdc_region_cache_evict();
 
 void pdc_region_cache_timelog(double start_time, const char *message);
 
 perr_t pdc_region_cache_finalize();
+
 #endif /* PDC_REGION_CACHE_H */

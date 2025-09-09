@@ -276,7 +276,7 @@ PDCregion_prefetch_by_objid()
         goto done;
     }
 
-    ret_value = pdc_region_prepare_global_prefetch_list();
+    // ret_value = pdc_region_prepare_global_prefetch_list();
 
     // ret_value = pdc_region_dl_collect_global_metadata();
 
@@ -302,7 +302,7 @@ PDCregion_prefetch_by_objid()
         }
     }
 
-    ret_value = pdc_region_global_metadata_free();
+    //ret_value = pdc_region_global_metadata_free();
 
     free(offset);
     free(size);
