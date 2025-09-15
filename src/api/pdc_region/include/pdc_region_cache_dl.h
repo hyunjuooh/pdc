@@ -56,11 +56,30 @@ typedef struct pdc_object_data {
 typedef struct pdc_object_list {
     pdcid_t  obj_id;
     int      slot_index;
-    int      target_rank;
 
     struct pdc_object_list* prev;
     struct pdc_object_list* next;
 } pdc_object_list;
+
+typedef struct DataExchangeLocation {
+    pdcid_t  obj_id;
+    int      slot_index;
+    int      source_rank;
+    int      target_rank;
+} DataExchangeLocation;
+
+typedef struct DataPlacementOrder {
+    pdcid_t  obj_id;
+    int      source_rank;
+    int      source_slot_index;
+    int      target_rank;
+    MPI_Aint target_disp;
+} DataPlacementOrder;
+
+// typedef struct OutgoingData {
+//     pdcid_t  obj_id;
+//     pdc_object_data packet;
+// } OutgoingData;
 
 // Specifies client specific information
 typedef struct pdc_client_info {
@@ -77,24 +96,25 @@ typedef struct pdc_client_info {
 
     pdc_object_data* node_shm_base; // Shared memory base pointer
     pdc_object_data* local_shm_base; // Current client's shared memory base pointer
-    pdc_object_data  swap_buffer; // Buffer for data exchange
+    //pdc_object_data  swap_buffer; // Buffer for data exchange
 
     pdc_object_list* list_head; // Linked list head
     pdc_object_list* list_tail; // Linked list head
     int list_size;
 
+    // For data exchange
+    DataExchangeLocation *local_data_exchange;
+    MPI_Win node_manager_win;
+
     int free_slot_indices[MAX_ITEM_NUM];
     int free_slot_count;
+
+    int data_exchange_item_num;
 
     int client_init;
     
     int* rank_to_node_id_map;
 } pdc_client_info;
-
-typedef struct item_delete_info {
-    size_t deleted_size;
-    int    deleted_item_num;
-} item_delete_info;
 
 /**************************************************************************/
 /* Private Functions for Linked List Structure Client-side Region Caching */
@@ -102,15 +122,19 @@ typedef struct item_delete_info {
 
 perr_t pdc_region_dl_init();
 
-int pdc_region_dl_local_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size, void *buf,
-                               uint64_t read_size);
+int pdc_region_dl_local_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size, 
+                               void *buf, uint64_t read_size);
+
+int pdc_region_dl_node_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size, 
+                               void *buf, uint64_t read_size);
 
 perr_t pdc_region_dl_insert(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size, void *buf,
                             uint64_t read_size);
 
-item_delete_info pdc_region_dl_update(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size, void *buf);
+perr_t pdc_region_dl_update(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size, 
+                            void *buf);
 
-item_delete_info pdc_region_dl_evict();
+perr_t pdc_region_dl_evict();
 
 perr_t pdc_region_dl_finalize();
 

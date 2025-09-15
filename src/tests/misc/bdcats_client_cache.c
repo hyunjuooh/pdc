@@ -42,6 +42,17 @@ uniform_random_number()
 }
 
 void
+shuffle(int *arr, int n)
+{
+    for (int i = n - 1; i > 0; i--) {
+        int j   = rand() % (i + 1);
+        int tmp = arr[i];
+        arr[i]  = arr[j];
+        arr[j]  = tmp;
+    }
+}
+
+void
 print_usage()
 {
     printf("Usage: srun -n ./bdcats #particles #transfer_request\n");
@@ -56,14 +67,21 @@ get_random_offset(int min, int max)
 int
 main(int argc, char *argv[])
 {
-    int     rank = 0, size = 1, i = 0, j = 0;
-    int     num_transfer_request = 0, access_pattern = 0, random_offset = 0;
-    double  t0, t1, start, end, total_start, total_end;
+    int    rank = 0, size = 1, i = 0, j = 0;
+    int    num_transfer_request = 0, access_pattern = 0, random_offset = 0;
+    double t0, t1, start, end, total_start, total_end, total_region_start, total_region_end;
+
+    double transfer_start = .0, transfer_wait = .0, transfer_create = .0, transfer_close = .0, max_time,
+           min_time, avg_time, total_time;
+
     pdcid_t pdc_id, cont_id;
     pdcid_t obj_xx, obj_yy, obj_zz, obj_pxx, obj_pyy, obj_pzz, obj_id11, obj_id22;
-    // pdcid_t prefetch_arr[8];
-    char *  prefetch_arr[8];
+    pdcid_t prefetch_arr[8];
+
+    //char *  prefetch_arr[8];
     pdcid_t reg_prefetch_arr[8];
+    // int     rank_arr[64];
+
     pdcid_t region_x, region_y, region_z, region_px, region_py, region_pz, region_id1, region_id2;
     pdcid_t region_xx, region_yy, region_zz, region_pxx, region_pyy, region_pzz, region_id11, region_id22;
     perr_t  ret;
@@ -89,6 +107,8 @@ main(int argc, char *argv[])
     MPI_Comm_size(MPI_COMM_WORLD, &size);
     total_start = MPI_Wtime();
 #endif
+
+    int     rank_arr[size];
 
     if (argc >= 2) {
         numparticles = atoll(argv[1]);
@@ -164,16 +184,15 @@ main(int argc, char *argv[])
     }
 
     if (access_pattern == 3) {
-        srand(time(NULL) + rank);
-
-        prefetch_arr[0] = "obj-var-xx";
-        prefetch_arr[1] = "obj-var-yy";
-        prefetch_arr[2] = "obj-var-zz";
-        prefetch_arr[3] = "obj-var-pxx";
-        prefetch_arr[4] = "obj-var-pyy";
-        prefetch_arr[5] = "obj-var-pzz";
-        prefetch_arr[6] = "id11";
-        prefetch_arr[7] = "id22";
+        // srand(time(NULL));
+        prefetch_arr[0] = obj_xx;
+        prefetch_arr[1] = obj_yy;
+        prefetch_arr[2] = obj_zz;
+        prefetch_arr[3] = obj_pxx;
+        prefetch_arr[4] = obj_pyy;
+        prefetch_arr[5] = obj_pzz;
+        prefetch_arr[6] = obj_id11;
+        prefetch_arr[7] = obj_id22;
     }
 
     offset           = (uint64_t *)malloc(sizeof(uint64_t) * ndim);
@@ -182,6 +201,11 @@ main(int argc, char *argv[])
     offset[0]        = 0;
     offset_remote[0] = rank * numparticles;
     mysize[0]        = numparticles;
+
+#ifdef ENABLE_MPI
+    MPI_Barrier(MPI_COMM_WORLD);
+    total_region_start = MPI_Wtime();
+#endif
 
     // create a region
     region_x   = PDCregion_create(ndim, offset, mysize);
@@ -203,8 +227,6 @@ main(int argc, char *argv[])
     region_id22 = PDCregion_create(ndim, offset_remote, mysize);
 
 #ifdef ENABLE_MPI
-    MPI_Barrier(MPI_COMM_WORLD);
-    t0    = MPI_Wtime();
     start = MPI_Wtime();
 #endif
 
@@ -217,6 +239,15 @@ main(int argc, char *argv[])
     transfer_request_id1 = PDCregion_transfer_create(&id1[0], PDC_READ, obj_id11, region_id1, region_id11);
     transfer_request_id2 = PDCregion_transfer_create(&id2[0], PDC_READ, obj_id22, region_id2, region_id22);
 
+#ifdef ENABLE_MPI
+    transfer_create += MPI_Wtime() - start;
+#endif
+
+#ifdef ENABLE_MPI
+    t0    = MPI_Wtime();
+    start = MPI_Wtime();
+#endif
+
     ret = PDCregion_transfer_start(transfer_request_x);
     ret = PDCregion_transfer_start(transfer_request_y);
     ret = PDCregion_transfer_start(transfer_request_z);
@@ -227,7 +258,10 @@ main(int argc, char *argv[])
     ret = PDCregion_transfer_start(transfer_request_id2);
 
 #ifdef ENABLE_MPI
-    MPI_Barrier(MPI_COMM_WORLD);
+    transfer_start += MPI_Wtime() - start;
+#endif
+
+#ifdef ENABLE_MPI
     t1 = MPI_Wtime();
     if (rank <= 5) {
         cur_time = time(NULL);
@@ -235,6 +269,14 @@ main(int argc, char *argv[])
         printf("[CACHE_LOG] [%02d:%02d:%02d] [RANK %d] | Transfer Start Time: %f\n", log_time->tm_hour,
                log_time->tm_min, log_time->tm_sec, rank, t1 - t0);
     }
+#endif
+
+    // Computation overlap
+    sleep(5);
+
+#ifdef ENABLE_MPI
+    t1    = MPI_Wtime();
+    start = MPI_Wtime();
 #endif
 
     ret = PDCregion_transfer_wait(transfer_request_x);
@@ -247,7 +289,12 @@ main(int argc, char *argv[])
     ret = PDCregion_transfer_wait(transfer_request_id2);
 
 #ifdef ENABLE_MPI
-    MPI_Barrier(MPI_COMM_WORLD);
+    end = MPI_Wtime();
+    transfer_wait += end - start;
+    start = end;
+#endif
+
+#ifdef ENABLE_MPI
     t0 = MPI_Wtime();
     if (rank <= 5) {
         cur_time = time(NULL);
@@ -267,6 +314,10 @@ main(int argc, char *argv[])
     ret = PDCregion_transfer_close(transfer_request_id2);
 
 #ifdef ENABLE_MPI
+    transfer_close += MPI_Wtime() - start;
+#endif
+
+#ifdef ENABLE_MPI
     MPI_Barrier(MPI_COMM_WORLD);
     t1 = MPI_Wtime();
     if (rank <= 5) {
@@ -276,13 +327,16 @@ main(int argc, char *argv[])
                log_time->tm_min, log_time->tm_sec, rank, t1 - t0);
     }
 
-    end = MPI_Wtime();
+    total_region_end = MPI_Wtime();
     if (rank <= 5) {
         cur_time = time(NULL);
         log_time = localtime(&cur_time);
         printf("[CACHE_LOG] [%02d:%02d:%02d] [RANK %d] | Initial Read Total Execution Time: %f\n",
-               log_time->tm_hour, log_time->tm_min, log_time->tm_sec, rank, end - start);
+               log_time->tm_hour, log_time->tm_min, log_time->tm_sec, rank,
+               total_region_end - total_region_start);
     }
+
+    total_time = MPI_Wtime() - total_region_start;
 #endif
 
     if (PDCregion_close(region_x) < 0)
@@ -347,6 +401,37 @@ main(int argc, char *argv[])
 
 #ifdef ENABLE_MPI
     MPI_Barrier(MPI_COMM_WORLD);
+
+    MPI_Reduce(&transfer_create, &max_time, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&transfer_create, &avg_time, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&transfer_create, &min_time, 1, MPI_DOUBLE, MPI_MIN, 0, MPI_COMM_WORLD);
+    if (!rank) {
+        LOG_INFO("transfer create: %lf - %lf - %lf\n", min_time, avg_time / size, max_time);
+    }
+    MPI_Reduce(&transfer_start, &max_time, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&transfer_start, &avg_time, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&transfer_start, &min_time, 1, MPI_DOUBLE, MPI_MIN, 0, MPI_COMM_WORLD);
+    if (!rank) {
+        LOG_INFO("transfer start: %lf - %lf - %lf\n", min_time, avg_time / size, max_time);
+    }
+    MPI_Reduce(&transfer_wait, &max_time, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&transfer_wait, &avg_time, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&transfer_wait, &min_time, 1, MPI_DOUBLE, MPI_MIN, 0, MPI_COMM_WORLD);
+    if (!rank) {
+        LOG_INFO("transfer wait: %lf - %lf - %lf\n", min_time, avg_time / size, max_time);
+    }
+    MPI_Reduce(&transfer_close, &max_time, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&transfer_close, &avg_time, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&transfer_close, &min_time, 1, MPI_DOUBLE, MPI_MIN, 0, MPI_COMM_WORLD);
+    if (!rank) {
+        LOG_INFO("transfer close: %lf - %lf - %lf\n", min_time, avg_time / size, max_time);
+    }
+    MPI_Reduce(&total_time, &max_time, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&total_time, &avg_time, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&total_time, &min_time, 1, MPI_DOUBLE, MPI_MIN, 0, MPI_COMM_WORLD);
+    if (!rank) {
+        LOG_INFO("total: %lf - %lf - %lf\n", min_time, avg_time / size, max_time);
+    }
 #endif
 
     mysize[0] = numparticles / num_transfer_request;
@@ -358,10 +443,26 @@ main(int argc, char *argv[])
         offset_remote[0] = rank * numparticles + mysize[0];
     }
     else if (access_pattern == 3) {
-        random_offset    = get_random_offset(0, size - 1);
+        if (rank == 0) {
+            for (i = 0; i < size; i++) {
+                rank_arr[i] = i;
+            }
+            shuffle(rank_arr, size);
+        }
+        MPI_Scatter(rank_arr, 1, MPI_INT, &random_offset, 1, MPI_INT, 0, MPI_COMM_WORLD);
+
+        // random_offset = rank_arr[rank];
         offset_remote[0] = random_offset * numparticles;
-        // printf("[RANK %d] Random offset %d\n", rank, random_offset);
+        printf("[RANK %d] Random offset %d\n", rank, offset_remote[0]);
     }
+
+#ifdef ENABLE_MPI
+    total_region_start = MPI_Wtime();
+    transfer_start     = .0;
+    transfer_wait      = .0;
+    transfer_create    = .0;
+    transfer_close     = .0;
+#endif
 
     // create a region
     region_x   = PDCregion_create(ndim, offset, mysize);
@@ -400,7 +501,6 @@ main(int argc, char *argv[])
 #ifdef ENABLE_MPI
     MPI_Barrier(MPI_COMM_WORLD);
     start = MPI_Wtime();
-    t0    = MPI_Wtime();
 #endif
 
     transfer_request_x   = PDCregion_transfer_create(&x[0], PDC_READ, obj_xx, region_x, region_xx);
@@ -412,6 +512,12 @@ main(int argc, char *argv[])
     transfer_request_id1 = PDCregion_transfer_create(&id1[0], PDC_READ, obj_id11, region_id1, region_id11);
     transfer_request_id2 = PDCregion_transfer_create(&id2[0], PDC_READ, obj_id22, region_id2, region_id22);
 
+#ifdef ENABLE_MPI
+    transfer_create += MPI_Wtime() - start;
+    t0    = MPI_Wtime();
+    start = MPI_Wtime();
+#endif
+
     ret = PDCregion_transfer_start(transfer_request_x);
     ret = PDCregion_transfer_start(transfer_request_y);
     ret = PDCregion_transfer_start(transfer_request_z);
@@ -422,7 +528,10 @@ main(int argc, char *argv[])
     ret = PDCregion_transfer_start(transfer_request_id2);
 
 #ifdef ENABLE_MPI
-    MPI_Barrier(MPI_COMM_WORLD);
+    transfer_start += MPI_Wtime() - start;
+#endif
+
+#ifdef ENABLE_MPI
     t1 = MPI_Wtime();
     if (rank <= 5) {
         cur_time = time(NULL);
@@ -430,7 +539,9 @@ main(int argc, char *argv[])
         printf("[CACHE_LOG] [%02d:%02d:%02d] [RANK %d] | Transfer Start Time: %f\n", log_time->tm_hour,
                log_time->tm_min, log_time->tm_sec, rank, t1 - t0);
     }
+    start = MPI_Wtime();
 #endif
+
     ret = PDCregion_transfer_wait(transfer_request_x);
     ret = PDCregion_transfer_wait(transfer_request_y);
     ret = PDCregion_transfer_wait(transfer_request_z);
@@ -441,7 +552,12 @@ main(int argc, char *argv[])
     ret = PDCregion_transfer_wait(transfer_request_id2);
 
 #ifdef ENABLE_MPI
-    MPI_Barrier(MPI_COMM_WORLD);
+    end = MPI_Wtime();
+    transfer_wait += end - start;
+    start = end;
+#endif
+
+#ifdef ENABLE_MPI
     t0 = MPI_Wtime();
     if (rank <= 5) {
         cur_time = time(NULL);
@@ -461,6 +577,10 @@ main(int argc, char *argv[])
     ret = PDCregion_transfer_close(transfer_request_id2);
 
 #ifdef ENABLE_MPI
+    transfer_close += MPI_Wtime() - start;
+#endif
+
+#ifdef ENABLE_MPI
     MPI_Barrier(MPI_COMM_WORLD);
     t1 = MPI_Wtime();
     if (rank <= 5) {
@@ -470,13 +590,15 @@ main(int argc, char *argv[])
                log_time->tm_min, log_time->tm_sec, rank, t1 - t0);
     }
 
-    end = MPI_Wtime();
+    total_region_end = MPI_Wtime();
     if (rank <= 5) {
         cur_time = time(NULL);
         log_time = localtime(&cur_time);
         printf("[CACHE_LOG] [%02d:%02d:%02d] [RANK %d] | Read with Cache Total Execution Time: %f\n",
-               log_time->tm_hour, log_time->tm_min, log_time->tm_sec, rank, end - start);
+               log_time->tm_hour, log_time->tm_min, log_time->tm_sec, rank,
+               total_region_end - total_region_start);
     }
+    total_time = MPI_Wtime() - total_region_start;
 #endif
 
     // Check if data written previously has been correctly read.
@@ -507,6 +629,40 @@ main(int argc, char *argv[])
             i++;
         }
     }
+
+#ifdef ENABLE_MPI
+
+    MPI_Reduce(&transfer_create, &max_time, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&transfer_create, &avg_time, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&transfer_create, &min_time, 1, MPI_DOUBLE, MPI_MIN, 0, MPI_COMM_WORLD);
+    if (!rank) {
+        LOG_INFO("transfer create: %lf - %lf - %lf\n", min_time, avg_time / size, max_time);
+    }
+    MPI_Reduce(&transfer_start, &max_time, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&transfer_start, &avg_time, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&transfer_start, &min_time, 1, MPI_DOUBLE, MPI_MIN, 0, MPI_COMM_WORLD);
+    if (!rank) {
+        LOG_INFO("transfer start: %lf - %lf - %lf\n", min_time, avg_time / size, max_time);
+    }
+    MPI_Reduce(&transfer_wait, &max_time, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&transfer_wait, &avg_time, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&transfer_wait, &min_time, 1, MPI_DOUBLE, MPI_MIN, 0, MPI_COMM_WORLD);
+    if (!rank) {
+        LOG_INFO("transfer wait: %lf - %lf - %lf\n", min_time, avg_time / size, max_time);
+    }
+    MPI_Reduce(&transfer_close, &max_time, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&transfer_close, &avg_time, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&transfer_close, &min_time, 1, MPI_DOUBLE, MPI_MIN, 0, MPI_COMM_WORLD);
+    if (!rank) {
+        LOG_INFO("transfer close: %lf - %lf - %lf\n", min_time, avg_time / size, max_time);
+    }
+    MPI_Reduce(&total_time, &max_time, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&total_time, &avg_time, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&total_time, &min_time, 1, MPI_DOUBLE, MPI_MIN, 0, MPI_COMM_WORLD);
+    if (!rank) {
+        LOG_INFO("total: %lf - %lf - %lf\n", min_time, avg_time / size, max_time);
+    }
+#endif
 
     if (PDCregion_close(region_xx) < 0)
         printf("fail to close region region_xx\n");
