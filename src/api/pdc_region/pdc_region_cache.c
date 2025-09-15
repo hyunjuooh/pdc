@@ -18,9 +18,6 @@
 #define MAX_ITEM_SIZE  134214281
 #define MAX_ITEM_NUM   256
 
-size_t total_buf_size = 0;
-int    total_item_num = 0;
-
 pdcid_t pdc_id;
 
 // Initialization of global variables
@@ -33,12 +30,11 @@ pdc_region_cache_init(pdcid_t pdcid)
     FUNC_ENTER(NULL);
 
     start = MPI_Wtime();
-
-    total_buf_size = 0;
+    
     pdc_id         = pdcid;
 
     ret_value = pdc_region_dl_init();
-    // ret_value = pdc_region_prefetch_init();
+    ret_value = pdc_region_prefetch_init();
 
     pdc_region_cache_timelog(start, "pdc_region_cache_init - total time");
 
@@ -70,11 +66,11 @@ pdc_region_cache_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offse
 
     // Search on doubly linked list
     region_contained = pdc_region_dl_local_search(obj_id, ndim, unit, offset, size, buf, read_size);
+    
+    if (!region_contained)
+        region_contained = pdc_region_dl_node_search(obj_id, ndim, unit, offset, size, buf, read_size);
 
-    // printf(
-    //     "[RANK %d] pdc_region_cache_search: pid=%d, var_a=%d, &var_a=%p,
-    //     PDCregion_print_prefetch_list=%p\n", pdc_client_mpi_rank_g, getpid(), obj_prefetch_list_len, (void
-    //     *)&obj_prefetch_list_len, (void *)PDCregion_print_prefetch_list);
+    // printf("[RANK %d] pdc_region_cache_search: region contained: %d\n", pdc_client_mpi_rank_g, region_contained);
 
     pdc_region_cache_timelog(start, "pdc_region_cache_search - total time");
 
@@ -103,20 +99,7 @@ pdc_region_cache_insert(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offse
     if (ndim >= 3)
         read_size *= size[2];
 
-    // Check if there is remaining buffer size to insert region
-    // If the number of items cached exceeds the MAX_ITEM_NUM, evict one item
-    if (total_item_num + 1 > MAX_ITEM_NUM) {
-        pdc_region_cache_evict();
-    }
-
-    pdc_region_cache_timelog(start, "pdc_region_cache_insert - pdc_region_cache_evict time");
-
     ret_value = pdc_region_dl_insert(obj_id, ndim, unit, offset, size, buf, read_size);
-
-    if (ret_value == SUCCEED) {
-        total_buf_size += read_size;
-        total_item_num += 1;
-    }
 
     // printf(
     //     "[RANK %d] pdc_region_cache_insert: pid=%d, var_a=%d, &var_a=%p,
@@ -138,20 +121,13 @@ perr_t
 pdc_region_cache_update(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size, void *buf)
 {
     perr_t ret_value = SUCCEED;
-
-    item_delete_info update_result;
-    double           start;
+    double           start  =MPI_Wtime();
 
     FUNC_ENTER(NULL);
 
-    start         = MPI_Wtime();
-    update_result = pdc_region_dl_update(obj_id, ndim, unit, offset, size, buf);
+    ret_value = pdc_region_dl_update(obj_id, ndim, unit, offset, size, buf);
+    
     pdc_region_cache_timelog(start, "pdc_region_cache_update - update time");
-
-    total_buf_size -= update_result.deleted_size;
-    total_item_num -= update_result.deleted_item_num;
-
-    printf("pdc_region_cache_update - deleted_item_num %d\n", total_item_num);
 
 done:
     fflush(stdout);
@@ -163,18 +139,14 @@ perr_t
 pdc_region_cache_evict()
 {
     perr_t ret_value = SUCCEED;
-
-    item_delete_info eviction_result;
+    
     double           start;
 
     start = MPI_Wtime();
 
     FUNC_ENTER(NULL);
 
-    eviction_result = pdc_region_dl_evict();
-
-    total_buf_size -= eviction_result.deleted_size;
-    total_item_num -= eviction_result.deleted_item_num;
+    ret_value = pdc_region_dl_evict();
 
     pdc_region_cache_timelog(start, "pdc_region_cache_evict - pdc_region_dl_evict time");
 
@@ -200,7 +172,7 @@ done:
 void
 pdc_region_cache_timelog(double start_time, const char *message)
 {
-    int        rank_limit = 0;
+    int        rank_limit = 5;
     double     end_time;
     time_t     cur_time = time(NULL);
     struct tm *log_time = localtime(&cur_time);

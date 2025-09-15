@@ -35,7 +35,7 @@ extern int obj_prefetch_list_len;
 
 // perr_t PDCregion_receive_prefetch_hint(const char** arr, int obj_array_len);
 // perr_t PDCregion_receive_prefetch_hint(const pdcid_t *arr, const pdcid_t *arr2, int obj_array_len);
-perr_t PDCregion_receive_prefetch_hint(char *arr[], pdcid_t *arr2, int obj_array_len);
+perr_t PDCregion_receive_prefetch_hint(pdcid_t *obj_arr, pdcid_t *reg_arr, int obj_array_len);
 perr_t PDCregion_prefetch_by_objid();
 perr_t PDCregion_print_prefetch_list();
 
