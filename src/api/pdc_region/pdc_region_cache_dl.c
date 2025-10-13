@@ -20,65 +20,64 @@
 // #define MAX_CACHE_SIZE 268435456
 #define MAX_ITEM_SIZE  134214281
 #define MAX_ITEM_NUM   256
-#define INVALID_ID     -1
+#define INVALID_IDX     -1
 #define TAG_PLACEMENT_ORDER 100
 #define TAG_LOCAL_PLAN 200
+#define NUM_CHUNKS     4
+#define TRANSFER_UNIT_SIZE (sizeof(pdcid_t) + sizeof(int) + sizeof(uint64_t) * 8 + MAX_ITEM_SIZE)
 
 MPI_Comm client_cache_world_comm;
 MPI_Comm client_cache_node_comm;
 
 pdc_client_info client_info;
 
-int pop_free_slot() {
-    int free_index = client_info.free_slot_indices[--client_info.free_slot_count];
+// Return the next index for obj cache item insertion
+int
+get_free_item_idx()
+{
+    FUNC_ENTER(NULL);
     
-    if (client_info.free_slot_count <= 0) return -2;
+    perr_t ret_value = SUCCEED;
+    int    new_item_idx;
     
-    return free_index;
-}
+    if ((new_item_idx = client_info.free_idx) == -1)
+         PGOTO_ERROR(FAIL, "get_item_idx - PDC client cache obtaining new item index failed");
+    
+    client_info.free_idx = obj_cache_list[new_item_idx].next;
 
-void push_free_slot(int slot_index) {
-    if (client_info.free_slot_count < MAX_ITEM_NUM)
-        client_info.free_slot_indices[client_info.free_slot_count++] = slot_index;
-}
-
-int list_find_by_id(pdcid_t obj_id) {
-    pdc_object_list *obj_cache_iter;
-
-    obj_cache_iter = client_info.list_head;
-    while (obj_cache_iter!= NULL) {
-        if (obj_cache_iter->obj_id == obj_id) {
-            return 1;
-        }
-        obj_cache_iter = obj_cache_iter->next;
-    }
-
-    return 0;
+done:
+    fflush(stdout);
+    FUNC_LEAVE(new_item_idx);
 }
 
 perr_t
-pdc_region_dl_prepend(pdc_object_list* obj_cache_item)
+pdc_region_dl_prepend(int item_idx)
 {
-    perr_t ret_value = SUCCEED;
-
     FUNC_ENTER(NULL);
 
-    // Update the obj_cache_item prev, next
+    perr_t ret_value = SUCCEED;
+
+    // If it was deleted for prepend
+    if (client_info.free_idx == item_idx) {
+        client_info.free_idx = local_cache_base[item_idx].next;
+    }
+
+    // Update metadata list information
     // Current item will be prepended to the head node
-    obj_cache_item->next = client_info.list_head;
-    obj_cache_item->prev = NULL;
+    local_cache_base[item_idx].next = client_info.head_idx;
+    local_cache_base[item_idx].prev = -1;
 
     // If list already exists, current head node's previous index should also point to itself
-    if (client_info.list_head != NULL) {
-        obj_cache_item->next->prev = obj_cache_item;
+    if (client_info.head_idx != -1) {
+        local_cache_base[locacl_cache_base[item_idx].next].prev = item_idx;
     }
 
     // The new node becomes the head node of the object cache list
-    client_info.list_head = obj_cache_item;
+    client_info.head_idx = item_idx;
 
     // If list did not exist, update the tail node metadata
-    if (client_info.list_tail == NULL) {
-        client_info.list_tail = obj_cache_item;
+    if (client_info.tail_idx == -1) {
+        client_info.tail_idx = item_idx;
     }
 
 done:
@@ -87,38 +86,77 @@ done:
 }
 
 perr_t
-pdc_region_dl_delete(pdc_object_list* obj_cache_item)
+pdc_region_dl_delete(int item_idx)
 {
+    FUNC_ENTER(NULL);
+    
     perr_t ret_value = SUCCEED;
 
-    FUNC_ENTER(NULL);
-
     // Update current item prev item's next item index
-    if (obj_cache_item->prev != NULL) {
-        obj_cache_item->prev->next = obj_cache_item->next;
-    } else {
-        client_info.list_head = obj_cache_item->next; // if the item is the head
+    if (local_cache_base[item_idx].prev != -1) {
+        local_cache_base[local_cache_base[item_idx].prev].next = local_cache_base[item_idx].next;
+    }
+    else {
+        local_cache_base.head_idx = local_cache_base[item_idx].next; // if the item is the head
     }
 
     // Update current item next item's previous item index
-    if (obj_cache_item->next != NULL) {
-        obj_cache_item->next->prev = obj_cache_item->prev;
-    } else {
-        client_info.list_tail = obj_cache_item->prev; // if the item is the tail
+    if (local_cache_base[item_idx].next != -1) {
+        local_cache_base[local_cache_base[item_idx].next].prev = local_cache_base[item_idx].prev;
     }
+    else {
+        client_info.tail_idx = local_cache_base[item_idx].prev; // if the item is the tail
+    }
+
+    local_cache_base[item_idx].next   = client_info.free_idx;
+    client_info.free_idx = item_idx;
 
 done:
     fflush(stdout);
     FUNC_LEAVE(ret_value);
 }
 
+perr_t
+pdc_region_dl_list_init()
+{
+    FUNC_ENTER(NULL);
 
+    perr_t ret_value = SUCCEED;
+
+    int    i;
+    double start = MPI_Wtime();
+
+    if (client_info.local_cache_base == NULL)
+        PGOTO_ERROR(FAIL, "pdc_region_dl_list_init - local_cache_base not initialized");
+
+    // Initialize obj_cache_list_metadata index
+    client_info.head_idx        = INVALID_IDX;
+    client_info.tail_idx        = INVALID_IDX;
+    client_info.free_idx        = 0;
+    client_info.cached_item_num = 0;
+
+    // Initialize prev, next index for obj_cache_list
+    for (i = 0; i < MAX_ITEM_NUM - 1; i++) {
+        local_cache_base[i].prev = INVALID_IDX;
+        local_cache_base[i].next = i + 1;
+    }
+
+    // The last item does not have next index
+    local_cache_base[MAX_ITEM_NUM - 1].next = INVALID_IDX;
+
+    pdc_region_cache_timelog(start, "pdc_region_dl_list_init - total time");
+
+done:
+    fflush(stdout);
+    FUNC_LEAVE(ret_value);
+}
 
 perr_t
 pdc_region_dl_init()
 {
     perr_t ret_value = SUCCEED; 
     int mpi_alloc_error;
+    int *node_world_ranks;
 
     FUNC_ENTER(NULL);
 
@@ -146,36 +184,26 @@ pdc_region_dl_init()
     
     MPI_Allgather(&client_info.node_manager_rank, 1, MPI_INT, client_info.rank_to_node_id_map, 1, 
                   MPI_INT, client_cache_world_comm);
-    
-    // Node manager will allocate the shared memory
-    client_info.node_shm_base = NULL;
-    client_info.node_shm_size = (client_info.node_rank == 0) ? client_info.node_size * MAX_ITEM_NUM * sizeof(pdc_object_data) : 0;
-    mpi_alloc_error = MPI_Win_allocate_shared(client_info.node_shm_size, 1, MPI_INFO_NULL, client_cache_node_comm, 
-                                              &client_info.node_shm_base, &client_info.node_shm_win);
-    if (mpi_alloc_error != MPI_SUCCESS)
-        PGOTO_ERROR(FAIL, "pdc_region_dl_init - node shared memory allocation failed");
 
-    // Query the shared memory base pointer
-    if (client_info.node_rank != 0) {
-        int displ_unit;
-        MPI_Win_shared_query(client_info.node_shm_win, 0, &client_info.node_shm_size, &displ_unit, &client_info.node_shm_base);
+    // Create local node map
+    node_world_ranks = (int *) PDC_malloc(client_info.node_size * sizeof(int));
+    if (!node_world_ranks)
+        PGOTO_ERROR(FAIL, "pdc_region_dl_init - node_world_ranks memory allocation failed");
+
+    client_info.world_to_node_rank_map = (int *) PDC_calloc(client_info.world_size, sizeof(int));
+    if (!client_info.world_to_node_rank_map)
+	PGOTO_ERROR(FAIL, "pdc_region_dl_init - world_to_node_rank_map memory allocation failed");
+
+    MPI_Allgather(&client_info.world_rank, 1, MPI_INT, node_world_ranks, 1, MPI_INT, client_cache_node_comm);
+    for (int i = 0; i < node_size; ++i) {
+        client_info.world_to_node_rank_map[node_world_ranks[i]] = i;
     }
+    free(node_world_ranks);
 
-    // Get current client's shared memory base
-    client_info.local_shm_base = &client_info.node_shm_base[client_info.node_rank * MAX_ITEM_NUM];
-    for (int i=0; i < MAX_ITEM_NUM; i++) 
-        client_info.local_shm_base[i].obj_id = INVALID_ID;
+    // Create linked list
+    client_info.local_shm_base = (pdc_object_data *) PDC_malloc(MAX_ITEM_NUM * sizeof(pdc_object_data));
+    ret_value = pdc_region_dl_list_init();
 
-    // Initialize free slot information
-    client_info.free_slot_count = MAX_ITEM_NUM;
-    for (int i=0; i < MAX_ITEM_NUM; i++) {
-        client_info.free_slot_indices[i] = MAX_ITEM_NUM - 1 - i;
-    }
-
-    client_info.list_head = NULL;
-    client_info.list_tail = NULL;
-    client_info.list_size = 0;
-    client_info.data_exchange_item_num = 0;
     client_info.client_init = 1;
     
 done:
@@ -189,59 +217,37 @@ perr_t
 pdc_region_dl_insert(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size, void *buf,
                      uint64_t read_size)
 {
-    perr_t                  ret_value = SUCCEED;
-    
-    int                     new_slot_idx;
-    pdc_object_data        *obj_cache_data;
-    pdc_object_list        *obj_cache_item;
-    double                  start;
-
     FUNC_ENTER(NULL);
 
-    start = MPI_Wtime();
+    perr_t                  ret_value = SUCCEED;    
+    
+    int                     new_slot_idx;
+    double                  start = MPI_Wtime();
 
     if (!client_info.client_init)
         PGOTO_ERROR(FAIL, "pdc_region_dl_insert - object cache list not initialized");
-    
-    do {
-        new_slot_idx = pop_free_slot();
-        if (new_slot_idx == -2) {
-            pdc_region_cache_evict();
-            break;
-        }
-    } while (new_slot_idx == INVALID_ID);
+   
+    if (client_info.cached_item_num >= MAX_ITEM_NUM)
+	pdc_region_cache_evict();
 
-    if (client_info.free_slot_count <= 0) {
-	//printf("do statement: new slot idx %d\n", new_slot_idx);
-        pdc_region_cache_evict();
-        new_slot_idx = pop_free_slot();
-    }
-    
-    obj_cache_data = &client_info.local_shm_base[new_slot_idx];
-    if (obj_cache_data->obj_id != INVALID_ID)
-        PGOTO_ERROR(FAIL, "pdc_region_dl_insert - The slot is not valid");
-    
+    new_slot_idx = get_free_item_idx();
+    if (new_slot_idx != INVALID_IDX)
+	PGOTO_ERROR(FAIL, "pdc_region_dl_insert - The slot is not valid");
+
     // Create object data
-    obj_cache_data->obj_id   = obj_id;
-    obj_cache_data->unit     = unit;
-    obj_cache_data->reg_ndim = ndim;
-    obj_cache_data->reg_buf_size = read_size;
+    client_info.local_cache_base[new_slot_idx].obj_id   = obj_id;
+    client_info.local_cache_base[new_slot_idx].unit     = unit;
+    client_info.local_cache_base[new_slot_idx].reg_ndim = ndim;
+    client_info.local_cache_base[new_slot_idx].reg_buf_size = read_size;
+    client_info.local_cache_base[new_slot_idx].slot_idx = new_slot_idx;
 
     memcpy(obj_cache_data->reg_offset, offset, ndim * sizeof(uint64_t));
     memcpy(obj_cache_data->reg_size, size, ndim * sizeof(uint64_t));
     memcpy(obj_cache_data->reg_buf, buf, read_size * sizeof(char));
 
-    // Add the obj_cache_data and prepend it to the cache list
-    obj_cache_item = (struct pdc_object_list *)PDC_malloc(sizeof(struct pdc_object_list));
-    if (!obj_cache_item)
-        PGOTO_ERROR(FAIL, "pdc_region_dl_insert - obj_cache_item memory allocation failed");
-    
-    obj_cache_item->obj_id = obj_id;
-    obj_cache_item->slot_index = new_slot_idx;
-    
     ret_value = pdc_region_dl_prepend(obj_cache_item);
 
-    client_info.list_size++;
+    client_info.cached_item_num++;
 
     pdc_region_cache_timelog(start, "pdc_region_dl_insert - prepend new item to obj_cache list time");
 done:
@@ -256,55 +262,52 @@ int
 pdc_region_dl_local_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size, void *buf,
                      uint64_t read_size)
 {
+    FUNC_ENTER(NULL);
+
     perr_t ret_value = SUCCEED;
 
-    struct pdc_object_list  *obj_cache_iter;
-    struct pdc_object_data  *obj_cache_data;
-    uint64_t *               overlap_offset, *overlap_size;
-    int                      i, is_cached = 0;
+    uint64_t                *overlap_offset, *overlap_size;
+    int                      i, item_idx, is_cached = 0;
     double                   start, total_start = MPI_Wtime();
-
-    FUNC_ENTER(NULL);
 
     if (!client_info.client_init)
         PGOTO_ERROR(FAIL, "pdc_region_dl_search - object cache list not initialized");
 
     // Find if region is cached into local object list cache
     // If region contained, return the rank that contains the region
-    obj_cache_iter = client_info.list_head;
+    item_idx = client_info.head_idx;
 
-    while (obj_cache_iter != NULL) {
-        if (obj_cache_iter->obj_id == obj_id) {
-            obj_cache_data = &client_info.local_shm_base[obj_cache_iter->slot_index];
-            
-            is_cached = detect_region_contained(offset, size, obj_cache_data->reg_offset,
-                                                obj_cache_data->reg_size, ndim);
+    while (item_idx != INVALID_IDX) {
+        if (local_cache_base[item_idx].obj_id == obj_id) {
+            is_cached = detect_region_contained(offset, size, local_cache_base[item_idx].reg_offset,
+                                                local_cache_base[item_idx].reg_size, ndim);
 
             // If region contained, memcpy cached region data into transfer_request->buf
             if (is_cached) {
                 start = MPI_Wtime();
 
                 // Detect the offset range that is overlapped
-                PDC_region_overlap_detect(ndim, offset, size, obj_cache_data->reg_offset,
-                                          obj_cache_data->reg_size, &overlap_offset, &overlap_size);
+                PDC_region_overlap_detect(ndim, offset, size, local_cache_base[item_idx].reg_offset,
+                                          local_cache_base[item_idx].reg_size, &overlap_offset, &overlap_size);
 
                 // memcpy the overlapped region
-                memcpy_overlap_subregion(obj_cache_data->reg_ndim, unit, obj_cache_data->reg_buf,
-                                         obj_cache_data->reg_offset, obj_cache_data->reg_size, buf, offset,
+                memcpy_overlap_subregion(local_cache_base[item_idx].reg_ndim, unit, local_cache_base[item_idx].reg_buf,
+                                         local_cache_base[item_idx].reg_offset, local_cache_base[item_idx].reg_size, buf, offset,
                                          size, overlap_offset, overlap_size);
 
                 // Follow the LRU policy
-                ret_value = pdc_region_dl_delete(obj_cache_iter);
-                ret_value = pdc_region_dl_prepend(obj_cache_iter);
+                ret_value = pdc_region_dl_delete(item_idx);
+                ret_value = pdc_region_dl_prepend(item_idx);
 
                 free(overlap_offset);
+
                 pdc_region_cache_timelog(start, "pdc_region_dl_local_search - local cache hit time");
 
                 break;
             }
         }
 
-        obj_cache_iter = obj_cache_iter->next;
+        item_idx = local_cache_base[item_idx].next;
     }
 
     pdc_region_cache_timelog(total_start, "pdc_region_dl_local_search search time");
@@ -314,7 +317,7 @@ done:
     FUNC_LEAVE(is_cached);
 }
 
-int
+/*int
 pdc_region_dl_node_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size, void *buf,
                      uint64_t read_size)
 {
@@ -368,7 +371,7 @@ pdc_region_dl_node_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *off
 done:
     fflush(stdout);
     FUNC_LEAVE(is_cached);
-}
+}*/
 
 perr_t
 pdc_region_dl_prepare_data_exchange(pdcid_t *global_prefetch_list, uint64_t *offset, uint64_t *size, 
@@ -378,77 +381,50 @@ pdc_region_dl_prepare_data_exchange(pdcid_t *global_prefetch_list, uint64_t *off
 
     perr_t ret_value = SUCCEED;
 
-    pdc_object_list  *obj_cache_iter;
-    pdc_object_data  *obj_cache_data;
-    
-    int    i, j, prefetch_list_idx = 0, region_compare = 0, is_contained = 0;
+    int    i, j, item_idx, prefetch_list_idx = 0, region_compare = 0, is_contained = 0;
     double start = MPI_Wtime();
-
-    client_info.local_data_exchange = 
-                (DataExchangeLocation *)PDC_malloc(client_info.list_size * sizeof(DataExchangeLocation));
 
     if (offset != NULL) {
         region_compare = 1;
     }
 
     // Set the target rank for local cached object item
-    obj_cache_iter = client_info.list_head; 
-    
-    while (obj_cache_iter != NULL) {
+    item_idx = client_info.head_idx;
+
+    while (item_idx != INVALID_IDX) {
         for (i = 0; i < client_info.world_size; i++) {
             for (j = 0; j < obj_prefetch_list_len; j++) {
-                if (obj_cache_iter->obj_id == global_prefetch_list[prefetch_list_idx]) {
-        		    if (!region_compare) {
-                        client_info.local_data_exchange[client_info.data_exchange_item_num].obj_id 
-                            = obj_cache_iter->obj_id;
-                        client_info.local_data_exchange[client_info.data_exchange_item_num].slot_index 
-                            = obj_cache_iter->slot_index;
-                        client_info.local_data_exchange[client_info.data_exchange_item_num].source_rank 
-                            = client_info.world_rank;
-                        client_info.local_data_exchange[client_info.data_exchange_item_num].target_rank 
-                            = i;
-                        
-            			break;
-        		    }
-        		    else {
-                        obj_cache_data = &client_info.local_shm_base[obj_cache_iter->slot_index];
-                        
-            			is_contained = detect_region_contained(&offset[i], &size[i], obj_cache_data->reg_offset,
-                    					                       obj_cache_data->reg_size, obj_cache_data->reg_ndim);
+                if (client_info.local_cache_base[item_idx].obj_id == global_prefetch_list[prefetch_list_idx]) {
+		    if (!region_compare) {
+			client_info.local_cache_base[item_idx].target_rank = i;
+			break;
+		    } else {
+			is_contained = detect_region_contained(&offset[i], &size[i], client_info.local_cache_base[item_idx].reg_offset,
+                    					       client_info.local_cache_base[item_idx].reg_size, client_info.local_cache_base[item_idx].reg_ndim);
 			
-                		// If the prefetch list is contained within the local object cache list
+			// If the prefetch list is contained within the local object cache list
                         // and if the target_rank is not the same as node_manager_rank
-            			if (is_contained) {
-                            client_info.local_data_exchange[client_info.data_exchange_item_num].obj_id 
-                                = obj_cache_iter->obj_id;
-                            client_info.local_data_exchange[client_info.data_exchange_item_num].slot_index 
-                                = obj_cache_iter->slot_index;
-            			    client_info.local_data_exchange[client_info.data_exchange_item_num].source_rank 
-                                = client_info.world_rank;
-                            client_info.local_data_exchange[client_info.data_exchange_item_num].target_rank 
-                                = i;
-
+			if (is_contained) {
+			    client_info.local_cache_base[item_idx].target_rank  = i; 
                             // printf("[RANK %d] pdc_region_prefetch_by_objid - object list needs to be send to rank %d\n",
                             //         pdc_client_mpi_rank_g, 
                             //         client_info.local_data_exchange[client_info.data_exchange_item_num].target_rank);
                             // fflush(stdout);
-                            
-            			    break;
-            			}
-        		    }
-        		}
-        		prefetch_list_idx++;
+			    break;
+			}
+		    }
+		}
+		
+		prefetch_list_idx++;
     	    }
             
-            if (is_contained) {
-                client_info.data_exchange_item_num++;
-
+            if (client_info.local_cache_base[item_idx].target_rank == i) {
                 break;
             }
     	}
         
     	is_contained = 0;
-    	obj_cache_iter = obj_cache_iter->next;
+    	item_idx = client_info.local_cache_base[item_idx].next;
     	prefetch_list_idx = 0;
     }
 
@@ -460,69 +436,145 @@ done:
     FUNC_LEAVE(ret_value);
 }
 
-// perr_t
-// pdc_region_dl_rebuild_list() 
-// {
-//     FUNC_ENTER(NULL);
-    
-//     perr_t ret_value = SUCCEED;
-//     double start = MPI_Wtime();
-
-//     pdc_object_list  *obj_cache_iter, *obj_cache_item;
-
-//     // Step 1: Initialize free slot information
-//     client_info.free_slot_count = MAX_ITEM_NUM;
-//     for (int i=0; i < MAX_ITEM_NUM; i++) {
-//         client_info.free_slot_indices[i] = MAX_ITEM_NUM - 1 - i;
-//     }
-
-//     // Step 2: Free existing list after data exchange
-//     obj_cache_iter = client_info.list_tail;
-
-//     while (obj_cache_iter != NULL) {
-//         obj_cache_item = obj_cache_iter;
-//         obj_cache_iter = obj_cache_iter->prev;
-
-//         ret_value = pdc_region_dl_delete(obj_cache_item);
-//         free(obj_cache_item);
-
-//         client_info.list_size--;
-//     }
-    
-//     obj_cache_item = NULL;
-    
-//     // Step 3: Insert new items
-//     for (int i=0; i < MAX_ITEM_NUM; i++) {
-//         if (client_info.local_shm_base[i].obj_id != INVALID_ID) { 
-//             int tmp_slot_index;
-//             // Add the obj_cache_data and prepend it to the cache list
-//             obj_cache_item = (struct pdc_object_list *)PDC_malloc(sizeof(struct pdc_object_list));
-//             if (!obj_cache_item)
-//                 PGOTO_ERROR(FAIL, "pdc_region_dl_rebuild_list - obj_cache_item memory allocation failed");
-            
-//             obj_cache_item->obj_id = client_info.local_shm_base[i].obj_id;
-//             obj_cache_item->slot_index = i;
-            
-//             ret_value = pdc_region_dl_prepend(obj_cache_item);
-//             tmp_slot_index = pop_free_slot();
-
-//             printf("[RANK %d] pdc_region_dl_rebuild_list - tmp_slot_index %d, shared memory index: %d\n",
-//                 pdc_client_mpi_rank_g, tmp_slot_index, i);
-//             fflush(stdout);
-        
-//             client_info.list_size++;
-//         }
-//     }
-
-//     pdc_region_cache_timelog(start, "pdc_region_dl_rebuild_list - total time");
-    
-// done:
-//     fflush(stdout);
-//     FUNC_LEAVE(ret_value);
-    
-// }
-
 perr_t
+pdc_region_dl_data_exchange(pdcid_t *global_prefetch_list, int obj_prefetch_list_len)
+{
+    FUNC_ENTER(NULL);
+
+    perr_t ret_value = SUCCEED;
+
+    int items_fill_idx = 0;
+    char *intra_node_send_buf, *inter_node_send_buf, *temp_intra_recv_buf, *temp_inter_recv_buf;
+    double start = MPI_Wtime();
+    size_t max_intra_send_chunk = 0, max_inter_send_chunk = 0;
+
+    // Step 1: Calculating the max buffer sizes and allocate reusable data exchange buffers
+    for (int chunk = 0; chunk < NUM_CHUNKS; chunk++) {
+	size_t current_intra_send = 0, current_inter_send = 0;
+	for (int i = 0; i < MAX_ITEM_NUM; i++) {
+	    if ((i % NUM_CHUNKS) != c) continue;
+	    if (client_info.rank_to_node_id_map[client_info.local_cache_base[i].target_rank] == client_info.node_manager_rank)
+		current_intra_send++;
+	    else
+		current_inter_send++;
+	}
+	if (current_intra_send > max_intra_send_chunk) max_intra_send_chunk = current_intra_send;
+	if (current_inter_send > max_inter_send_chunk) max_inter_send_chunk = current_inter_send;
+    }
+
+    intra_node_send_buf = (char *) PDC_malloc(max_intra_send_chunk * TRANSFER_UNIT_SIZE);
+    inter_node_send_buf = (char *) PDC_malloc(max_inter_send_chunk * TRANSFER_UNIT_SIZE);
+    temp_intra_recv_buf = (char *) PDC_malloc(max_intra_send_chunk * client_info.node_size * TRANSFER_UNIT_SIZE);
+    temp_inter_recv_buf = (char *) PDC_malloc(max_inter_send_chunk * client_info.world_size * TRANSFER_UNIT_SIZE);
+
+    MPI_Barrier(client_cache_world_comm);
+
+    // Step 2: Data exchange loop
+    for (int chunk = 0; chunk < NUM_CHUNKS; chunk++) {
+        int intra_node_item_count = 0;
+	int *intra_node_send_counts = (int *) PDC_calloc(client_info.node_size, sizeof(int));
+	
+	// Step 2-1: Intra-node shuffle for current chunk	
+        for (int i = 0; i < MAX_ITEM_NUM; i++) {
+	    if ((i % NUM_CHUNKS) != chunk) continue;
+	    if (rank_to_node_id_map[client_info.local_cache_base[i].target_rank] == client_info.node_manager_rank) {
+                int target_nrank = world_to_node_rank_map[client_info.local_cache_base[i].target_rank];
+		intra_node_send_counts[target_nrank]++;
+		intra_node_item_count++;
+	    }
+	}
+
+	int *intra_node_recv_counts = (int *) PDC_calloc(client_info.node_size, sizeof(int));
+	MPI_Alltoall(intra_node_send_counts, 1, MPI_INT, intra_node_recv_counts, 1, MPI_INT, client_cache_node_comm);
+	
+	int total_intra_recv_bytes_chunk = 0;
+	for (int i = 0; i < client_info.node_size; i++) {
+            total_intra_recv_bytes_chunk += intra_node_recv_counts[i] * TRANSFER_UNIT_SIZE;
+        }
+	
+	int *sdispls_intra_bytes = (int *) PDC_malloc(client_info.node_size * sizeof(int));
+	int *rdispls_intra_bytes = (int *) PDC_malloc(client_info.node_size * sizeof(int));
+	int *send_counts_intra_bytes = (int *) PDC_malloc(client_info.node_size * sizeof(int));
+	int *recv_counts_intra_bytes = (int *) PDC_malloc(client_info.node_size * sizeof(int));
+
+	sdispls_intra_bytes[0] = 0;
+	rdispls_intra_bytes[0] = 0;
+	send_counts_intra_bytes[0] = intra_node_send_counts[0] * TRANSFER_UNIT_SIZE;
+	recv_counts_intra_bytes[0] = intra_node_recv_counts[0] * TRANSFER_UNIT_SIZE;
+
+	for (int i = 1; i < client_info.node_size; i++) {
+	    send_counts_intra_bytes[i] = intra_node_send_counts[i] * TRANSFER_UNIT_SIZE;
+	    recv_counts_intra_bytes[i] = intra_node_recv_counts[i] * TRANSFER_UNIT_SIZE;
+	    sdispls_intra_bytes[i] = sdispls_intra_bytes[i-1] + send_counts_intra_bytes[i-1];
+	    rdispls_intra_bytes[i] = rdispls_intra_bytes[i-1] + recv_counts_intra_bytes[i-1];
+	}
+	
+	// Packing send buffer
+	if (intra_node_item_count > 0) {
+	    int *temp_offsets_intra = (int *) PDC_calloc(node_size, sizeof(int));
+	    for (int i = 0; i < MAX_ITEM_NUM; i++) {
+		if ((i % NUM_CHUNKS) != chunk) continue;
+		
+		int trg_rank = local_items[i].target_rank;
+		
+		if (client_info.rank_to_node_id_map[trg_rank] == client_info.node_manager_rank) {
+		    int trg_nrank = world_to_node_rank_map[trg_rank];
+		    long offset = (long)sdispls_intra_bytes[trg_nrank] + (long)temp_offsets_intra[trg_nrank] * TRANSFER_UNIT_SIZE;
+		    char *send_ptr = intra_node_send_buf + offset;
+		    size_t current_offset = 0;
+		    
+		    memcpy(send_ptr + current_offset, &local_cache_base[i].obj_id, sizeof(pdcid_t));
+		    current_offset += sizeof(pdcid_t);
+
+		    memcpy(send_ptr + current_offset, &local_cache_base[i].unit, sizeof(uint64_t));
+		    current_offset += sizeof(uint64_t);
+
+		    memcpy(send_ptr + current_offset, &local_cache_base[i].reg_ndim, sizeof(int));
+		    current_offset += sizeof(int);
+
+		    memcpy(send_ptr + current_offset, local_cache_base[i].reg_offset, sizeof(uint64_t) * 3);
+		    current_offset += (sizeof(uint64_t) * 3);
+
+		    memcpy(send_ptr + current_offset, local_cache_base[i].reg_size, sizeof(uint64_t) * 3);
+		    current_offset += (sizeof(uint64_t) * 3);
+
+		    memcpy(send_ptr + current_offset, &local_cache_base[i].reg_buf_size, sizeof(uint64_t));
+		    current_offset += sizeof(uint64_t);
+
+		    memcpy(send_ptr + current_offset, local_cache_base[i].reg_buf, MAX_ITEM_SIZE);
+
+		    temp_offsets_intra[trg_nrank]++;
+		}
+	    }
+	    free(tmp_offsets_intra);
+	}
+
+	// Collective call for intra node shuffle
+	MPI_Alltoallv(intra_node_send_buf, send_counts_intra_bytes, sdispls_intra_bytes, MPI_BYTE,
+                      temp_intra_recv_buf, recv_counts_intra_bytes, rdispls_intra_bytes, MPI_BYTE,
+                      client_cache_node_comm);
+	
+        // Unpacking recv buffer
+	if (total_intra_recv_bytes_chunk > 0) {
+	    int num_items_in_chunk = total_intra_recv_bytes_chunk / TRANSFER_UNIT_SIZE;
+	    for (int i = 0; i < num_items_in_chunk; ++i) {
+		if (items_fill_idx < MAX_ITEM_NUM) {
+		    char* recv_ptr = temp_intra_recv_buf + (i * (size_t)TRANSFER_UNIT_SIZE);
+		    size_t current_offset = 0;
+		    
+		    memcpy(&local_items[items_fill_idx].id, recv_ptr + current_offset, sizeof(int));
+		}
+	    } 
+	}	
+
+    }
+
+done:
+    fflush(stdout);
+    FUNC_LEAVE(ret_value);  
+}
+
+/*perr_t
 pdc_region_dl_data_exchange(pdcid_t *global_prefetch_list, int obj_prefetch_list_len)
 {
     FUNC_ENTER(NULL);
@@ -811,7 +863,7 @@ pdc_region_dl_data_exchange(pdcid_t *global_prefetch_list, int obj_prefetch_list
 done:
     fflush(stdout);
     FUNC_LEAVE(ret_value);
-}
+}*/
 
 perr_t
 pdc_region_dl_update(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size, void *buf)
@@ -820,40 +872,33 @@ pdc_region_dl_update(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, 
     
     perr_t ret_value = SUCCEED;
 
-    pdc_object_list  *obj_cache_iter, *obj_cache_item;
-    pdc_object_data  *obj_cache_data;
-    
-    int                      is_overlapped = 0;
+    int    item_idx, tmp_item_idx;
+    int    is_overlapped = 0;
 
-    if (client_info.list_size == 0)
+    if (client_info.cached_item_num == 0)
         goto done;
 
     // Find overlapping regions from the head of the list
-    obj_cache_iter = client_info.list_head;
+    item_idx = client_info.head_idx;
 
-    while (obj_cache_iter != NULL) {
-        obj_cache_item = obj_cache_iter;
-        obj_cache_iter = obj_cache_iter->next;
+    while (item_idx != INVALID_IDX) {
+        tmp_item_idx = local_cache_base[item_idx].next;
 
-        if (obj_cache_item->obj_id == obj_id) {
-            obj_cache_data = &client_info.local_shm_base[obj_cache_item->slot_index];
-            
+        if (local_cache_base[item_idx].obj_id == obj_id) {
             // Compare offset and offset + size and see if there is an overlap
             is_overlapped =
-                check_overlap(ndim, offset, size, obj_cache_data->reg_offset, obj_cache_data->reg_size);
+                check_overlap(ndim, offset, size, local_cache_base[item_idx].reg_offset, local_cache_base[item_idx].reg_size);
 
             // If there is overlapping region remove item from list
             if (is_overlapped) {
                 // Delete the overlapped object item
-                ret_value = pdc_region_dl_delete(obj_cache_item);
+                ret_value = pdc_region_dl_delete(item_idx);
 
-                obj_cache_data->obj_id = INVALID_ID;
-                push_free_slot(obj_cache_item->slot_index);
-                free(obj_cache_item);
-
-                client_info.list_size--;
+                client_info.cached_item_num--;
             }
         }
+
+	item_idx = tmp_item_idx;
     }
 
 done:
@@ -864,28 +909,21 @@ done:
 perr_t
 pdc_region_dl_evict()
 {
-    perr_t ret_value = SUCCEED;
-
-    pdc_object_list  *obj_cache_item;
-    pdc_object_data  *obj_cache_data;
-
     FUNC_ENTER(NULL);
 
-    if (client_info.list_size == 0) {
+    perr_t ret_value = SUCCEED;
+
+    int item_idx;
+
+    if (client_info.cached_item_num == 0)
         goto done;
-    }
 
     // Evict the last item following LRU policy
-    obj_cache_item = client_info.list_tail;
-    obj_cache_data = &client_info.local_shm_base[obj_cache_item->slot_index];
+    item_idx = client_info.tail_idx;
+    
+    ret_value = pdc_region_dl_delete(item_idx);
 
-    ret_value = pdc_region_dl_delete(obj_cache_item);
-
-    obj_cache_data->obj_id = INVALID_ID;
-    push_free_slot(obj_cache_item->slot_index);
-    free(obj_cache_item);
-
-    client_info.list_size--;
+    client_info.cached_item_num--;
     
 done:
     fflush(stdout);
@@ -895,35 +933,19 @@ done:
 perr_t
 pdc_region_dl_finalize()
 {
-    perr_t             ret_value = SUCCEED;
-    pdc_object_list *obj_cache_iter, *obj_cache_item;
-    double             start     = MPI_Wtime();
-
     FUNC_ENTER(NULL);
 
+    perr_t             ret_value = SUCCEED;
+    double             start     = MPI_Wtime();
+
     if (!client_info.client_init)
-        return ret_value;
+        goto done;
 
     MPI_Barrier(client_cache_world_comm);   // Make sure no shared memory is currently used
 
-    obj_cache_iter = client_info.list_tail; // Free the obj_cache_list of the client_info
-
-    while (obj_cache_iter != NULL) {
-        obj_cache_item = obj_cache_iter;
-        obj_cache_iter = obj_cache_iter->prev;
-
-        ret_value = pdc_region_dl_delete(obj_cache_item);
-
-        free(obj_cache_item);
-
-        client_info.list_size--;
-    }
-
-    if (client_info.node_shm_win != MPI_WIN_NULL) {
-        MPI_Win_free(&client_info.node_shm_win); // Free the shared memory of the client_info
-    }
-
+    free(client_info.world_to_node_rank_map);
     free(client_info.rank_to_node_id_map);  // Free the rank_to_node_id_map
+    free(client_info.local_cache_base);
 
     MPI_Comm_free(&client_cache_node_comm);
     MPI_Comm_free(&client_cache_world_comm);
