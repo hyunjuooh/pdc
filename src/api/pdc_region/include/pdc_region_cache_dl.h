@@ -51,35 +51,14 @@ typedef struct pdc_object_data {
 
     // Region data
     char reg_buf[MAX_ITEM_SIZE];
+
+    // Index info
+    int  slot_idx;
+    int  target_rank;
+
+    int  prev;
+    int  next;
 } pdc_object_data;
-
-typedef struct pdc_object_list {
-    pdcid_t  obj_id;
-    int      slot_index;
-
-    struct pdc_object_list* prev;
-    struct pdc_object_list* next;
-} pdc_object_list;
-
-typedef struct DataExchangeLocation {
-    pdcid_t  obj_id;
-    int      slot_index;
-    int      source_rank;
-    int      target_rank;
-} DataExchangeLocation;
-
-typedef struct DataPlacementOrder {
-    pdcid_t  obj_id;
-    int      source_rank;
-    int      source_slot_index;
-    int      target_rank;
-    MPI_Aint target_disp;
-} DataPlacementOrder;
-
-// typedef struct OutgoingData {
-//     pdcid_t  obj_id;
-//     pdc_object_data packet;
-// } OutgoingData;
 
 // Specifies client specific information
 typedef struct pdc_client_info {
@@ -91,29 +70,18 @@ typedef struct pdc_client_info {
     int node_size;
     int node_manager_rank;
 
-    MPI_Win  node_shm_win;
-    MPI_Aint node_shm_size;
+    int head_idx;
+    int tail_idx;
+    int free_idx;
+    int cached_item_num;
 
-    pdc_object_data* node_shm_base; // Shared memory base pointer
-    pdc_object_data* local_shm_base; // Current client's shared memory base pointer
-    //pdc_object_data  swap_buffer; // Buffer for data exchange
+    pdc_object_data* local_cache_base; // Current client's shared memory base pointer
 
-    pdc_object_list* list_head; // Linked list head
-    pdc_object_list* list_tail; // Linked list head
-    int list_size;
+    int *rank_to_node_id_map;
+    int *world_to_node_rank_map;
+    int *target_ranks;
 
-    // For data exchange
-    DataExchangeLocation *local_data_exchange;
-    MPI_Win node_manager_win;
-
-    int free_slot_indices[MAX_ITEM_NUM];
-    int free_slot_count;
-
-    int data_exchange_item_num;
-
-    int client_init;
-    
-    int* rank_to_node_id_map;
+    int client_cache_init;
 } pdc_client_info;
 
 /**************************************************************************/
