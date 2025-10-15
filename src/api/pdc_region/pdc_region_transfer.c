@@ -108,7 +108,7 @@ typedef struct pdc_transfer_request {
     uint64_t  total_data_size;
 
     // hjoh: Used for client-side cache
-    int  region_in_cache;
+    int region_in_cache;
 
     // Object dimensions
     int       obj_ndim;

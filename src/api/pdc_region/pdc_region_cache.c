@@ -15,8 +15,8 @@
 #include "pdc_region_prefetch.h"
 #include "pdc_client_connect.h"
 
-#define MAX_ITEM_SIZE  134214281
-#define MAX_ITEM_NUM   256
+#define MAX_ITEM_SIZE 134214281
+#define MAX_ITEM_NUM  256
 
 pdcid_t pdc_id;
 
@@ -30,8 +30,8 @@ pdc_region_cache_init(pdcid_t pdcid)
     FUNC_ENTER(NULL);
 
     start = MPI_Wtime();
-    
-    pdc_id         = pdcid;
+
+    pdc_id = pdcid;
 
     ret_value = pdc_region_dl_init();
     ret_value = pdc_region_prefetch_init();
@@ -66,11 +66,12 @@ pdc_region_cache_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offse
 
     // Search on doubly linked list
     region_contained = pdc_region_dl_local_search(obj_id, ndim, unit, offset, size, buf, read_size);
-    
+
     // if (!region_contained)
     //    region_contained = pdc_region_dl_node_search(obj_id, ndim, unit, offset, size, buf, read_size);
 
-    // printf("[RANK %d] pdc_region_cache_search: region contained: %d\n", pdc_client_mpi_rank_g, region_contained);
+    // printf("[RANK %d] pdc_region_cache_search: region contained: %d\n", pdc_client_mpi_rank_g,
+    // region_contained);
 
     pdc_region_cache_timelog(start, "pdc_region_cache_search - total time");
 
@@ -121,12 +122,12 @@ perr_t
 pdc_region_cache_update(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size, void *buf)
 {
     perr_t ret_value = SUCCEED;
-    double           start  =MPI_Wtime();
+    double start     = MPI_Wtime();
 
     FUNC_ENTER(NULL);
 
     ret_value = pdc_region_dl_update(obj_id, ndim, unit, offset, size, buf);
-    
+
     pdc_region_cache_timelog(start, "pdc_region_cache_update - update time");
 
 done:
@@ -139,8 +140,8 @@ perr_t
 pdc_region_cache_evict()
 {
     perr_t ret_value = SUCCEED;
-    
-    double           start;
+
+    double start;
 
     start = MPI_Wtime();
 
