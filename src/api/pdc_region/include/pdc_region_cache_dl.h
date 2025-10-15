@@ -53,11 +53,10 @@ typedef struct pdc_object_data {
     char reg_buf[MAX_ITEM_SIZE];
 
     // Index info
-    int  slot_idx;
     int  target_rank;
 
-    int  prev;
-    int  next;
+    struct pdc_object_data *prev;
+    struct pdc_object_data *next;
 } pdc_object_data;
 
 // Specifies client specific information
@@ -70,13 +69,11 @@ typedef struct pdc_client_info {
     int node_size;
     int node_manager_rank;
 
-    int head_idx;
-    int tail_idx;
-    int free_idx;
     int cached_item_num;
 
-    pdc_object_data* local_cache_base; // Current client's shared memory base pointer
-
+    pdc_object_data *local_cache_list_head;
+    pdc_object_data *local_cache_list_tail;
+    
     int *rank_to_node_id_map;
     int *world_to_node_rank_map;
     int *target_ranks;
@@ -93,8 +90,8 @@ perr_t pdc_region_dl_init();
 int pdc_region_dl_local_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size, 
                                void *buf, uint64_t read_size);
 
-int pdc_region_dl_node_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size, 
-                               void *buf, uint64_t read_size);
+//int pdc_region_dl_node_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size, 
+//                               void *buf, uint64_t read_size);
 
 perr_t pdc_region_dl_insert(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size, void *buf,
                             uint64_t read_size);
