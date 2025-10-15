@@ -38,6 +38,7 @@
 
 #include "pdc_obj.h"
 #include "pdc_region.h"
+#include "pdc_region_cache.h"
 #include "pdc_query.h"
 #include "pdc_analysis.h"
 #include "pdc_transform.h"

@@ -101,6 +101,11 @@ perr_t pdc_region_dl_update(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *o
 
 perr_t pdc_region_dl_evict();
 
+perr_t pdc_region_dl_prepare_data_exchange(pdcid_t *global_prefetch_list, uint64_t *offset, uint64_t *size,
+                                           int obj_prefetch_list_len);
+
+perr_t pdc_region_dl_data_exchange(pdcid_t *global_prefetch_list, int obj_prefetch_list_len);
+
 perr_t pdc_region_dl_finalize();
 
 #endif /* PDC_REGION_CACHE_DL_H */

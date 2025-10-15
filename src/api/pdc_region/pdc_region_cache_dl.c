@@ -18,8 +18,8 @@
 
 // #define MAX_CACHE_SIZE 4294967296
 // #define MAX_CACHE_SIZE 268435456
-#define MAX_ITEM_SIZE      134214281
-#define MAX_ITEM_NUM       10
+// #define MAX_ITEM_SIZE      134214281
+// #define MAX_ITEM_NUM       256
 #define NUM_CHUNKS         4
 #define TRANSFER_UNIT_SIZE (sizeof(pdcid_t) + sizeof(int) + sizeof(uint64_t) * 8 + MAX_ITEM_SIZE)
 

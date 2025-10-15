@@ -9,6 +9,7 @@
 #include "pdc_id_pkg.h"
 #include "pdc_obj.h"
 #include "pdc_malloc.h"
+#include "pdc_interface.h"
 #include "pdc_region.h"
 #include "pdc_region_pkg.h"
 #include "pdc_region_cache.h"
