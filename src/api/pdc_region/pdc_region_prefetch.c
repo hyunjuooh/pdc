@@ -16,13 +16,13 @@
 #include "pdc_region_cache_dl.h"
 #include "pdc_client_connect.h"
 
-pdcid_t  *obj_prefetch_list;
+pdcid_t * obj_prefetch_list;
 uint64_t *reg_offset_list;
 uint64_t *reg_size_list;
 
 // Global prefetch list
-pdcid_t  *global_obj_prefetch_list;
-//int *     global_list_len;
+pdcid_t *global_obj_prefetch_list;
+// int *     global_list_len;
 uint64_t *global_offset_list;
 uint64_t *global_size_list;
 
@@ -36,9 +36,9 @@ pdc_region_prefetch_init()
 
     FUNC_ENTER(NULL);
 
-    obj_prefetch_list     = NULL;
-    reg_offset_list       = NULL;
-    reg_size_list         = NULL;
+    obj_prefetch_list = NULL;
+    reg_offset_list   = NULL;
+    reg_size_list     = NULL;
 
     reg_dim               = 1;
     obj_prefetch_list_len = 0;
@@ -67,16 +67,16 @@ perr_t
 PDCregion_receive_prefetch_hint(pdcid_t *obj_arr, pdcid_t *reg_arr, int obj_array_len)
 {
     FUNC_ENTER(NULL);
-    
+
     perr_t ret_value = SUCCEED;
 
-    struct _pdc_id_info    *objinfo2, *reginfo2;
+    struct _pdc_id_info *   objinfo2, *reginfo2;
     struct pdc_region_info *reg2;
-    struct _pdc_obj_info   *obj2;
-    uint64_t               *ptr, *ptr2;
-    
-    int      i;
-    double   start = MPI_Wtime();
+    struct _pdc_obj_info *  obj2;
+    uint64_t *              ptr, *ptr2;
+
+    int    i;
+    double start = MPI_Wtime();
 
     obj_prefetch_list_len = obj_array_len;
     obj_prefetch_list     = (pdcid_t *)PDC_malloc(obj_prefetch_list_len * sizeof(pdcid_t));
@@ -96,9 +96,9 @@ PDCregion_receive_prefetch_hint(pdcid_t *obj_arr, pdcid_t *reg_arr, int obj_arra
 
         reg_offset_list = (uint64_t *)PDC_malloc(sizeof(uint64_t) * reg_dim * obj_prefetch_list_len);
         reg_size_list   = (uint64_t *)PDC_malloc(sizeof(uint64_t) * reg_dim * obj_prefetch_list_len);
-        
-        ptr             = reg_offset_list;
-        ptr2            = reg_size_list;
+
+        ptr  = reg_offset_list;
+        ptr2 = reg_size_list;
     }
 
     // Convert received object id
@@ -107,7 +107,7 @@ PDCregion_receive_prefetch_hint(pdcid_t *obj_arr, pdcid_t *reg_arr, int obj_arra
         if (objinfo2 == NULL)
             PGOTO_ERROR(FAIL, "cannot locate remote object ID");
 
-        obj2 = (struct _pdc_obj_info *)(objinfo2->obj_ptr);
+        obj2                 = (struct _pdc_obj_info *)(objinfo2->obj_ptr);
         obj_prefetch_list[i] = obj2->obj_info_pub->meta_id;
 
         if (reg_arr != NULL) {
@@ -135,7 +135,7 @@ perr_t
 pdc_region_prepare_global_prefetch_list()
 {
     perr_t ret_value = SUCCEED;
-    
+
     double start = MPI_Wtime();
 
     FUNC_ENTER(NULL);
@@ -144,28 +144,29 @@ pdc_region_prepare_global_prefetch_list()
     // TODO: Think about if gathering global list len or assuming list_len is equal among clients is okay
     // global_list_len = (int *)PDC_malloc(pdc_client_mpi_size_g * sizeof(int));
     // MPI_Allgather(&obj_prefetch_list_len, 1, MPI_INT, global_list_len, 1, MPI_INT, MPI_COMM_WORLD);
-    
-    global_obj_prefetch_list = (pdcid_t *)PDC_malloc(obj_prefetch_list_len * pdc_client_mpi_size_g * sizeof(pdcid_t));
-    
-    MPI_Allgather(obj_prefetch_list, obj_prefetch_list_len, MPI_UINT64_T, global_obj_prefetch_list, 
-		          obj_prefetch_list_len, MPI_UINT64_T, MPI_COMM_WORLD);
+
+    global_obj_prefetch_list =
+        (pdcid_t *)PDC_malloc(obj_prefetch_list_len * pdc_client_mpi_size_g * sizeof(pdcid_t));
+
+    MPI_Allgather(obj_prefetch_list, obj_prefetch_list_len, MPI_UINT64_T, global_obj_prefetch_list,
+                  obj_prefetch_list_len, MPI_UINT64_T, MPI_COMM_WORLD);
 
     if (reg_offset_list != NULL) {
-    	global_offset_list = (uint64_t *)PDC_malloc(reg_dim * pdc_client_mpi_size_g * sizeof(uint64_t));
-    	global_size_list   = (uint64_t *)PDC_malloc(reg_dim * pdc_client_mpi_size_g * sizeof(uint64_t));
-    
-    	MPI_Allgather(reg_offset_list, reg_dim, MPI_UINT64_T, global_offset_list, reg_dim, MPI_UINT64_T,
-    		      MPI_COMM_WORLD);
-    	MPI_Allgather(reg_size_list, reg_dim, MPI_UINT64_T, global_size_list, reg_dim, MPI_UINT64_T,
-    	              MPI_COMM_WORLD);
+        global_offset_list = (uint64_t *)PDC_malloc(reg_dim * pdc_client_mpi_size_g * sizeof(uint64_t));
+        global_size_list   = (uint64_t *)PDC_malloc(reg_dim * pdc_client_mpi_size_g * sizeof(uint64_t));
+
+        MPI_Allgather(reg_offset_list, reg_dim, MPI_UINT64_T, global_offset_list, reg_dim, MPI_UINT64_T,
+                      MPI_COMM_WORLD);
+        MPI_Allgather(reg_size_list, reg_dim, MPI_UINT64_T, global_size_list, reg_dim, MPI_UINT64_T,
+                      MPI_COMM_WORLD);
     }
     else {
-    	global_offset_list = NULL;
-    	global_size_list   = NULL;
+        global_offset_list = NULL;
+        global_size_list   = NULL;
     }
 
     pdc_region_cache_timelog(start, "pdc_region_prepare_global_prefetch_list - Total time");
-   
+
     // if (pdc_client_mpi_rank_g == 0) {
     //     printf("Rank %d received:\n", pdc_client_mpi_rank_g);
     //     for (int i = 0; i < obj_prefetch_list_len * pdc_client_mpi_size_g; i++) {
@@ -196,10 +197,10 @@ PDCregion_prefetch_by_objid()
 {
     FUNC_ENTER(NULL);
 
-    perr_t    ret_value = SUCCEED;
-    
-    int       i, is_cached;
-    double    start = MPI_Wtime();
+    perr_t ret_value = SUCCEED;
+
+    int    i, is_cached;
+    double start = MPI_Wtime();
 
     if (obj_prefetch_list == NULL) {
         if (pdc_client_mpi_rank_g == 0)
@@ -211,7 +212,7 @@ PDCregion_prefetch_by_objid()
 
     ret_value = pdc_region_prepare_global_prefetch_list();
     ret_value = pdc_region_dl_prepare_data_exchange(global_obj_prefetch_list, global_offset_list,
-		                                            global_size_list, obj_prefetch_list_len);
+                                                    global_size_list, obj_prefetch_list_len);
 
     ret_value = pdc_region_dl_data_exchange(global_obj_prefetch_list, obj_prefetch_list_len);
 
@@ -222,7 +223,7 @@ PDCregion_prefetch_by_objid()
 
     if (reg_offset_list != NULL) {
         free(reg_offset_list);
-	free(reg_size_list);
+        free(reg_size_list);
         reg_offset_list = NULL;
     }
 

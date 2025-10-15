@@ -78,7 +78,7 @@ main(int argc, char *argv[])
     pdcid_t obj_xx, obj_yy, obj_zz, obj_pxx, obj_pyy, obj_pzz, obj_id11, obj_id22;
     pdcid_t prefetch_arr[8];
 
-    //char *  prefetch_arr[8];
+    // char *  prefetch_arr[8];
     pdcid_t reg_prefetch_arr[8];
     // int     rank_arr[64];
 
@@ -108,7 +108,7 @@ main(int argc, char *argv[])
     total_start = MPI_Wtime();
 #endif
 
-    int     rank_arr[size];
+    int rank_arr[size];
 
     if (argc >= 2) {
         numparticles = atoll(argv[1]);

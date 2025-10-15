@@ -30,8 +30,8 @@
 #include "pdc_obj.h"
 
 // #define MAX_NAME_LEN 100
-#define MAX_ITEM_SIZE  134214281
-#define MAX_ITEM_NUM   256
+#define MAX_ITEM_SIZE 134214281
+#define MAX_ITEM_NUM  256
 
 /**************************/
 /* Library Private Struct */
@@ -43,7 +43,7 @@ typedef struct pdc_object_data {
     uint64_t unit;
 
     // Remote region information
-    int      reg_ndim;
+    int reg_ndim;
 
     uint64_t reg_offset[3];
     uint64_t reg_size[3];
@@ -53,7 +53,7 @@ typedef struct pdc_object_data {
     char reg_buf[MAX_ITEM_SIZE];
 
     // Index info
-    int  target_rank;
+    int target_rank;
 
     struct pdc_object_data *prev;
     struct pdc_object_data *next;
@@ -73,7 +73,7 @@ typedef struct pdc_client_info {
 
     pdc_object_data *local_cache_list_head;
     pdc_object_data *local_cache_list_tail;
-    
+
     int *rank_to_node_id_map;
     int *world_to_node_rank_map;
     int *target_ranks;
@@ -87,16 +87,16 @@ typedef struct pdc_client_info {
 
 perr_t pdc_region_dl_init();
 
-int pdc_region_dl_local_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size, 
+int pdc_region_dl_local_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size,
                                void *buf, uint64_t read_size);
 
-//int pdc_region_dl_node_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size, 
+// int pdc_region_dl_node_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size,
 //                               void *buf, uint64_t read_size);
 
-perr_t pdc_region_dl_insert(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size, void *buf,
-                            uint64_t read_size);
+perr_t pdc_region_dl_insert(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size,
+                            void *buf, uint64_t read_size);
 
-perr_t pdc_region_dl_update(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size, 
+perr_t pdc_region_dl_update(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size,
                             void *buf);
 
 perr_t pdc_region_dl_evict();
