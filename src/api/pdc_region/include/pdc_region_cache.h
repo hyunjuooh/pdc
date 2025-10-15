@@ -27,6 +27,8 @@
 
 #include "pdc_public.h"
 #include "pdc_obj.h"
+#include "pdc_region_cache_dl.h"
+#include "pdc_region_prefetch.h"
 
 extern pdcid_t pdc_id;
 extern size_t  total_buf_size;
