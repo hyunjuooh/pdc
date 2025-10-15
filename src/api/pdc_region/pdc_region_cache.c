@@ -67,8 +67,8 @@ pdc_region_cache_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offse
     // Search on doubly linked list
     region_contained = pdc_region_dl_local_search(obj_id, ndim, unit, offset, size, buf, read_size);
     
-    if (!region_contained)
-        region_contained = pdc_region_dl_node_search(obj_id, ndim, unit, offset, size, buf, read_size);
+    // if (!region_contained)
+    //    region_contained = pdc_region_dl_node_search(obj_id, ndim, unit, offset, size, buf, read_size);
 
     // printf("[RANK %d] pdc_region_cache_search: region contained: %d\n", pdc_client_mpi_rank_g, region_contained);
 
