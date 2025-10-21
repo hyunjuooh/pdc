@@ -31,7 +31,7 @@
 
 // #define MAX_NAME_LEN 100
 #define MAX_ITEM_SIZE 134214281
-#define MAX_ITEM_NUM  256
+#define MAX_ITEM_NUM  10
 
 /**************************/
 /* Library Private Struct */
