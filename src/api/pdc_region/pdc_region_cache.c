@@ -15,9 +15,6 @@
 #include "pdc_region_prefetch.h"
 #include "pdc_client_connect.h"
 
-#define MAX_ITEM_SIZE 134214281
-#define MAX_ITEM_NUM  256
-
 pdcid_t pdc_id;
 
 // Initialization of global variables
