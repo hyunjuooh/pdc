@@ -453,16 +453,17 @@ main(int argc, char *argv[])
 
         // random_offset = rank_arr[rank];
         offset_remote[0] = random_offset * numparticles;
-        printf("[RANK %d] Random offset %d\n", rank, offset_remote[0]);
+        if (rank == 0)
+            printf("[RANK %d] Random offset %d\n", rank, offset_remote[0]);
     }
 
-#ifdef ENABLE_MPI
-    total_region_start = MPI_Wtime();
-    transfer_start     = .0;
-    transfer_wait      = .0;
-    transfer_create    = .0;
-    transfer_close     = .0;
-#endif
+// #ifdef ENABLE_MPI
+//     total_region_start = MPI_Wtime();
+//     transfer_start     = .0;
+//     transfer_wait      = .0;
+//     transfer_create    = .0;
+//     transfer_close     = .0;
+// #endif
 
     // create a region
     region_x   = PDCregion_create(ndim, offset, mysize);
@@ -503,6 +504,14 @@ main(int argc, char *argv[])
     start = MPI_Wtime();
 #endif
 
+#ifdef ENABLE_MPI
+    total_region_start = MPI_Wtime();
+    transfer_start     = .0;
+    transfer_wait      = .0;
+    transfer_create    = .0;
+    transfer_close     = .0;
+#endif
+    
     transfer_request_x   = PDCregion_transfer_create(&x[0], PDC_READ, obj_xx, region_x, region_xx);
     transfer_request_y   = PDCregion_transfer_create(&y[0], PDC_READ, obj_yy, region_y, region_yy);
     transfer_request_z   = PDCregion_transfer_create(&z[0], PDC_READ, obj_zz, region_z, region_zz);
