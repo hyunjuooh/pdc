@@ -170,7 +170,7 @@ done:
 void
 pdc_region_cache_timelog(double start_time, const char *message)
 {
-    int        rank_limit = 5;
+    int        rank_limit = 0;
     double     end_time;
     time_t     cur_time = time(NULL);
     struct tm *log_time = localtime(&cur_time);

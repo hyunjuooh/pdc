@@ -16,10 +16,6 @@
 #include "pdc_region_prefetch.h"
 #include "pdc_client_connect.h"
 
-// #define MAX_CACHE_SIZE 4294967296
-// #define MAX_CACHE_SIZE 268435456
-// #define MAX_ITEM_SIZE      134214281
-// #define MAX_ITEM_NUM       256
 #define NUM_CHUNKS         4
 #define TRANSFER_UNIT_SIZE (sizeof(pdcid_t) + sizeof(int) + sizeof(uint64_t) * 8 + MAX_ITEM_SIZE)
 
@@ -182,6 +178,7 @@ pdc_region_dl_insert(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, 
     obj_cache_item->unit         = unit;
     obj_cache_item->reg_ndim     = ndim;
     obj_cache_item->reg_buf_size = read_size;
+    obj_cache_item->target_rank  = -1;
 
     memcpy(obj_cache_item->reg_offset, offset, ndim * sizeof(uint64_t));
     memcpy(obj_cache_item->reg_size, size, ndim * sizeof(uint64_t));
@@ -353,10 +350,6 @@ pdc_region_dl_prepare_data_exchange(pdcid_t *global_prefetch_list, uint64_t *off
                         // and if the target_rank is not the same as node_manager_rank
                         if (is_contained) {
                             obj_cache_iter->target_rank = i;
-                            printf("[RANK %d] pdc_region_prefetch_by_objid - object list needs to be send to "
-                                   "rank %d\n",
-                                   pdc_client_mpi_rank_g, obj_cache_iter->target_rank);
-                            fflush(stdout);
                             break;
                         }
                     }
@@ -364,7 +357,7 @@ pdc_region_dl_prepare_data_exchange(pdcid_t *global_prefetch_list, uint64_t *off
 
                 prefetch_list_idx++;
             }
-            if (obj_cache_iter->target_rank == i) {
+            if (obj_cache_iter->target_rank != -1) {
                 break;
             }
         }
@@ -394,7 +387,7 @@ pdc_region_dl_data_exchange(pdcid_t *global_prefetch_list, int obj_prefetch_list
 
     // Step 1: Calculating the max buffer sizes and allocate reusable data exchange buffers
     int    chunk_size           = client_info.cached_item_num / NUM_CHUNKS;
-    size_t max_intra_send_chunk = 0, max_inter_send_chunk = 0;
+    size_t max_intra_send_chunk = 0, max_inter_send_chunk = 0, local_max_send_chunk = 0;;
 
     for (int c = 0; c < NUM_CHUNKS; c++) {
         size_t current_intra_send = 0, current_inter_send = 0;
@@ -420,12 +413,20 @@ pdc_region_dl_data_exchange(pdcid_t *global_prefetch_list, int obj_prefetch_list
             max_inter_send_chunk = current_inter_send;
     }
 
-    intra_node_send_buf = (char *)PDC_malloc(max_intra_send_chunk * TRANSFER_UNIT_SIZE);
-    inter_node_send_buf = (char *)PDC_malloc(max_inter_send_chunk * TRANSFER_UNIT_SIZE);
+    if (max_intra_send_chunk > max_inter_send_chunk)
+        local_max_send_chunk = max_intra_send_chunk;
+    else
+        local_max_send_chunk = max_inter_send_chunk;
+
+    size_t global_max_chunk_size = 0;
+    MPI_Allreduce(&local_max_send_chunk, &global_max_chunk_size, 1, MPI_UNSIGNED_LONG, MPI_MAX, client_cache_world_comm);
+
+    intra_node_send_buf = (char *)PDC_malloc(global_max_chunk_size * TRANSFER_UNIT_SIZE + 1);
+    inter_node_send_buf = (char *)PDC_malloc(global_max_chunk_size * TRANSFER_UNIT_SIZE + 1);
     temp_intra_recv_buf =
-        (char *)PDC_malloc(max_intra_send_chunk * client_info.node_size * TRANSFER_UNIT_SIZE);
+        (char *)PDC_malloc(global_max_chunk_size * client_info.node_size * TRANSFER_UNIT_SIZE + 1);
     temp_inter_recv_buf =
-        (char *)PDC_malloc(max_inter_send_chunk * client_info.world_size * TRANSFER_UNIT_SIZE);
+        (char *)PDC_malloc(global_max_chunk_size * client_info.world_size * TRANSFER_UNIT_SIZE + 1);
 
     MPI_Barrier(client_cache_world_comm);
 
@@ -433,8 +434,13 @@ pdc_region_dl_data_exchange(pdcid_t *global_prefetch_list, int obj_prefetch_list
     exchange_head = client_info.local_cache_list_head;
     for (int c = 0; c < NUM_CHUNKS; c++) {
         int start_idx = 0;
-        int end_idx   = (c == NUM_CHUNKS - 1) ? (client_info.cached_item_num % chunk_size) : chunk_size;
-
+        int end_idx   = chunk_size;
+        
+        if (c == NUM_CHUNKS - 1) {
+            if (client_info.cached_item_num % chunk_size != 0)
+                end_idx = client_info.cached_item_num % chunk_size;
+        }
+        
         // Step 2-1: Intra-node shuffle for current chunk
         int  intra_node_item_count  = 0;
         int *intra_node_send_counts = (int *)PDC_calloc(client_info.node_size, sizeof(int));
@@ -455,9 +461,10 @@ pdc_region_dl_data_exchange(pdcid_t *global_prefetch_list, int obj_prefetch_list
         MPI_Alltoall(intra_node_send_counts, 1, MPI_INT, intra_node_recv_counts, 1, MPI_INT,
                      client_cache_node_comm);
 
-        int total_intra_recv_bytes_chunk = 0;
+        size_t total_intra_recv_bytes_chunk = 0;
         for (i = 0; i < client_info.node_size; i++) {
-            total_intra_recv_bytes_chunk += intra_node_recv_counts[i] * TRANSFER_UNIT_SIZE;
+            // printf("[RANK %d] data_Exchange - intra_node_send_counts %d intra_node_recv_counts %d\n", pdc_client_mpi_rank_g, intra_node_send_counts[i], intra_node_recv_counts[i], i);
+            total_intra_recv_bytes_chunk += (intra_node_recv_counts[i] * TRANSFER_UNIT_SIZE);
         }
 
         int *sdispls_intra_bytes     = (int *)PDC_malloc(client_info.node_size * sizeof(int));
@@ -470,6 +477,10 @@ pdc_region_dl_data_exchange(pdcid_t *global_prefetch_list, int obj_prefetch_list
         send_counts_intra_bytes[0] = intra_node_send_counts[0] * TRANSFER_UNIT_SIZE;
         recv_counts_intra_bytes[0] = intra_node_recv_counts[0] * TRANSFER_UNIT_SIZE;
 
+
+        long current_sdisp = 0;
+        long current_rdisp = 0;
+        
         for (i = 1; i < client_info.node_size; i++) {
             send_counts_intra_bytes[i] = intra_node_send_counts[i] * TRANSFER_UNIT_SIZE;
             recv_counts_intra_bytes[i] = intra_node_recv_counts[i] * TRANSFER_UNIT_SIZE;
@@ -477,41 +488,34 @@ pdc_region_dl_data_exchange(pdcid_t *global_prefetch_list, int obj_prefetch_list
             rdispls_intra_bytes[i]     = rdispls_intra_bytes[i - 1] + recv_counts_intra_bytes[i - 1];
         }
 
+
         // Packing send buffer
         if (intra_node_item_count > 0) {
             int *temp_offsets_intra = (int *)PDC_calloc(client_info.node_size, sizeof(int));
             int  item_idx           = 0;
 
-            for (obj_cache_iter = exchange_head; obj_cache_iter != NULL;
-                 obj_cache_iter = obj_cache_iter->next) {
+            for (obj_cache_iter = exchange_head; obj_cache_iter != NULL;obj_cache_iter = obj_cache_iter->next) {
                 if (item_idx >= start_idx && item_idx < end_idx) {
                     int trg_rank = obj_cache_iter->target_rank;
 
                     if (client_info.rank_to_node_id_map[trg_rank] == client_info.node_manager_rank) {
                         int  trg_nrank = client_info.world_to_node_rank_map[trg_rank];
-                        long offset    = (long)sdispls_intra_bytes[trg_nrank] +
-                                      (long)temp_offsets_intra[trg_nrank] * TRANSFER_UNIT_SIZE;
+                        long offset    = (long)sdispls_intra_bytes[trg_nrank] + (long)temp_offsets_intra[trg_nrank] * TRANSFER_UNIT_SIZE;
                         char * send_ptr       = intra_node_send_buf + offset;
                         size_t current_offset = 0;
 
                         memcpy(send_ptr + current_offset, &obj_cache_iter->obj_id, sizeof(pdcid_t));
                         current_offset += sizeof(pdcid_t);
-
                         memcpy(send_ptr + current_offset, &obj_cache_iter->unit, sizeof(uint64_t));
                         current_offset += sizeof(uint64_t);
-
                         memcpy(send_ptr + current_offset, &obj_cache_iter->reg_ndim, sizeof(int));
                         current_offset += sizeof(int);
-
                         memcpy(send_ptr + current_offset, obj_cache_iter->reg_offset, sizeof(uint64_t) * 3);
                         current_offset += (sizeof(uint64_t) * 3);
-
                         memcpy(send_ptr + current_offset, obj_cache_iter->reg_size, sizeof(uint64_t) * 3);
                         current_offset += (sizeof(uint64_t) * 3);
-
                         memcpy(send_ptr + current_offset, &obj_cache_iter->reg_buf_size, sizeof(uint64_t));
                         current_offset += sizeof(uint64_t);
-
                         memcpy(send_ptr + current_offset, obj_cache_iter->reg_buf, MAX_ITEM_SIZE);
 
                         temp_offsets_intra[trg_nrank]++;
@@ -550,6 +554,8 @@ pdc_region_dl_data_exchange(pdcid_t *global_prefetch_list, int obj_prefetch_list
                 current_offset += sizeof(uint64_t);
                 memcpy(obj_cache_item->reg_buf, recv_ptr + current_offset, MAX_ITEM_SIZE);
 
+                obj_cache_item->target_rank = -1;
+
                 pdc_region_dl_prepend(obj_cache_item);
             }
         }
@@ -562,134 +568,144 @@ pdc_region_dl_data_exchange(pdcid_t *global_prefetch_list, int obj_prefetch_list
         free(intra_node_recv_counts);
 
         // Stage 3: Inter-node data exchange for current chunk
-        int  inter_node_item_count  = 0;
-        int *inter_node_send_counts = (int *)PDC_calloc(client_info.world_size, sizeof(int));
-        i                           = 0;
+        // int  inter_node_item_count  = 0;
+        // int *inter_node_send_counts = (int *)PDC_calloc(client_info.world_size, sizeof(int));
+        // i                           = 0;
         
-        for (obj_cache_iter = exchange_head; obj_cache_iter != NULL; obj_cache_iter = obj_cache_iter->next) {
-            if (i >= start_idx && i < end_idx) {
-                if (client_info.rank_to_node_id_map[obj_cache_iter->target_rank] !=
-                    client_info.node_manager_rank) {
-                    inter_node_send_counts[obj_cache_iter->target_rank]++;
-                    inter_node_item_count++;
-                }
-            }
-            i++;
-        }
+        // for (obj_cache_iter = exchange_head; obj_cache_iter != NULL; obj_cache_iter = obj_cache_iter->next) {
+        //     if (i >= start_idx && i < end_idx) {
+        //         if (client_info.rank_to_node_id_map[obj_cache_iter->target_rank] !=
+        //             client_info.node_manager_rank) {
+        //             inter_node_send_counts[obj_cache_iter->target_rank]++;
+        //             inter_node_item_count++;
+        //         }
+        //     }
+        //     i++;
+        // }
 
-        int *inter_node_recv_counts = (int *)PDC_calloc(client_info.world_size, sizeof(int));
-        MPI_Alltoall(inter_node_send_counts, 1, MPI_INT, inter_node_recv_counts, 1, MPI_INT,
-                     client_cache_world_comm);
+        // int *inter_node_recv_counts = (int *)PDC_calloc(client_info.world_size, sizeof(int));
+        // MPI_Alltoall(inter_node_send_counts, 1, MPI_INT, inter_node_recv_counts, 1, MPI_INT,
+        //              client_cache_world_comm);
 
-        int total_inter_recv_bytes_chunk = 0;
-        for (int j = 0; j < client_info.world_size; j++) {
-            total_inter_recv_bytes_chunk += inter_node_recv_counts[j] * TRANSFER_UNIT_SIZE;
-        }
+        // int total_inter_recv_bytes_chunk = 0;
+        // for (int j = 0; j < client_info.world_size; j++) {
+        //     total_inter_recv_bytes_chunk += inter_node_recv_counts[j] * TRANSFER_UNIT_SIZE;
+        // }
 
-        int *sdispls_inter_bytes     = (int *)PDC_malloc(client_info.world_size * sizeof(int));
-        int *rdispls_inter_bytes     = (int *)PDC_malloc(client_info.world_size * sizeof(int));
-        int *send_counts_inter_bytes = (int *)PDC_malloc(client_info.world_size * sizeof(int));
-        int *recv_counts_inter_bytes = (int *)PDC_malloc(client_info.world_size * sizeof(int));
+        // int *sdispls_inter_bytes     = (int *)PDC_malloc(client_info.world_size * sizeof(int));
+        // int *rdispls_inter_bytes     = (int *)PDC_malloc(client_info.world_size * sizeof(int));
+        // int *send_counts_inter_bytes = (int *)PDC_malloc(client_info.world_size * sizeof(int));
+        // int *recv_counts_inter_bytes = (int *)PDC_malloc(client_info.world_size * sizeof(int));
 
-        sdispls_inter_bytes[0]     = 0;
-        rdispls_inter_bytes[0]     = 0;
-        send_counts_inter_bytes[0] = inter_node_send_counts[0] * TRANSFER_UNIT_SIZE;
-        recv_counts_inter_bytes[0] = inter_node_recv_counts[0] * TRANSFER_UNIT_SIZE;
+        // sdispls_inter_bytes[0]     = 0;
+        // rdispls_inter_bytes[0]     = 0;
+        // send_counts_inter_bytes[0] = inter_node_send_counts[0] * TRANSFER_UNIT_SIZE;
+        // recv_counts_inter_bytes[0] = inter_node_recv_counts[0] * TRANSFER_UNIT_SIZE;
 
-        for (int j = 1; j < client_info.world_size; ++j) {
-            send_counts_inter_bytes[j] = inter_node_send_counts[j] * TRANSFER_UNIT_SIZE;
-            recv_counts_inter_bytes[j] = inter_node_recv_counts[j] * TRANSFER_UNIT_SIZE;
-            sdispls_inter_bytes[j]     = sdispls_inter_bytes[j - 1] + send_counts_inter_bytes[j - 1];
-            rdispls_inter_bytes[j]     = rdispls_inter_bytes[j - 1] + recv_counts_inter_bytes[j - 1];
-        }
+        // for (int j = 1; j < client_info.world_size; ++j) {
+        //     send_counts_inter_bytes[j] = inter_node_send_counts[j] * TRANSFER_UNIT_SIZE;
+        //     recv_counts_inter_bytes[j] = inter_node_recv_counts[j] * TRANSFER_UNIT_SIZE;
+        //     sdispls_inter_bytes[j]     = sdispls_inter_bytes[j - 1] + send_counts_inter_bytes[j - 1];
+        //     rdispls_inter_bytes[j]     = rdispls_inter_bytes[j - 1] + recv_counts_inter_bytes[j - 1];
+        // }
 
-        if (inter_node_item_count > 0) {
-            int *temp_offsets_inter = (int *)PDC_calloc(client_info.world_size, sizeof(int));
-            int  item_idx           = 0;
-            for (obj_cache_iter = exchange_head; obj_cache_iter != NULL;
-                 obj_cache_iter = obj_cache_iter->next) {
-                if (item_idx >= start_idx && item_idx < end_idx) {
-                    int trg_rank = obj_cache_iter->target_rank;
-                    if (client_info.rank_to_node_id_map[trg_rank] != client_info.node_manager_rank) {
-                        long offset = (long)sdispls_inter_bytes[trg_rank] +
-                                      (long)temp_offsets_inter[trg_rank] * TRANSFER_UNIT_SIZE;
-                        char * send_ptr       = inter_node_send_buf + offset;
-                        size_t current_offset = 0;
+        // if (inter_node_item_count > 0) {
+        //     int *temp_offsets_inter = (int *)PDC_calloc(client_info.world_size, sizeof(int));
+        //     int  item_idx           = 0;
+        //     for (obj_cache_iter = exchange_head; obj_cache_iter != NULL;
+        //          obj_cache_iter = obj_cache_iter->next) {
+        //         if (item_idx >= start_idx && item_idx < end_idx) {
+        //             int trg_rank = obj_cache_iter->target_rank;
+        //             if (client_info.rank_to_node_id_map[trg_rank] != client_info.node_manager_rank) {
+        //                 long offset = (long)sdispls_inter_bytes[trg_rank] +
+        //                               (long)temp_offsets_inter[trg_rank] * TRANSFER_UNIT_SIZE;
+        //                 char * send_ptr       = inter_node_send_buf + offset;
+        //                 size_t current_offset = 0;
                         
-                        memcpy(send_ptr + current_offset, &obj_cache_iter->obj_id, sizeof(pdcid_t));
-                        current_offset += sizeof(pdcid_t);
+        //                 memcpy(send_ptr + current_offset, &obj_cache_iter->obj_id, sizeof(pdcid_t));
+        //                 current_offset += sizeof(pdcid_t);
 
-                        memcpy(send_ptr + current_offset, &obj_cache_iter->unit, sizeof(uint64_t));
-                        current_offset += sizeof(uint64_t);
+        //                 memcpy(send_ptr + current_offset, &obj_cache_iter->unit, sizeof(uint64_t));
+        //                 current_offset += sizeof(uint64_t);
 
-                        memcpy(send_ptr + current_offset, &obj_cache_iter->reg_ndim, sizeof(int));
-                        current_offset += sizeof(int);
+        //                 memcpy(send_ptr + current_offset, &obj_cache_iter->reg_ndim, sizeof(int));
+        //                 current_offset += sizeof(int);
 
-                        memcpy(send_ptr + current_offset, obj_cache_iter->reg_offset, sizeof(uint64_t) * 3);
-                        current_offset += (sizeof(uint64_t) * 3);
+        //                 memcpy(send_ptr + current_offset, obj_cache_iter->reg_offset, sizeof(uint64_t) * 3);
+        //                 current_offset += (sizeof(uint64_t) * 3);
 
-                        memcpy(send_ptr + current_offset, obj_cache_iter->reg_size, sizeof(uint64_t) * 3);
-                        current_offset += (sizeof(uint64_t) * 3);
+        //                 memcpy(send_ptr + current_offset, obj_cache_iter->reg_size, sizeof(uint64_t) * 3);
+        //                 current_offset += (sizeof(uint64_t) * 3);
 
-                        memcpy(send_ptr + current_offset, &obj_cache_iter->reg_buf_size, sizeof(uint64_t));
-                        current_offset += sizeof(uint64_t);
+        //                 memcpy(send_ptr + current_offset, &obj_cache_iter->reg_buf_size, sizeof(uint64_t));
+        //                 current_offset += sizeof(uint64_t);
 
-                        memcpy(send_ptr + current_offset, obj_cache_iter->reg_buf, MAX_ITEM_SIZE);
+        //                 memcpy(send_ptr + current_offset, obj_cache_iter->reg_buf, MAX_ITEM_SIZE);
 
-                        temp_offsets_inter[trg_rank]++;
-                    }
-                }
-                item_idx++;
-            }
-            free(temp_offsets_inter);
-        }
+        //                 temp_offsets_inter[trg_rank]++;
+        //             }
+        //         }
+        //         item_idx++;
+        //     }
+        //     free(temp_offsets_inter);
+        // }
 
-        MPI_Alltoallv(inter_node_send_buf, send_counts_inter_bytes, sdispls_inter_bytes, MPI_BYTE,
-                      temp_inter_recv_buf, recv_counts_inter_bytes, rdispls_inter_bytes, MPI_BYTE,
-                      client_cache_world_comm);
+        // MPI_Alltoallv(inter_node_send_buf, send_counts_inter_bytes, sdispls_inter_bytes, MPI_BYTE,
+        //               temp_inter_recv_buf, recv_counts_inter_bytes, rdispls_inter_bytes, MPI_BYTE,
+        //               client_cache_world_comm);
 
-        if (total_inter_recv_bytes_chunk > 0) {
-            int num_items_in_chunk = total_inter_recv_bytes_chunk / TRANSFER_UNIT_SIZE;
-            for (int j = 0; j < num_items_in_chunk; ++j) {
-                pdc_object_data *obj_cache_item = (pdc_object_data *)PDC_malloc(sizeof(pdc_object_data));
-                char *           recv_ptr       = temp_inter_recv_buf + (j * (size_t)TRANSFER_UNIT_SIZE);
-                size_t           current_offset = 0;
+        // if (total_inter_recv_bytes_chunk > 0) {
+        //     int num_items_in_chunk = total_inter_recv_bytes_chunk / TRANSFER_UNIT_SIZE;
+        //     for (int j = 0; j < num_items_in_chunk; ++j) {
+        //         pdc_object_data *obj_cache_item = (pdc_object_data *)PDC_malloc(sizeof(pdc_object_data));
+        //         char *           recv_ptr       = temp_inter_recv_buf + (j * (size_t)TRANSFER_UNIT_SIZE);
+        //         size_t           current_offset = 0;
 
-                memcpy(&obj_cache_item->obj_id, recv_ptr + current_offset, sizeof(pdcid_t));
-                current_offset += sizeof(pdcid_t);
-                memcpy(&obj_cache_item->unit, recv_ptr + current_offset, sizeof(uint64_t));
-                current_offset += sizeof(uint64_t);
-                memcpy(&obj_cache_item->reg_ndim, recv_ptr + current_offset, sizeof(int));
-                current_offset += sizeof(int);
-                memcpy(obj_cache_item->reg_offset, recv_ptr + current_offset, sizeof(uint64_t) * 3);
-                current_offset += (sizeof(uint64_t) * 3);
-                memcpy(obj_cache_item->reg_size, recv_ptr + current_offset, sizeof(uint64_t) * 3);
-                current_offset += (sizeof(uint64_t) * 3);
-                memcpy(&obj_cache_item->reg_buf_size, recv_ptr + current_offset, sizeof(uint64_t));
-                current_offset += sizeof(uint64_t);
-                memcpy(obj_cache_item->reg_buf, recv_ptr + current_offset, MAX_ITEM_SIZE);
+        //         memcpy(&obj_cache_item->obj_id, recv_ptr + current_offset, sizeof(pdcid_t));
+        //         current_offset += sizeof(pdcid_t);
+        //         memcpy(&obj_cache_item->unit, recv_ptr + current_offset, sizeof(uint64_t));
+        //         current_offset += sizeof(uint64_t);
+        //         memcpy(&obj_cache_item->reg_ndim, recv_ptr + current_offset, sizeof(int));
+        //         current_offset += sizeof(int);
+        //         memcpy(obj_cache_item->reg_offset, recv_ptr + current_offset, sizeof(uint64_t) * 3);
+        //         current_offset += (sizeof(uint64_t) * 3);
+        //         memcpy(obj_cache_item->reg_size, recv_ptr + current_offset, sizeof(uint64_t) * 3);
+        //         current_offset += (sizeof(uint64_t) * 3);
+        //         memcpy(&obj_cache_item->reg_buf_size, recv_ptr + current_offset, sizeof(uint64_t));
+        //         current_offset += sizeof(uint64_t);
+        //         memcpy(obj_cache_item->reg_buf, recv_ptr + current_offset, MAX_ITEM_SIZE);
 
-                pdc_region_dl_prepend(obj_cache_item);
-            }
-        }
+        //         pdc_region_dl_prepend(obj_cache_item);
+        //     }
+        // }
 
-        free(sdispls_inter_bytes);
-        free(rdispls_inter_bytes);
-        free(send_counts_inter_bytes);
-        free(recv_counts_inter_bytes);
-        free(inter_node_send_counts);
-        free(inter_node_recv_counts);
+        // free(sdispls_inter_bytes);
+        // free(rdispls_inter_bytes);
+        // free(send_counts_inter_bytes);
+        // free(recv_counts_inter_bytes);
+        // free(inter_node_send_counts);
+        // free(inter_node_recv_counts);
 
         i              = 0;
-        obj_cache_iter = exchange_head;
-        while (exchange_head != NULL) {
-            if (i >= start_idx && i < end_idx) {
-                exchange_head = obj_cache_iter->next;
-                pdc_region_dl_delete(obj_cache_iter);
-                free(obj_cache_iter);
-            }
+        while (i >= start_idx && i < end_idx && exchange_head != NULL) {
+            obj_cache_iter = exchange_head;
+            exchange_head = obj_cache_iter->next;
+            pdc_region_dl_delete(obj_cache_iter);
+            free(obj_cache_iter);
+            
             i++;
         }
+    }
+
+    // For debugging purpose
+    obj_cache_iter = client_info.local_cache_list_head;
+    while (obj_cache_iter != NULL) {
+        if (client_info.world_rank == 0)
+            printf("[RANK %d] object_id %d offset %d\n", client_info.world_rank, obj_cache_iter->obj_id, obj_cache_iter->reg_offset[0]);
+
+        fflush(stdout);
+
+        obj_cache_iter = obj_cache_iter->next;
     }
 
     free(intra_node_send_buf);
