@@ -30,7 +30,7 @@
 #include "pdc_obj.h"
 
 // #define MAX_NAME_LEN 100
-#define MAX_ITEM_SIZE 268435608
+#define MAX_ITEM_SIZE 33554432
 #define MAX_ITEM_NUM  10
 
 /**************************/
