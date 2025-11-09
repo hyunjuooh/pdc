@@ -460,13 +460,13 @@ main(int argc, char *argv[])
             printf("[RANK %d] Random offset %d\n", rank, offset_remote[0]);
     }
 
-// #ifdef ENABLE_MPI
-//     total_region_start = MPI_Wtime();
-//     transfer_start     = .0;
-//     transfer_wait      = .0;
-//     transfer_create    = .0;
-//     transfer_close     = .0;
-// #endif
+    // #ifdef ENABLE_MPI
+    //     total_region_start = MPI_Wtime();
+    //     transfer_start     = .0;
+    //     transfer_wait      = .0;
+    //     transfer_create    = .0;
+    //     transfer_close     = .0;
+    // #endif
 
     // create a region
     region_x   = PDCregion_create(ndim, offset, mysize);
@@ -488,9 +488,9 @@ main(int argc, char *argv[])
     region_id22 = PDCregion_create(ndim, offset_remote, mysize);
 
 #ifdef ENABLE_MPI
-    t0    = MPI_Wtime();
+    t0 = MPI_Wtime();
 #endif
-    
+
     if (access_pattern == 3) {
         reg_prefetch_arr[0] = region_xx;
         reg_prefetch_arr[1] = region_yy;
@@ -528,7 +528,7 @@ main(int argc, char *argv[])
     transfer_create    = .0;
     transfer_close     = .0;
 #endif
-    
+
     transfer_request_x   = PDCregion_transfer_create(&x[0], PDC_READ, obj_xx, region_x, region_xx);
     transfer_request_y   = PDCregion_transfer_create(&y[0], PDC_READ, obj_yy, region_y, region_yy);
     transfer_request_z   = PDCregion_transfer_create(&z[0], PDC_READ, obj_zz, region_z, region_zz);
@@ -738,7 +738,6 @@ main(int argc, char *argv[])
     if (PDCregion_close(region_id2) < 0)
         printf("fail to close region region_id22\n");
 
-
     mysize[0] = numparticles / num_transfer_request;
 
     if (access_pattern == 1) {
@@ -762,13 +761,13 @@ main(int argc, char *argv[])
             printf("[RANK %d] Random offset %d\n", rank, offset_remote[0]);
     }
 
-// #ifdef ENABLE_MPI
-//     total_region_start = MPI_Wtime();
-//     transfer_start     = .0;
-//     transfer_wait      = .0;
-//     transfer_create    = .0;
-//     transfer_close     = .0;
-// #endif
+    // #ifdef ENABLE_MPI
+    //     total_region_start = MPI_Wtime();
+    //     transfer_start     = .0;
+    //     transfer_wait      = .0;
+    //     transfer_create    = .0;
+    //     transfer_close     = .0;
+    // #endif
 
     // create a region
     region_x   = PDCregion_create(ndim, offset, mysize);
@@ -790,9 +789,9 @@ main(int argc, char *argv[])
     region_id22 = PDCregion_create(ndim, offset_remote, mysize);
 
 #ifdef ENABLE_MPI
-    t0    = MPI_Wtime();
+    t0 = MPI_Wtime();
 #endif
-    
+
     if (access_pattern == 3) {
         reg_prefetch_arr[0] = region_xx;
         reg_prefetch_arr[1] = region_yy;
@@ -830,7 +829,7 @@ main(int argc, char *argv[])
     transfer_create    = .0;
     transfer_close     = .0;
 #endif
-    
+
     transfer_request_x   = PDCregion_transfer_create(&x[0], PDC_READ, obj_xx, region_x, region_xx);
     transfer_request_y   = PDCregion_transfer_create(&y[0], PDC_READ, obj_yy, region_y, region_yy);
     transfer_request_z   = PDCregion_transfer_create(&z[0], PDC_READ, obj_zz, region_z, region_zz);
@@ -1000,13 +999,13 @@ main(int argc, char *argv[])
             printf("[RANK %d] Random offset %d\n", rank, offset_remote[0]);
     }
 
-// #ifdef ENABLE_MPI
-//     total_region_start = MPI_Wtime();
-//     transfer_start     = .0;
-//     transfer_wait      = .0;
-//     transfer_create    = .0;
-//     transfer_close     = .0;
-// #endif
+    // #ifdef ENABLE_MPI
+    //     total_region_start = MPI_Wtime();
+    //     transfer_start     = .0;
+    //     transfer_wait      = .0;
+    //     transfer_create    = .0;
+    //     transfer_close     = .0;
+    // #endif
 
     // create a region
     region_x   = PDCregion_create(ndim, offset, mysize);
@@ -1028,9 +1027,9 @@ main(int argc, char *argv[])
     region_id22 = PDCregion_create(ndim, offset_remote, mysize);
 
 #ifdef ENABLE_MPI
-    t0    = MPI_Wtime();
+    t0 = MPI_Wtime();
 #endif
-    
+
     if (access_pattern == 3) {
         reg_prefetch_arr[0] = region_xx;
         reg_prefetch_arr[1] = region_yy;
@@ -1068,7 +1067,7 @@ main(int argc, char *argv[])
     transfer_create    = .0;
     transfer_close     = .0;
 #endif
-    
+
     transfer_request_x   = PDCregion_transfer_create(&x[0], PDC_READ, obj_xx, region_x, region_xx);
     transfer_request_y   = PDCregion_transfer_create(&y[0], PDC_READ, obj_yy, region_y, region_yy);
     transfer_request_z   = PDCregion_transfer_create(&z[0], PDC_READ, obj_zz, region_z, region_zz);
@@ -1214,8 +1213,6 @@ main(int argc, char *argv[])
 
     if (PDCregion_close(region_id22) < 0)
         printf("fail to close region region_id22\n");
-
-
 
     mysize[0] = numparticles / num_transfer_request;
 
@@ -1240,13 +1237,13 @@ main(int argc, char *argv[])
             printf("[RANK %d] Random offset %d\n", rank, offset_remote[0]);
     }
 
-// #ifdef ENABLE_MPI
-//     total_region_start = MPI_Wtime();
-//     transfer_start     = .0;
-//     transfer_wait      = .0;
-//     transfer_create    = .0;
-//     transfer_close     = .0;
-// #endif
+    // #ifdef ENABLE_MPI
+    //     total_region_start = MPI_Wtime();
+    //     transfer_start     = .0;
+    //     transfer_wait      = .0;
+    //     transfer_create    = .0;
+    //     transfer_close     = .0;
+    // #endif
 
     // create a region
     region_x   = PDCregion_create(ndim, offset, mysize);
@@ -1268,9 +1265,9 @@ main(int argc, char *argv[])
     region_id22 = PDCregion_create(ndim, offset_remote, mysize);
 
 #ifdef ENABLE_MPI
-    t0    = MPI_Wtime();
+    t0 = MPI_Wtime();
 #endif
-    
+
     if (access_pattern == 3) {
         reg_prefetch_arr[0] = region_xx;
         reg_prefetch_arr[1] = region_yy;
@@ -1308,7 +1305,7 @@ main(int argc, char *argv[])
     transfer_create    = .0;
     transfer_close     = .0;
 #endif
-    
+
     transfer_request_x   = PDCregion_transfer_create(&x[0], PDC_READ, obj_xx, region_x, region_xx);
     transfer_request_y   = PDCregion_transfer_create(&y[0], PDC_READ, obj_yy, region_y, region_yy);
     transfer_request_z   = PDCregion_transfer_create(&z[0], PDC_READ, obj_zz, region_z, region_zz);
@@ -1454,7 +1451,7 @@ main(int argc, char *argv[])
 
     if (PDCregion_close(region_id22) < 0)
         printf("fail to close region region_id22\n");
-    
+
     if (PDCobj_close(obj_xx) < 0)
         printf("fail to close obj_xx\n");
 
