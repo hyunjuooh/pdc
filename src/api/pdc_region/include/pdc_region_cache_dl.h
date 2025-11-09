@@ -30,8 +30,22 @@
 #include "pdc_obj.h"
 
 // #define MAX_NAME_LEN 100
-#define MAX_ITEM_SIZE 33554432
-#define MAX_ITEM_NUM  10
+
+// #define MAX_ITEM_SIZE 33554432
+// #define MAX_ITEM_NUM  10
+
+// #define MAX_ITEM_SIZE 134217728
+// #define MAX_ITEM_NUM  256
+
+// #define MAX_ITEM_SIZE 268435456
+// #define MAX_ITEM_NUM  8
+
+// #define MAX_ITEM_SIZE 2147483648
+// #define MAX_ITEM_NUM  8
+
+// 1GB data generation for bdcats
+#define MAX_ITEM_SIZE 1073741824
+#define MAX_ITEM_NUM  8
 
 /**************************/
 /* Library Private Struct */

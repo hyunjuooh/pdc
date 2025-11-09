@@ -404,7 +404,7 @@ endif()
 #-----------------------------------------------------------------------------
 # CHECKPOINT option
 #-----------------------------------------------------------------------------
-option(PDC_ENABLE_CHECKPOINT "Enable checkpointing." ON)
+option(PDC_ENABLE_CHECKPOINT "Enable checkpointing." OFF)
 if(PDC_ENABLE_CHECKPOINT)
   set(PDC_ENABLE_CHECKPOINT 1)
 endif()
