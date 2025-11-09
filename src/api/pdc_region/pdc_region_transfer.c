@@ -385,8 +385,7 @@ PDCregion_transfer_close(pdcid_t transfer_request_id)
     struct _pdc_id_info * transferinfo;
     pdc_transfer_request *transfer_request;
     perr_t                ret_value = SUCCEED;
-    double start = MPI_Wtime();
-
+    double                start     = MPI_Wtime();
 
     if ((transferinfo = PDC_find_id(transfer_request_id)) == NULL)
         PGOTO_ERROR(FAIL, "Failed to find PDC ID: %d", transfer_request_id);
@@ -995,9 +994,9 @@ prepare_start_all_requests(pdcid_t *transfer_request_id, int size,
     int                   write_size, read_size, output_size;
     struct _pdc_id_info * transferinfo;
     pdc_transfer_request *transfer_request;
-    int                   set_output_buf = 0;
-    int                   ret_value      = SUCCEED;
-    int                   region_in_cache = 0;  // Indicating requested region is within client-side cache
+    int                   set_output_buf  = 0;
+    int                   ret_value       = SUCCEED;
+    int                   region_in_cache = 0; // Indicating requested region is within client-side cache
 
     write_request_pkgs             = NULL;
     read_request_pkgs              = NULL;
@@ -1879,7 +1878,7 @@ PDCregion_transfer_wait_all(pdcid_t *transfer_request_id, int size)
 {
     FUNC_ENTER(NULL);
 
-    perr_t                              ret_value = SUCCEED;
+    perr_t                              ret_value              = SUCCEED;
     perr_t                              ret_value_region_cache = SUCCEED;
     int                                 index, i, j, merged_xfer = 0, ori_size = size, is_first = 1;
     size_t                              unit;
@@ -2138,13 +2137,13 @@ PDCregion_transfer_wait(pdcid_t transfer_request_id)
 {
     FUNC_ENTER(NULL);
 
-    perr_t                ret_value = SUCCEED;
+    perr_t                ret_value              = SUCCEED;
     perr_t                ret_value_region_cache = SUCCEED;
     struct _pdc_id_info * transferinfo;
     pdc_transfer_request *transfer_request;
     size_t                unit;
     int                   i;
-    double start = MPI_Wtime();
+    double                start = MPI_Wtime();
 
     if ((transferinfo = PDC_find_id(transfer_request_id)) == NULL)
         PGOTO_DONE(ret_value);
@@ -2208,9 +2207,9 @@ PDCregion_transfer_wait(pdcid_t transfer_request_id)
                 transfer_request->access_type, transfer_request->n_obj_servers, transfer_request->new_buf,
                 transfer_request->bulk_buf, transfer_request->bulk_buf_ref, transfer_request->read_bulk_buf);
         }
-        
+
         transfer_request->metadata_id = (uint64_t *)PDC_free(transfer_request->metadata_id);
-        
+
         // Insert the recently requested region into cache
         if (transfer_request->access_type == PDC_READ) {
             ret_value_region_cache =
@@ -2222,7 +2221,7 @@ PDCregion_transfer_wait(pdcid_t transfer_request_id)
         }
         transfer_request->metadata_id = NULL;
 
-        transfer_request->is_done     = 1;
+        transfer_request->is_done = 1;
         remove_local_transfer_request(transfer_request->obj_pointer, transfer_request_id);
     }
     else {
