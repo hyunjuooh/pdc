@@ -122,7 +122,8 @@ main(int argc, char **argv)
         t0 = MPI_Wtime();
 #endif
         for (int i = 0; i < 8; i++) {
-            sprintf(obj_name, "%s-%d", obj_names[i], iter);
+            // sprintf(obj_name, "%s-%d", obj_names[i], iter);
+            sprintf(obj_name, "%s-%d", obj_names[i], 0);
             obj_ids[i] = PDCobj_open(obj_name, pdc_id);
             if (obj_ids[i] == 0) {
                 LOG_ERROR("Error getting an object id of %s from server\n", obj_name);
