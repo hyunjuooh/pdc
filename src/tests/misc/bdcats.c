@@ -142,21 +142,21 @@ main(int argc, char **argv)
     TASSERT((region_id2 = PDCregion_create(ndim, offset, mysize)) != 0, "Call to PDCregion_create succeeded",
             "Call to PDCregion_create failed");
 
-    TASSERT((region_xx = PDCregion_create(ndim, offset, mysize)) != 0, "Call to PDCregion_create succeeded",
+    TASSERT((region_xx = PDCregion_create(ndim, offset_remote, mysize)) != 0, "Call to PDCregion_create succeeded",
             "Call to PDCregion_create failed");
-    TASSERT((region_yy = PDCregion_create(ndim, offset, mysize)) != 0, "Call to PDCregion_create succeeded",
+    TASSERT((region_yy = PDCregion_create(ndim, offset_remote, mysize)) != 0, "Call to PDCregion_create succeeded",
             "Call to PDCregion_create failed");
-    TASSERT((region_zz = PDCregion_create(ndim, offset, mysize)) != 0, "Call to PDCregion_create succeeded",
+    TASSERT((region_zz = PDCregion_create(ndim, offset_remote, mysize)) != 0, "Call to PDCregion_create succeeded",
             "Call to PDCregion_create failed");
-    TASSERT((region_pxx = PDCregion_create(ndim, offset, mysize)) != 0, "Call to PDCregion_create succeeded",
+    TASSERT((region_pxx = PDCregion_create(ndim, offset_remote, mysize)) != 0, "Call to PDCregion_create succeeded",
             "Call to PDCregion_create failed");
-    TASSERT((region_pyy = PDCregion_create(ndim, offset, mysize)) != 0, "Call to PDCregion_create succeeded",
+    TASSERT((region_pyy = PDCregion_create(ndim, offset_remote, mysize)) != 0, "Call to PDCregion_create succeeded",
             "Call to PDCregion_create failed");
-    TASSERT((region_pzz = PDCregion_create(ndim, offset, mysize)) != 0, "Call to PDCregion_create succeeded",
+    TASSERT((region_pzz = PDCregion_create(ndim, offset_remote, mysize)) != 0, "Call to PDCregion_create succeeded",
             "Call to PDCregion_create failed");
-    TASSERT((region_id11 = PDCregion_create(ndim, offset, mysize)) != 0, "Call to PDCregion_create succeeded",
+    TASSERT((region_id11 = PDCregion_create(ndim, offset_remote, mysize)) != 0, "Call to PDCregion_create succeeded",
             "Call to PDCregion_create failed");
-    TASSERT((region_id22 = PDCregion_create(ndim, offset, mysize)) != 0, "Call to PDCregion_create succeeded",
+    TASSERT((region_id22 = PDCregion_create(ndim, offset_remote, mysize)) != 0, "Call to PDCregion_create succeeded",
             "Call to PDCregion_create failed");
 
 #ifdef ENABLE_MPI
