@@ -82,6 +82,7 @@ set(PROGRAMS
   misc/bdcats
   misc/bdcats_mts
   misc/bdcats_client_cache
+  misc/bdcats_client_cache_all
   deprecated/vpicio_old
   deprecated/bdcats_old
   tags/kvtag_add_get
