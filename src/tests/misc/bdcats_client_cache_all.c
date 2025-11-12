@@ -80,7 +80,7 @@ main(int argc, char *argv[])
 
     char *  prefetch_arr[8];
     pdcid_t reg_prefetch_arr[8];
-    int     *rank_arr;
+    int *   rank_arr;
 
     pdcid_t region_x, region_y, region_z, region_px, region_py, region_pz, region_id1, region_id2;
     pdcid_t region_xx, region_yy, region_zz, region_pxx, region_pyy, region_pzz, region_id11, region_id22;
@@ -382,7 +382,8 @@ main(int argc, char *argv[])
                 break;
             }
             if (id2[j] != j * 2) {
-                printf("[Rank %d] at %d id2 wrong value %d!=%d @ line %d\n", rank, j, id2[j], j * 2, __LINE__);
+                printf("[Rank %d] at %d id2 wrong value %d!=%d @ line %d\n", rank, j, id2[j], j * 2,
+                       __LINE__);
                 break;
             }
         }
