@@ -29,27 +29,22 @@
 #include "pdc_public.h"
 #include "pdc_obj.h"
 
-// #define MAX_NAME_LEN 100
-
-// #define MAX_ITEM_SIZE 33554432
-// #define MAX_ITEM_NUM  10
-
-// #define MAX_ITEM_SIZE 134217728
-// #define MAX_ITEM_NUM  256
-
-// #define MAX_ITEM_SIZE 268435456
-// #define MAX_ITEM_NUM  8
-
-// #define MAX_ITEM_SIZE 2147483648
-// #define MAX_ITEM_NUM  8
+#define NUM_CHUNKS         4
+#define TRANSFER_UNIT_SIZE (sizeof(pdcid_t) + sizeof(int) + sizeof(uint64_t) * 8 + MAX_ITEM_SIZE)
 
 // 1GB data generation for bdcats
 #define MAX_ITEM_SIZE 1073741824
-#define MAX_ITEM_NUM  8
+#define MAX_SLOTS_PER_NODE  32
+#define SLOT_INVALID -1
 
 /**************************/
 /* Library Private Struct */
 /**************************/
+typedef struct {
+    int free_stack_head;
+    int free_list[MAX_SLOTS_PER_NODE];
+    char padding[64 - sizeof(int)];
+} SharedMemoryHeader;
 
 typedef struct pdc_object_data {
     // PDC Object information
@@ -64,7 +59,8 @@ typedef struct pdc_object_data {
     uint64_t reg_buf_size;
 
     // Region data
-    char reg_buf[MAX_ITEM_SIZE];
+    int slot_idx;
+    // char reg_buf[MAX_ITEM_SIZE];
 
     // Index info
     int target_rank;
@@ -87,6 +83,11 @@ typedef struct pdc_client_info {
 
     pdc_object_data *local_cache_list_head;
     pdc_object_data *local_cache_list_tail;
+
+    MPI_Win node_shared_data_win;
+    SharedMemoryHeader* header;
+    void *node_shared_base;
+    char *node_shared_data_base;
 
     int *rank_to_node_id_map;
     int *world_to_node_rank_map;
