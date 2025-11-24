@@ -16,11 +16,6 @@
 #include "pdc_region_prefetch.h"
 #include "pdc_client_connect.h"
 
-// #define NUM_CHUNKS         32
-// #define NUM_CHUNKS         2
-#define NUM_CHUNKS         4
-#define TRANSFER_UNIT_SIZE (sizeof(pdcid_t) + sizeof(int) + sizeof(uint64_t) * 8 + MAX_ITEM_SIZE)
-
 MPI_Comm client_cache_world_comm;
 MPI_Comm client_cache_node_comm;
 
@@ -88,34 +83,111 @@ done:
     FUNC_LEAVE(ret_value);
 }
 
+void init_free_stack() {
+    for (int i = 0; i < MAX_SLOTS_PER_NODE - 1; i++) {
+        client_info.header->free_list[i] = i + 1;
+    }
+    client_info.header->free_list[MAX_SLOTS_PER_NODE - 1] = SLOT_INVALID;
+    client_info.header->free_stack_head = 0;
+}
+
+int pop_free_slot() {
+    int current_head, next_head;
+    
+    for (int retry = 0; retry < 100; retry++) {
+        MPI_Win_lock(MPI_LOCK_SHARED, 0, 0, win);
+        MPI_Fetch_and_op(NULL, &current_head, MPI_INT, 0,
+                         offsetof(SharedMemoryHeader, free_stack_head),
+                         MPI_NO_OP, win);
+        MPI_Win_flush(0, win);
+        MPI_Win_unlock(0, win);
+        
+        if (current_head == SLOT_INVALID) {
+            return SLOT_INVALID;
+        }
+        
+        MPI_Win_lock(MPI_LOCK_SHARED, 0, 0, win);
+        next_head = header->free_list[current_head];
+        MPI_Win_unlock(0, win);
+        
+        int result;
+        MPI_Win_lock(MPI_LOCK_SHARED, 0, 0, win);
+        MPI_Compare_and_swap(&next_head, &current_head, &result,
+                             MPI_INT, 0,
+                             offsetof(SharedMemoryHeader, free_stack_head),
+                             win);
+        MPI_Win_flush(0, win);
+        MPI_Win_unlock(0, win);
+        
+        if (result == current_head) {
+            return current_head;
+        }
+    }
+    return SLOT_INVALID;
+}
+
+char* get_data_ptr(int shared_index) {
+    return client_info.node_shared_data_base + (shared_index * MAX_ITEM_SIZE);
+}
+
+void push_free_slot(MPI_Win win, SharedMemoryHeader* header, int slot) {
+    if (slot < 0 || slot >= MAX_SLOTS) return;
+    
+    int current_head;
+    
+    for (int retry = 0; retry < 100; retry++) {
+        MPI_Win_lock(MPI_LOCK_SHARED, 0, 0, win);
+        MPI_Fetch_and_op(NULL, &current_head, MPI_INT, 0,
+                         offsetof(SharedMemoryHeader, free_stack_head),
+                         MPI_NO_OP, win);
+        MPI_Win_flush(0, win);
+        MPI_Win_unlock(0, win);
+        
+        MPI_Win_lock(MPI_LOCK_EXCLUSIVE, 0, 0, win);
+        header->free_list[slot] = current_head;
+        MPI_Win_unlock(0, win);
+        
+        int result;
+        MPI_Win_lock(MPI_LOCK_SHARED, 0, 0, win);
+        MPI_Compare_and_swap(&slot, &current_head, &result,
+                             MPI_INT, 0,
+                             offsetof(SharedMemoryHeader, free_stack_head),
+                             win);
+        MPI_Win_flush(0, win);
+        MPI_Win_unlock(0, win);
+        
+        if (result == current_head) {
+            return;
+        }
+    }
+}
+
 perr_t
 pdc_region_dl_init()
 {
-    perr_t ret_value = SUCCEED;
-    int    mpi_alloc_error;
-    int *  node_world_ranks;
-
     FUNC_ENTER(NULL);
+    
+    perr_t ret_value = SUCCEED;
+    int *  node_world_ranks;
 
     client_info.world_rank = pdc_client_mpi_rank_g;
     client_info.world_size = pdc_client_mpi_size_g;
+    
+    MPI_Comm_dup(MPI_COMM_WORLD, &client_cache_world_comm); // Duplicate MPI_COMM_WORLD for client cache
 
-    // Duplicate MPI_COMM_WORLD for client cache
-    MPI_Comm_dup(MPI_COMM_WORLD, &client_cache_world_comm);
-
-    // Node-level shared memory client_init setup
+    // 1. Node-level shared memory client_init setup
     MPI_Comm_split_type(client_cache_world_comm, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL,
                         &client_cache_node_comm);
     MPI_Comm_rank(client_cache_node_comm, &client_info.node_rank);
     MPI_Comm_size(client_cache_node_comm, &client_info.node_size);
 
-    // Broadcast node manager's rank to group clients by node
+    // 2. Broadcast node manager's rank to group clients by node
     if (client_info.node_rank == 0)
         client_info.node_manager_rank = client_info.world_rank;
 
     MPI_Bcast(&client_info.node_manager_rank, 1, MPI_INT, 0, client_cache_node_comm);
 
-    // Create a map for distinguishing inter-node and intra-node client group
+    // 3. Create a map for distinguishing inter-node and intra-node client group
     client_info.rank_to_node_id_map = (int *)PDC_malloc(client_info.world_size * sizeof(int));
     if (!client_info.rank_to_node_id_map)
         PGOTO_ERROR(FAIL, "pdc_region_dl_init - rank_to_node_id_map memory allocation failed");
@@ -123,7 +195,7 @@ pdc_region_dl_init()
     MPI_Allgather(&client_info.node_manager_rank, 1, MPI_INT, client_info.rank_to_node_id_map, 1, MPI_INT,
                   client_cache_world_comm);
 
-    // Create local node map
+    // 4. Create local node map
     node_world_ranks = (int *)PDC_malloc(client_info.node_size * sizeof(int));
     if (!node_world_ranks)
         PGOTO_ERROR(FAIL, "pdc_region_dl_init - node_world_ranks memory allocation failed");
@@ -138,6 +210,36 @@ pdc_region_dl_init()
     }
 
     free(node_world_ranks);
+
+    // 5. Create shared memory window for node shared data
+    MPI_Aint local_alloc_size = (client_info.node_rank == 0) ? total_bytes : 0;
+    MPI_Aint total_bytes = sizeof(SharedMemoryHeader) + (MAX_ITEM_SIZE * MAX_ITEM_NUM * client_info.node_size);
+
+    MPI_Info win_info;
+    MPI_Info_create(&win_info);
+    MPI_Info_set(win_info, "alloc_shared_noncontig", "false");
+
+    MPI_Win_allocate_shared(local_alloc_size, 1, win_info, client_cache_node_comm, 
+                            &client_info.node_shared_base, &client_info.node_shared_data_win);
+
+    MPI_Info_free(&win_info);
+
+    if (client_info.node_rank != 0) {
+        MPI_Aint size_out;
+        int disp_unit;
+        MPI_Win_shared_query(client_info.node_shared_data_win, 0, &size_out, 
+                            &disp_unit, &client_info.node_shared_base);
+    }
+
+    client_info.header = (SharedMemoryHeader *)client_info.node_shared_base;
+    client_info.node_shared_data_base = (char *)client_info.node_shared_base + sizeof(SharedMemoryHeader);
+
+    MPI_Barrier(client_cache_node_comm);
+    if (client_info.node_rank == 0) {
+        init_free_stack();
+        memset(client_info.node_shared_data_base, 0, MAX_SLOTS_PER_NODE * MAX_ITEM_SIZE);
+    }
+    MPI_Barrier(client_cache_node_comm);
 
     client_info.local_cache_list_head = NULL;
     client_info.local_cache_list_tail = NULL;
@@ -161,6 +263,8 @@ pdc_region_dl_insert(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, 
 
     pdc_object_data *obj_cache_item = NULL;
     double           start          = MPI_Wtime();
+    int              slot_idx;
+    char            *data_ptr
 
     // Check if the client cache has been initialized
     if (!client_info.client_cache_init)
@@ -170,6 +274,10 @@ pdc_region_dl_insert(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, 
     while (client_info.cached_item_num >= MAX_ITEM_NUM)
         pdc_region_cache_evict();
 
+    slot_idx = pop_free_slot();
+    if (slot_idx == SLOT_INVALID) 
+        PGOTO_ERROR(FAIL, "pdc_region_dl_insert - invalid slot index for insertion");
+
     obj_cache_item = (pdc_object_data *)PDC_malloc(sizeof(pdc_object_data));
     if (!obj_cache_item)
         PGOTO_ERROR(FAIL, "PDC region cache - obj_cache_item memory allocation failed");
@@ -178,12 +286,21 @@ pdc_region_dl_insert(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, 
     obj_cache_item->obj_id       = obj_id;
     obj_cache_item->unit         = unit;
     obj_cache_item->reg_ndim     = ndim;
-    obj_cache_item->reg_buf_size = read_size;
+    obj_cache_item->reg_buf_size = (read_size > MAX_ITEM_SIZE) ? MAX_ITEM_SIZE : read_size;
     obj_cache_item->target_rank  = -1;
-
+    obj_cache_item->slot_idx     = slot_idx;
+    
     memcpy(obj_cache_item->reg_offset, offset, ndim * sizeof(uint64_t));
     memcpy(obj_cache_item->reg_size, size, ndim * sizeof(uint64_t));
-    memcpy(obj_cache_item->reg_buf, buf, read_size * sizeof(char));
+
+    data_ptr = get_data_ptr(slot_idx);
+    
+    MPI_Win_lock(MPI_SHARED, 0, 0, client_info.node_shared_data_win);
+    memcpy(data_ptr, buf, obj_cache_item->reg_buf_size * sizeof(char));
+    MPI_Win_flush(0, client_info.node_shared_data_win);
+    MPI_Win_unlock(0, client_info.node_shared_data_win);
+    
+    // memcpy(obj_cache_item->reg_buf, buf, read_size * sizeof(char));
 
     obj_cache_item->prev = NULL;
     obj_cache_item->next = NULL;
@@ -390,7 +507,6 @@ pdc_region_dl_data_exchange(pdcid_t *global_prefetch_list, int obj_prefetch_list
     // Step 1: Calculating the max buffer sizes and allocate reusable data exchange buffers
     int    chunk_size           = client_info.cached_item_num / NUM_CHUNKS;
     size_t max_intra_send_chunk = 0, max_inter_send_chunk = 0, local_max_send_chunk = 0;
-    ;
 
     MPI_Datatype mpi_transfer_unit;
     MPI_Type_contiguous(TRANSFER_UNIT_SIZE, MPI_BYTE, &mpi_transfer_unit);
@@ -436,7 +552,13 @@ pdc_region_dl_data_exchange(pdcid_t *global_prefetch_list, int obj_prefetch_list
     temp_inter_recv_buf =
         (char *)PDC_malloc(global_max_chunk_size * client_info.world_size * TRANSFER_UNIT_SIZE + 1);
 
+
+    memset(intra_node_send_buf, 0, global_max_chunk_size * TRANSFER_UNIT_SIZE + 1);
+    memset(inter_node_send_buf, 0, global_max_chunk_size * TRANSFER_UNIT_SIZE + 1);
+    
     MPI_Barrier(client_cache_world_comm);
+
+    printf("[RANK %d] max_intra_send_chunk: %d, max_inter_send_chunk %d\n", client_info.world_rank, max_intra_send_chunk, max_inter_send_chunk);
 
     pdc_region_cache_timelog(tmp_timer, "pdc_region_dl_data_exchange - Step 1");
 
@@ -495,7 +617,7 @@ pdc_region_dl_data_exchange(pdcid_t *global_prefetch_list, int obj_prefetch_list
 
         pdc_region_cache_timelog(tmp_timer2, "pdc_region_dl_data_exchange - intra-node shuffle preparation");
         tmp_timer2 = MPI_Wtime();
-
+        
         // Packing send buffer
         if (intra_node_item_count > 0) {
             int *temp_offsets_intra = (int *)PDC_calloc(client_info.node_size, sizeof(int));
@@ -549,6 +671,8 @@ pdc_region_dl_data_exchange(pdcid_t *global_prefetch_list, int obj_prefetch_list
         pdc_region_cache_timelog(tmp_timer2, "pdc_region_dl_data_exchange - intra-node shuffle alltoall");
         tmp_timer2 = MPI_Wtime();
 
+        printf("[RANK %d] total_intra_recv_items_chunk: %d\n", client_info.world_rank, total_intra_recv_items_chunk);
+        
         // Unpacking recv buffer
         if (total_intra_recv_items_chunk > 0) {
             for (int sender_nrank = 0; sender_nrank < client_info.node_size; sender_nrank++) {
@@ -633,6 +757,7 @@ pdc_region_dl_data_exchange(pdcid_t *global_prefetch_list, int obj_prefetch_list
         pdc_region_cache_timelog(tmp_timer2, "pdc_region_dl_data_exchange - inter-node shuffle preparation");
         tmp_timer2 = MPI_Wtime();
 
+        printf("[RANK %d] inter_node_item_count: %d\n", client_info.world_rank, inter_node_item_count);
         if (inter_node_item_count > 0) {
             int *temp_offsets_inter = (int *)PDC_calloc(client_info.world_size, sizeof(int));
             int  item_idx           = 0;
@@ -679,7 +804,8 @@ pdc_region_dl_data_exchange(pdcid_t *global_prefetch_list, int obj_prefetch_list
 
         pdc_region_cache_timelog(tmp_timer2, "pdc_region_dl_data_exchange - inter-node shuffle alltoall");
         tmp_timer2 = MPI_Wtime();
-
+        
+        printf("[RANK %d] total_inter_recv_items_chunk: %d\n", client_info.world_rank, total_inter_recv_items_chunk);
         // Unpack inter-node exchange
         if (total_inter_recv_items_chunk > 0) {
             for (int sender_wrank = 0; sender_wrank < client_info.world_size; sender_wrank++) {
