@@ -30,11 +30,12 @@
 #include "pdc_obj.h"
 
 #define NUM_CHUNKS         4
-#define TRANSFER_UNIT_SIZE (sizeof(pdcid_t) + sizeof(int) + sizeof(uint64_t) * 8 + MAX_ITEM_SIZE)
+#define INTRA_TRANSFER_UNIT_SIZE (sizeof(pdcid_t) + sizeof(int) * 2 + sizeof(uint64_t) * 8)
+#define INTER_TRANSFER_UNIT_SIZE (sizeof(pdcid_t) + sizeof(int) + sizeof(uint64_t) * 8 + MAX_ITEM_SIZE)
 
 // 1GB data generation for bdcats
 #define MAX_ITEM_SIZE 1073741824
-#define MAX_SLOTS_PER_NODE  32
+#define MAX_SLOTS_PER_NODE  40
 #define SLOT_INVALID -1
 
 /**************************/
@@ -64,6 +65,7 @@ typedef struct pdc_object_data {
 
     // Index info
     int target_rank;
+    int data_exchange_type; // 0 is intra, 1 is inter
 
     struct pdc_object_data *prev;
     struct pdc_object_data *next;
@@ -104,9 +106,6 @@ perr_t pdc_region_dl_init();
 
 int pdc_region_dl_local_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size,
                                void *buf, uint64_t read_size);
-
-// int pdc_region_dl_node_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size,
-//                               void *buf, uint64_t read_size);
 
 perr_t pdc_region_dl_insert(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size,
                             void *buf, uint64_t read_size);
