@@ -470,7 +470,7 @@ pdc_region_dl_data_exchange(pdcid_t *global_prefetch_list, int obj_prefetch_list
     perr_t ret_value = SUCCEED;
 
     pdc_object_data *obj_cache_iter, *exchange_head;
-    char *           intra_node_send_buf, *inter_node_send_buf, *temp_intra_recv_buf, *temp_inter_recv_buf;
+    char *           intra_node_send_buf, *inter_node_send_buf, *temp_intra_recv_buf=NULL, *temp_inter_recv_buf=NULL;
     double           start = MPI_Wtime(), tmp_timer, tmp_timer2;
 
     tmp_timer = MPI_Wtime();
@@ -519,19 +519,17 @@ pdc_region_dl_data_exchange(pdcid_t *global_prefetch_list, int obj_prefetch_list
     MPI_Allreduce(&local_max_send_chunk, &global_max_chunk_size, 1, MPI_UNSIGNED_LONG, MPI_MAX,
                   client_cache_world_comm);
 
-    printf("[RANK %d] global_max_chunk_size: %d\n", client_info.world_rank, global_max_chunk_size);
-
     intra_node_send_buf = (char *)PDC_malloc(global_max_chunk_size * INTRA_TRANSFER_UNIT_SIZE + 1);
     inter_node_send_buf = (char *)PDC_malloc(global_max_chunk_size * INTER_TRANSFER_UNIT_SIZE + 1);
-    temp_intra_recv_buf =
-        (char *)PDC_malloc(global_max_chunk_size * client_info.node_size * INTRA_TRANSFER_UNIT_SIZE + 1);
-    temp_inter_recv_buf =
-        (char *)PDC_malloc(global_max_chunk_size * client_info.world_size * INTER_TRANSFER_UNIT_SIZE + 1);
+    // temp_intra_recv_buf =
+    //     (char *)PDC_malloc(global_max_chunk_size * client_info.node_size * INTRA_TRANSFER_UNIT_SIZE + 1);
+    // temp_inter_recv_buf =
+    //     (char *)PDC_malloc(global_max_chunk_size * client_info.world_size * INTER_TRANSFER_UNIT_SIZE + 1);
 
     memset(intra_node_send_buf, 0, global_max_chunk_size * INTRA_TRANSFER_UNIT_SIZE + 1);
     memset(inter_node_send_buf, 0, global_max_chunk_size * INTER_TRANSFER_UNIT_SIZE + 1);
-    memset(temp_intra_recv_buf, 0, global_max_chunk_size * client_info.node_size * INTRA_TRANSFER_UNIT_SIZE + 1);
-    memset(temp_inter_recv_buf, 0, global_max_chunk_size * client_info.world_size * INTER_TRANSFER_UNIT_SIZE + 1);
+    // memset(temp_intra_recv_buf, 0, global_max_chunk_size * client_info.node_size * INTRA_TRANSFER_UNIT_SIZE + 1);
+    // memset(temp_inter_recv_buf, 0, global_max_chunk_size * client_info.world_size * INTER_TRANSFER_UNIT_SIZE + 1);
     
     MPI_Barrier(client_cache_world_comm);
 
@@ -641,6 +639,14 @@ pdc_region_dl_data_exchange(pdcid_t *global_prefetch_list, int obj_prefetch_list
                                  "pdc_region_dl_data_exchange - intra-node shuffle pack send buffer");
         tmp_timer2 = MPI_Wtime();
 
+        temp_intra_recv_buf = (char *)PDC_malloc(total_intra_recv_items_chunk * INTRA_TRANSFER_UNIT_SIZE + 1);
+        if (temp_intra_recv_buf == NULL && total_intra_recv_items_chunk > 0)
+            PGOTO_ERROR(FAIL, "pdc_region_dl_data_exchange - temp_intra_recv_buf memory allocation failed");
+
+        pdc_region_cache_timelog(tmp_timer2,
+                                 "pdc_region_dl_data_exchange - temp_intra_recv_buf allocation");
+        tmp_timer2 = MPI_Wtime();
+
         // Collective call for intra node shuffle
         MPI_Alltoallv(intra_node_send_buf, intra_node_send_counts, sdispls_intra, mpi_intra_transfer_unit,
                       temp_intra_recv_buf, intra_node_recv_counts, rdispls_intra, mpi_intra_transfer_unit,
@@ -648,8 +654,6 @@ pdc_region_dl_data_exchange(pdcid_t *global_prefetch_list, int obj_prefetch_list
 
         pdc_region_cache_timelog(tmp_timer2, "pdc_region_dl_data_exchange - intra-node shuffle alltoall");
         tmp_timer2 = MPI_Wtime();
-
-        printf("[RANK %d] total_intra_recv_items_chunk: %d\n", client_info.world_rank, total_intra_recv_items_chunk);
         
         // Unpacking intra-node recv buffer
         if (total_intra_recv_items_chunk > 0) {
@@ -682,6 +686,8 @@ pdc_region_dl_data_exchange(pdcid_t *global_prefetch_list, int obj_prefetch_list
                     pdc_region_dl_prepend(obj_cache_item);
                 }
             }
+            free(temp_intra_recv_buf);
+            temp_intra_recv_buf = NULL;
         }
 
         free(sdispls_intra);
@@ -782,6 +788,13 @@ pdc_region_dl_data_exchange(pdcid_t *global_prefetch_list, int obj_prefetch_list
         pdc_region_cache_timelog(tmp_timer2,
                                  "pdc_region_dl_data_exchange - inter-node shuffle pack send buffer");
         tmp_timer2 = MPI_Wtime();
+        
+        temp_inter_recv_buf = (char *)PDC_malloc(total_inter_recv_items_chunk * INTER_TRANSFER_UNIT_SIZE + 1);
+        if (temp_inter_recv_buf == NULL && total_inter_recv_items_chunk > 0)
+            PGOTO_ERROR(FAIL, "pdc_region_dl_data_exchange - temp_inter_recv_buf memory allocation failed");
+
+        pdc_region_cache_timelog(tmp_timer2,
+                                 "pdc_region_dl_data_exchange - temp_inter_recv_buf allocation");
 
         MPI_Alltoallv(inter_node_send_buf, inter_node_send_counts, sdispls_inter, mpi_inter_transfer_unit,
                       temp_inter_recv_buf, inter_node_recv_counts, rdispls_inter, mpi_inter_transfer_unit,
@@ -789,8 +802,6 @@ pdc_region_dl_data_exchange(pdcid_t *global_prefetch_list, int obj_prefetch_list
 
         pdc_region_cache_timelog(tmp_timer2, "pdc_region_dl_data_exchange - inter-node shuffle alltoall");
         tmp_timer2 = MPI_Wtime();
-
-        printf("[RANK %d] total_inter_recv_items_chunk: %d\n", client_info.world_rank, total_inter_recv_items_chunk);
         
         // Unpack inter-node exchange
         if (total_inter_recv_items_chunk > 0) {
@@ -835,6 +846,9 @@ pdc_region_dl_data_exchange(pdcid_t *global_prefetch_list, int obj_prefetch_list
                     pdc_region_dl_prepend(obj_cache_item);
                 }
             }
+
+            free(temp_inter_recv_buf);
+            temp_inter_recv_buf = NULL;
         }
 
         free(sdispls_inter);

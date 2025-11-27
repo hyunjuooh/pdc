@@ -170,13 +170,13 @@ done:
 void
 pdc_region_cache_timelog(double start_time, const char *message)
 {
-    int        rank_limit = 0;
+    int        rank_limit = pdc_client_mpi_size_g;
     double     end_time;
     time_t     cur_time = time(NULL);
     struct tm *log_time = localtime(&cur_time);
 
     end_time = MPI_Wtime();
-    if (pdc_client_mpi_rank_g <= rank_limit) {
+    if (pdc_client_mpi_rank_g < rank_limit) {
         cur_time = time(NULL);
         log_time = localtime(&cur_time);
         printf("[CACHE_LOG] [%02d:%02d:%02d] [RANK %d] [TOTAL_RANK %d] | %s : %f\n", log_time->tm_hour,
