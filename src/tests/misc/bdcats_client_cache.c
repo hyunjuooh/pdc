@@ -499,7 +499,7 @@ main(int argc, char *argv[])
 
 #ifdef ENABLE_MPI
     t1 = MPI_Wtime();
-    if (rank <= 5) {
+    if (rank < size) {
         cur_time = time(NULL);
         log_time = localtime(&cur_time);
         printf("[CACHE_LOG] [%02d:%02d:%02d] [RANK %d] | Data Exchange Time: %f\n", log_time->tm_hour,
@@ -550,7 +550,7 @@ main(int argc, char *argv[])
 
 #ifdef ENABLE_MPI
     t1 = MPI_Wtime();
-    if (rank <= 5) {
+    if (rank < size) {
         cur_time = time(NULL);
         log_time = localtime(&cur_time);
         printf("[CACHE_LOG] [%02d:%02d:%02d] [RANK %d] | Transfer Start Time: %f\n", log_time->tm_hour,
@@ -576,7 +576,7 @@ main(int argc, char *argv[])
 
 #ifdef ENABLE_MPI
     t0 = MPI_Wtime();
-    if (rank <= 5) {
+    if (rank < size) {
         cur_time = time(NULL);
         log_time = localtime(&cur_time);
         printf("[CACHE_LOG] [%02d:%02d:%02d] [RANK %d] | Transfer Wait Time: %f\n", log_time->tm_hour,
@@ -600,7 +600,7 @@ main(int argc, char *argv[])
 #ifdef ENABLE_MPI
     MPI_Barrier(MPI_COMM_WORLD);
     t1 = MPI_Wtime();
-    if (rank <= 5) {
+    if (rank <= size) {
         cur_time = time(NULL);
         log_time = localtime(&cur_time);
         printf("[CACHE_LOG] [%02d:%02d:%02d] [RANK %d] | Transfer Close Time: %f\n", log_time->tm_hour,
@@ -608,7 +608,7 @@ main(int argc, char *argv[])
     }
 
     total_region_end = MPI_Wtime();
-    if (rank <= 5) {
+    if (rank <= size) {
         cur_time = time(NULL);
         log_time = localtime(&cur_time);
         printf("[CACHE_LOG] [%02d:%02d:%02d] [RANK %d] | Read with Cache Total Execution Time: %f\n",
