@@ -321,7 +321,6 @@ main(int argc, char *argv[])
 #endif
 
 #ifdef ENABLE_MPI
-    MPI_Barrier(MPI_COMM_WORLD);
     t1 = MPI_Wtime();
     if (rank <= 5) {
         cur_time = time(NULL);
@@ -403,8 +402,6 @@ main(int argc, char *argv[])
     }
 
 #ifdef ENABLE_MPI
-    MPI_Barrier(MPI_COMM_WORLD);
-
     MPI_Reduce(&transfer_create, &max_time, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
     MPI_Reduce(&transfer_create, &avg_time, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
     MPI_Reduce(&transfer_create, &min_time, 1, MPI_DOUBLE, MPI_MIN, 0, MPI_COMM_WORLD);
@@ -598,7 +595,6 @@ main(int argc, char *argv[])
 #endif
 
 #ifdef ENABLE_MPI
-    MPI_Barrier(MPI_COMM_WORLD);
     t1 = MPI_Wtime();
     if (rank <= size) {
         cur_time = time(NULL);
@@ -648,7 +644,6 @@ main(int argc, char *argv[])
     }
 
 #ifdef ENABLE_MPI
-
     MPI_Reduce(&transfer_create, &max_time, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
     MPI_Reduce(&transfer_create, &avg_time, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
     MPI_Reduce(&transfer_create, &min_time, 1, MPI_DOUBLE, MPI_MIN, 0, MPI_COMM_WORLD);

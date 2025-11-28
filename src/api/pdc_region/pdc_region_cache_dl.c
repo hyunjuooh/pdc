@@ -295,8 +295,9 @@ pdc_region_dl_insert(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, 
 
     slot_idx = pop_free_slot();
     
-    if (slot_idx == SLOT_INVALID) {
+    while (slot_idx == SLOT_INVALID) {
         pdc_region_cache_evict();
+        slot_idx = pop_free_slot();
     }
 
     obj_cache_item = (pdc_object_data *)PDC_malloc(sizeof(pdc_object_data));
@@ -316,14 +317,8 @@ pdc_region_dl_insert(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, 
     memcpy(obj_cache_item->reg_size, size, ndim * sizeof(uint64_t));
 
     data_ptr = get_data_ptr(slot_idx);
-    
-    MPI_Win_lock(MPI_LOCK_SHARED, 0, 0, client_info.node_shared_data_win);
     memcpy(data_ptr, buf, obj_cache_item->reg_buf_size * sizeof(char));
-    MPI_Win_flush(0, client_info.node_shared_data_win);
-    MPI_Win_unlock(0, client_info.node_shared_data_win);
     
-    // memcpy(obj_cache_item->reg_buf, buf, read_size * sizeof(char));
-
     obj_cache_item->prev = NULL;
     obj_cache_item->next = NULL;
 
@@ -350,7 +345,7 @@ pdc_region_dl_local_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *of
     char            *data_ptr;
     int              is_cached = 0;
     pdc_object_data *obj_cache_iter;
-    double           start, total_start = MPI_Wtime();
+    double           start, tmp_start, total_start = MPI_Wtime();
 
     if (!client_info.client_cache_init)
         PGOTO_ERROR(FAIL, "pdc_region_dl_search - object cache list not initialized");
@@ -375,12 +370,16 @@ pdc_region_dl_local_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *of
                 // memcpy the overlapped region
                 data_ptr = get_data_ptr(obj_cache_iter->slot_idx);
 
-                MPI_Win_lock(MPI_LOCK_SHARED, 0, 0, client_info.node_shared_data_win);
+                tmp_start = MPI_Wtime();
+
+                // MPI_Win_lock(MPI_LOCK_SHARED, 0, 0, client_info.node_shared_data_win);
                 memcpy_overlap_subregion(obj_cache_iter->reg_ndim, unit, data_ptr,
                                          obj_cache_iter->reg_offset, obj_cache_iter->reg_size, buf, offset,
                                          size, overlap_offset, overlap_size);
-                MPI_Win_unlock(0, client_info.node_shared_data_win);
+                // MPI_Win_unlock(0, client_info.node_shared_data_win);
 
+                pdc_region_cache_timelog(tmp_start, "pdc_region_dl_local_search - memcpy data to buf");
+                
                 // Follow the LRU policy
                 ret_value = pdc_region_dl_delete(obj_cache_iter);
                 ret_value = pdc_region_dl_prepend(obj_cache_iter);
@@ -771,9 +770,7 @@ pdc_region_dl_data_exchange(pdcid_t *global_prefetch_list, int obj_prefetch_list
 
                         char *data_ptr = get_data_ptr(obj_cache_iter->slot_idx);
                         
-                        MPI_Win_lock(MPI_LOCK_SHARED, 0, 0, client_info.node_shared_data_win);
                         memcpy(send_ptr + current_offset, data_ptr, MAX_ITEM_SIZE);
-                        MPI_Win_unlock(0, client_info.node_shared_data_win);
 
                         obj_cache_iter->data_exchange_type = 1; // inter node data exchange
 
@@ -832,16 +829,14 @@ pdc_region_dl_data_exchange(pdcid_t *global_prefetch_list, int obj_prefetch_list
                     obj_cache_item->data_exchange_type  = 0;
                     
                     obj_cache_item->slot_idx = pop_free_slot();
-                    if (obj_cache_item->slot_idx == SLOT_INVALID) {
+                    while (obj_cache_item->slot_idx == SLOT_INVALID) {
                         pdc_region_cache_evict();
+                        obj_cache_item->slot_idx = pop_free_slot();
                     }
 
                     char *data_ptr = get_data_ptr(obj_cache_item->slot_idx);
-    
-                    MPI_Win_lock(MPI_LOCK_SHARED, 0, 0, client_info.node_shared_data_win);
+                    
                     memcpy(data_ptr, recv_ptr + current_offset, obj_cache_item->reg_buf_size * sizeof(char));
-                    MPI_Win_flush(0, client_info.node_shared_data_win);
-                    MPI_Win_unlock(0, client_info.node_shared_data_win);
 
                     pdc_region_dl_prepend(obj_cache_item);
                 }
