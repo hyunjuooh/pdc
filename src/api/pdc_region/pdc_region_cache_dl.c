@@ -101,78 +101,6 @@ get_data_ptr(int shared_index)
     return client_info.node_shared_data_base + offset;
 }
 
-// int
-// pop_free_slot()
-// {
-//     int current_head, next_head;
-
-//     for (int retry = 0; retry < 100; retry++) {
-//         MPI_Win_lock(MPI_LOCK_SHARED, 0, 0, client_info.node_shared_data_win);
-//         MPI_Fetch_and_op(NULL, &current_head, MPI_INT, 0, offsetof(SharedMemoryHeader, free_stack_head),
-//                          MPI_NO_OP, client_info.node_shared_data_win);
-//         MPI_Win_flush(0, client_info.node_shared_data_win);
-//         MPI_Win_unlock(0, client_info.node_shared_data_win);
-
-//         if (current_head == SLOT_INVALID) {
-//             return SLOT_INVALID;
-//         }
-
-//         MPI_Win_lock(MPI_LOCK_SHARED, 0, 0, client_info.node_shared_data_win);
-//         MPI_Get(&next_head, 1, MPI_INT, 0, 
-//                 offsetof(SharedMemoryHeader, free_list) + current_head * sizeof(int), 1, 
-//                 MPI_INT, client_info.node_shared_data_win);
-//         MPI_Win_unlock(0, client_info.node_shared_data_win);
-
-//         int result;
-//         MPI_Win_lock(MPI_LOCK_SHARED, 0, 0, client_info.node_shared_data_win);
-//         MPI_Compare_and_swap(&next_head, &current_head, &result, MPI_INT, 0,
-//                              offsetof(SharedMemoryHeader, free_stack_head), client_info.node_shared_data_win);
-//         MPI_Win_flush(0, client_info.node_shared_data_win);
-//         MPI_Win_unlock(0, client_info.node_shared_data_win);
-
-//         if (result == current_head) {
-//             return current_head;
-//         }
-//     }
-//     return SLOT_INVALID;
-// }
-
-// void
-// push_free_slot(int slot_idx)
-// {
-//     if (slot_idx < 0 || slot_idx >= MAX_SLOTS_PER_NODE)
-//         return;
-
-//     int current_head;
-
-//     for (int retry = 0; retry < 100; retry++) {
-//         MPI_Win_lock(MPI_LOCK_SHARED, 0, 0, client_info.node_shared_data_win);
-//         MPI_Fetch_and_op(NULL, &current_head, MPI_INT, 0, offsetof(SharedMemoryHeader, free_stack_head),
-//                          MPI_NO_OP, client_info.node_shared_data_win);
-//         MPI_Win_flush(0, client_info.node_shared_data_win);
-//         MPI_Win_unlock(0, client_info.node_shared_data_win);
-
-//         MPI_Win_lock(MPI_LOCK_EXCLUSIVE, 0, 0, client_info.node_shared_data_win);
-//         // client_info.header->free_list[slot_idx] = current_head;
-//         MPI_Put(&current_head, 1, MPI_INT, 0,
-//                 offsetof(SharedMemoryHeader, free_list) + slot_idx * sizeof(int),
-//                 1, MPI_INT, client_info.node_shared_data_win);
-//         MPI_Win_flush(0, client_info.node_shared_data_win);
-//         MPI_Win_unlock(0, client_info.node_shared_data_win);
-
-//         int result;
-//         MPI_Win_lock(MPI_LOCK_SHARED, 0, 0, client_info.node_shared_data_win);
-//         MPI_Compare_and_swap(&slot_idx, &current_head, &result, MPI_INT, 0,
-//                              offsetof(SharedMemoryHeader, free_stack_head), client_info.node_shared_data_win);
-//         MPI_Win_flush(0, client_info.node_shared_data_win);
-//         MPI_Win_unlock(0, client_info.node_shared_data_win);
-
-//         if (result == current_head) {
-//             return;
-//         }
-//     }
-// }
-
 int
 pop_free_slot()
 {
@@ -437,12 +365,12 @@ pdc_region_dl_local_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *of
                 data_ptr = get_data_ptr(obj_cache_iter->slot_idx);
 
                 tmp_start = MPI_Wtime();
+                
+                // memcpy_overlap_subregion(obj_cache_iter->reg_ndim, unit, data_ptr, obj_cache_iter->reg_offset,
+                //                          obj_cache_iter->reg_size, buf, offset, size, overlap_offset,
+                //                          overlap_size);
 
-                // MPI_Win_lock(MPI_LOCK_SHARED, 0, 0, client_info.node_shared_data_win);
-                memcpy_overlap_subregion(obj_cache_iter->reg_ndim, unit, data_ptr, obj_cache_iter->reg_offset,
-                                         obj_cache_iter->reg_size, buf, offset, size, overlap_offset,
-                                         overlap_size);
-                // MPI_Win_unlock(0, client_info.node_shared_data_win);
+                buf = data_ptr;
 
                 pdc_region_cache_timelog(tmp_start, "pdc_region_dl_local_search - memcpy data to buf");
 
