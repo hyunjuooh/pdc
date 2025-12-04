@@ -101,38 +101,105 @@ get_data_ptr(int shared_index)
     return client_info.node_shared_data_base + offset;
 }
 
+// int
+// pop_free_slot()
+// {
+//     int current_head, next_head;
+
+//     for (int retry = 0; retry < 100; retry++) {
+//         MPI_Win_lock(MPI_LOCK_SHARED, 0, 0, client_info.node_shared_data_win);
+//         MPI_Fetch_and_op(NULL, &current_head, MPI_INT, 0, offsetof(SharedMemoryHeader, free_stack_head),
+//                          MPI_NO_OP, client_info.node_shared_data_win);
+//         MPI_Win_flush(0, client_info.node_shared_data_win);
+//         MPI_Win_unlock(0, client_info.node_shared_data_win);
+
+//         if (current_head == SLOT_INVALID) {
+//             return SLOT_INVALID;
+//         }
+
+//         MPI_Win_lock(MPI_LOCK_SHARED, 0, 0, client_info.node_shared_data_win);
+//         MPI_Get(&next_head, 1, MPI_INT, 0, 
+//                 offsetof(SharedMemoryHeader, free_list) + current_head * sizeof(int), 1, 
+//                 MPI_INT, client_info.node_shared_data_win);
+//         MPI_Win_unlock(0, client_info.node_shared_data_win);
+
+//         int result;
+//         MPI_Win_lock(MPI_LOCK_SHARED, 0, 0, client_info.node_shared_data_win);
+//         MPI_Compare_and_swap(&next_head, &current_head, &result, MPI_INT, 0,
+//                              offsetof(SharedMemoryHeader, free_stack_head), client_info.node_shared_data_win);
+//         MPI_Win_flush(0, client_info.node_shared_data_win);
+//         MPI_Win_unlock(0, client_info.node_shared_data_win);
+
+//         if (result == current_head) {
+//             return current_head;
+//         }
+//     }
+//     return SLOT_INVALID;
+// }
+
+// void
+// push_free_slot(int slot_idx)
+// {
+//     if (slot_idx < 0 || slot_idx >= MAX_SLOTS_PER_NODE)
+//         return;
+
+//     int current_head;
+
+//     for (int retry = 0; retry < 100; retry++) {
+//         MPI_Win_lock(MPI_LOCK_SHARED, 0, 0, client_info.node_shared_data_win);
+//         MPI_Fetch_and_op(NULL, &current_head, MPI_INT, 0, offsetof(SharedMemoryHeader, free_stack_head),
+//                          MPI_NO_OP, client_info.node_shared_data_win);
+//         MPI_Win_flush(0, client_info.node_shared_data_win);
+//         MPI_Win_unlock(0, client_info.node_shared_data_win);
+
+//         MPI_Win_lock(MPI_LOCK_EXCLUSIVE, 0, 0, client_info.node_shared_data_win);
+//         // client_info.header->free_list[slot_idx] = current_head;
+//         MPI_Put(&current_head, 1, MPI_INT, 0,
+//                 offsetof(SharedMemoryHeader, free_list) + slot_idx * sizeof(int),
+//                 1, MPI_INT, client_info.node_shared_data_win);
+//         MPI_Win_flush(0, client_info.node_shared_data_win);
+//         MPI_Win_unlock(0, client_info.node_shared_data_win);
+
+//         int result;
+//         MPI_Win_lock(MPI_LOCK_SHARED, 0, 0, client_info.node_shared_data_win);
+//         MPI_Compare_and_swap(&slot_idx, &current_head, &result, MPI_INT, 0,
+//                              offsetof(SharedMemoryHeader, free_stack_head), client_info.node_shared_data_win);
+//         MPI_Win_flush(0, client_info.node_shared_data_win);
+//         MPI_Win_unlock(0, client_info.node_shared_data_win);
+
+//         if (result == current_head) {
+//             return;
+//         }
+//     }
+// }
+
 int
 pop_free_slot()
 {
     int current_head, next_head;
-
-    for (int retry = 0; retry < 100; retry++) {
-        MPI_Win_lock(MPI_LOCK_SHARED, 0, 0, client_info.node_shared_data_win);
-        MPI_Fetch_and_op(NULL, &current_head, MPI_INT, 0, offsetof(SharedMemoryHeader, free_stack_head),
-                         MPI_NO_OP, client_info.node_shared_data_win);
-        MPI_Win_flush(0, client_info.node_shared_data_win);
+    
+    MPI_Win_lock(MPI_LOCK_EXCLUSIVE, 0, 0, client_info.node_shared_data_win);
+    
+    MPI_Get(&current_head, 1, MPI_INT, 0,
+            offsetof(SharedMemoryHeader, free_stack_head),
+            1, MPI_INT, client_info.node_shared_data_win);
+    
+    if (current_head == SLOT_INVALID) {
         MPI_Win_unlock(0, client_info.node_shared_data_win);
-
-        if (current_head == SLOT_INVALID) {
-            return SLOT_INVALID;
-        }
-
-        MPI_Win_lock(MPI_LOCK_SHARED, 0, 0, client_info.node_shared_data_win);
-        next_head = client_info.header->free_list[current_head];
-        MPI_Win_unlock(0, client_info.node_shared_data_win);
-
-        int result;
-        MPI_Win_lock(MPI_LOCK_SHARED, 0, 0, client_info.node_shared_data_win);
-        MPI_Compare_and_swap(&next_head, &current_head, &result, MPI_INT, 0,
-                             offsetof(SharedMemoryHeader, free_stack_head), client_info.node_shared_data_win);
-        MPI_Win_flush(0, client_info.node_shared_data_win);
-        MPI_Win_unlock(0, client_info.node_shared_data_win);
-
-        if (result == current_head) {
-            return current_head;
-        }
+        return SLOT_INVALID;
     }
-    return SLOT_INVALID;
+    
+    MPI_Get(&next_head, 1, MPI_INT, 0,
+            offsetof(SharedMemoryHeader, free_list) + current_head * sizeof(int),
+            1, MPI_INT, client_info.node_shared_data_win);
+    
+    MPI_Put(&next_head, 1, MPI_INT, 0,
+            offsetof(SharedMemoryHeader, free_stack_head),
+            1, MPI_INT, client_info.node_shared_data_win);
+    
+    MPI_Win_unlock(0, client_info.node_shared_data_win);
+    
+    return current_head;
 }
 
 void
@@ -140,32 +207,24 @@ push_free_slot(int slot_idx)
 {
     if (slot_idx < 0 || slot_idx >= MAX_SLOTS_PER_NODE)
         return;
-
+    
     int current_head;
-
-    for (int retry = 0; retry < 100; retry++) {
-        MPI_Win_lock(MPI_LOCK_SHARED, 0, 0, client_info.node_shared_data_win);
-        MPI_Fetch_and_op(NULL, &current_head, MPI_INT, 0, offsetof(SharedMemoryHeader, free_stack_head),
-                         MPI_NO_OP, client_info.node_shared_data_win);
-        MPI_Win_flush(0, client_info.node_shared_data_win);
-        MPI_Win_unlock(0, client_info.node_shared_data_win);
-
-        MPI_Win_lock(MPI_LOCK_SHARED, 0, 0, client_info.node_shared_data_win);
-        client_info.header->free_list[slot_idx] = current_head;
-        MPI_Win_flush(0, client_info.node_shared_data_win);
-        MPI_Win_unlock(0, client_info.node_shared_data_win);
-
-        int result;
-        MPI_Win_lock(MPI_LOCK_SHARED, 0, 0, client_info.node_shared_data_win);
-        MPI_Compare_and_swap(&slot_idx, &current_head, &result, MPI_INT, 0,
-                             offsetof(SharedMemoryHeader, free_stack_head), client_info.node_shared_data_win);
-        MPI_Win_flush(0, client_info.node_shared_data_win);
-        MPI_Win_unlock(0, client_info.node_shared_data_win);
-
-        if (result == current_head) {
-            return;
-        }
-    }
+    
+    MPI_Win_lock(MPI_LOCK_EXCLUSIVE, 0, 0, client_info.node_shared_data_win);
+    
+    MPI_Get(&current_head, 1, MPI_INT, 0,
+            offsetof(SharedMemoryHeader, free_stack_head),
+            1, MPI_INT, client_info.node_shared_data_win);
+    
+    MPI_Put(&current_head, 1, MPI_INT, 0,
+            offsetof(SharedMemoryHeader, free_list) + slot_idx * sizeof(int),
+            1, MPI_INT, client_info.node_shared_data_win);
+    
+    MPI_Put(&slot_idx, 1, MPI_INT, 0,
+            offsetof(SharedMemoryHeader, free_stack_head),
+            1, MPI_INT, client_info.node_shared_data_win);
+    
+    MPI_Win_unlock(0, client_info.node_shared_data_win);
 }
 
 int
@@ -479,9 +538,12 @@ pdc_region_dl_data_exchange(pdcid_t *global_prefetch_list, int obj_prefetch_list
     char *intra_node_send_buf, *inter_node_send_buf, *temp_intra_recv_buf = NULL, *temp_inter_recv_buf = NULL;
     double start = MPI_Wtime(), tmp_timer, tmp_timer2;
 
+    int old_cached_item_num = client_info.cached_item_num;
+
     tmp_timer = MPI_Wtime();
     // Step 1: Calculating the max buffer sizes and allocate reusable data exchange buffers
-    int    chunk_size           = client_info.cached_item_num / NUM_CHUNKS;
+    // int    chunk_size           = client_info.cached_item_num / NUM_CHUNKS;
+    int    chunk_size           = old_cached_item_num / NUM_CHUNKS;
     size_t max_intra_send_chunk = 0, max_inter_send_chunk = 0, local_max_send_chunk = 0;
 
     MPI_Datatype mpi_intra_transfer_unit;
@@ -496,7 +558,7 @@ pdc_region_dl_data_exchange(pdcid_t *global_prefetch_list, int obj_prefetch_list
         size_t current_intra_send = 0, current_inter_send = 0;
 
         int start_idx = c * chunk_size;
-        int end_idx   = (c == NUM_CHUNKS - 1) ? client_info.cached_item_num : (c + 1) * chunk_size;
+        int end_idx   = (c == NUM_CHUNKS - 1) ? old_cached_item_num : (c + 1) * chunk_size;
 
         int i = 0;
         for (obj_cache_iter = client_info.local_cache_list_head; obj_cache_iter != NULL;
@@ -540,6 +602,8 @@ pdc_region_dl_data_exchange(pdcid_t *global_prefetch_list, int obj_prefetch_list
 
     MPI_Barrier(client_cache_world_comm);
 
+    printf("[RANK %d] Before data exchange total cached item num %d %d\n", client_info.world_rank, old_cached_item_num, client_info.cached_item_num);
+
     pdc_region_cache_timelog(tmp_timer, "pdc_region_dl_data_exchange - Step 1");
 
     tmp_timer = MPI_Wtime();
@@ -552,8 +616,8 @@ pdc_region_dl_data_exchange(pdcid_t *global_prefetch_list, int obj_prefetch_list
         int end_idx   = chunk_size;
 
         if (c == NUM_CHUNKS - 1) {
-            if (client_info.cached_item_num % chunk_size != 0)
-                end_idx = client_info.cached_item_num % chunk_size;
+            if (old_cached_item_num % NUM_CHUNKS != 0)
+                end_idx = old_cached_item_num % NUM_CHUNKS;
         }
 
         // Step 2-1: Intra-node shuffle for current chunk
@@ -861,27 +925,32 @@ pdc_region_dl_data_exchange(pdcid_t *global_prefetch_list, int obj_prefetch_list
                                  "pdc_region_dl_data_exchange - inter-node shuffle recv buffer unpack");
         tmp_timer2 = MPI_Wtime();
 
+        MPI_Barrier(client_cache_world_comm);
+
         i = 0;
         while (i >= start_idx && i < end_idx && exchange_head != NULL) {
             obj_cache_iter = exchange_head;
             exchange_head  = obj_cache_iter->next;
 
-            pdc_region_dl_delete(obj_cache_iter);
-
             // Delete if the item was exchanged during inter-node shuffle only
             if (obj_cache_iter->data_exchange_type) {
                 push_free_slot(obj_cache_iter->slot_idx);
-
-                free(obj_cache_iter);
             }
-
+            
+            pdc_region_dl_delete(obj_cache_iter);
+            free(obj_cache_iter);
             i++;
         }
 
         pdc_region_cache_timelog(tmp_timer2, "pdc_region_dl_data_exchange - delete item");
+
+        MPI_Barrier(client_cache_world_comm);
+
+        printf("[RANK %d] data_exchange chunk %d current_cached_item %d\n", client_info.world_rank, c, client_info.cached_item_num);
     }
 
     pdc_region_cache_timelog(tmp_timer, "pdc_region_dl_data_exchange - Step 2");
+    printf("[RANK %d] End of data exchange total cached item num %d\n", client_info.world_rank, client_info.cached_item_num);
 
     MPI_Barrier(client_cache_world_comm);
 
