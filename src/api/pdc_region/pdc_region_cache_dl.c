@@ -574,8 +574,8 @@ pdc_region_dl_data_exchange(pdcid_t *global_prefetch_list, int obj_prefetch_list
 
     MPI_Barrier(client_cache_world_comm);
 
-    if (client_info.world_rank == 0)
-        printf("[RANK %d] Before data exchange total cached item num %d %d\n", client_info.world_rank, old_cached_item_num, client_info.cached_item_num);
+    // if (client_info.world_rank == 0)
+    //     printf("[RANK %d] Before data exchange total cached item num %d %d\n", client_info.world_rank, old_cached_item_num, client_info.cached_item_num);
 
     pdc_region_cache_timelog(tmp_timer, "pdc_region_dl_data_exchange - Step 1");
 
