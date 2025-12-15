@@ -105,28 +105,25 @@ int
 pop_free_slot()
 {
     int current_head, next_head;
-    
+
     MPI_Win_lock(MPI_LOCK_EXCLUSIVE, 0, 0, client_info.node_shared_data_win);
-    
-    MPI_Get(&current_head, 1, MPI_INT, 0,
-            offsetof(SharedMemoryHeader, free_stack_head),
-            1, MPI_INT, client_info.node_shared_data_win);
-    
+
+    MPI_Get(&current_head, 1, MPI_INT, 0, offsetof(SharedMemoryHeader, free_stack_head), 1, MPI_INT,
+            client_info.node_shared_data_win);
+
     if (current_head == SLOT_INVALID) {
         MPI_Win_unlock(0, client_info.node_shared_data_win);
         return SLOT_INVALID;
     }
-    
-    MPI_Get(&next_head, 1, MPI_INT, 0,
-            offsetof(SharedMemoryHeader, free_list) + current_head * sizeof(int),
+
+    MPI_Get(&next_head, 1, MPI_INT, 0, offsetof(SharedMemoryHeader, free_list) + current_head * sizeof(int),
             1, MPI_INT, client_info.node_shared_data_win);
-    
-    MPI_Put(&next_head, 1, MPI_INT, 0,
-            offsetof(SharedMemoryHeader, free_stack_head),
-            1, MPI_INT, client_info.node_shared_data_win);
-    
+
+    MPI_Put(&next_head, 1, MPI_INT, 0, offsetof(SharedMemoryHeader, free_stack_head), 1, MPI_INT,
+            client_info.node_shared_data_win);
+
     MPI_Win_unlock(0, client_info.node_shared_data_win);
-    
+
     return current_head;
 }
 
@@ -135,23 +132,20 @@ push_free_slot(int slot_idx)
 {
     if (slot_idx < 0 || slot_idx >= MAX_SLOTS_PER_NODE)
         return;
-    
+
     int current_head;
-    
+
     MPI_Win_lock(MPI_LOCK_EXCLUSIVE, 0, 0, client_info.node_shared_data_win);
-    
-    MPI_Get(&current_head, 1, MPI_INT, 0,
-            offsetof(SharedMemoryHeader, free_stack_head),
-            1, MPI_INT, client_info.node_shared_data_win);
-    
-    MPI_Put(&current_head, 1, MPI_INT, 0,
-            offsetof(SharedMemoryHeader, free_list) + slot_idx * sizeof(int),
-            1, MPI_INT, client_info.node_shared_data_win);
-    
-    MPI_Put(&slot_idx, 1, MPI_INT, 0,
-            offsetof(SharedMemoryHeader, free_stack_head),
-            1, MPI_INT, client_info.node_shared_data_win);
-    
+
+    MPI_Get(&current_head, 1, MPI_INT, 0, offsetof(SharedMemoryHeader, free_stack_head), 1, MPI_INT,
+            client_info.node_shared_data_win);
+
+    MPI_Put(&current_head, 1, MPI_INT, 0, offsetof(SharedMemoryHeader, free_list) + slot_idx * sizeof(int), 1,
+            MPI_INT, client_info.node_shared_data_win);
+
+    MPI_Put(&slot_idx, 1, MPI_INT, 0, offsetof(SharedMemoryHeader, free_stack_head), 1, MPI_INT,
+            client_info.node_shared_data_win);
+
     MPI_Win_unlock(0, client_info.node_shared_data_win);
 }
 
@@ -365,8 +359,9 @@ pdc_region_dl_local_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *of
                 data_ptr = get_data_ptr(obj_cache_iter->slot_idx);
 
                 tmp_start = MPI_Wtime();
-                
-                // memcpy_overlap_subregion(obj_cache_iter->reg_ndim, unit, data_ptr, obj_cache_iter->reg_offset,
+
+                // memcpy_overlap_subregion(obj_cache_iter->reg_ndim, unit, data_ptr,
+                // obj_cache_iter->reg_offset,
                 //                          obj_cache_iter->reg_size, buf, offset, size, overlap_offset,
                 //                          overlap_size);
 
@@ -469,11 +464,12 @@ pdc_region_dl_data_exchange(pdcid_t *global_prefetch_list, int obj_prefetch_list
     int old_cached_item_num = client_info.cached_item_num;
 
     tmp_timer = MPI_Wtime();
-    
+
     // Step 1: Calculating the max buffer sizes and allocate reusable data exchange buffers
     int    chunk_size           = old_cached_item_num / NUM_CHUNKS;
-    size_t max_intra_send_chunk = 0, max_inter_send_chunk = 0, local_max_send_chunk = 0, max_intra_recv_chunk = 0, max_inter_recv_chunk = 0;
-    //size_t max_intra_send_chunk = 0, max_inter_send_chunk = 0, local_max_send_chunk = 0;
+    size_t max_intra_send_chunk = 0, max_inter_send_chunk = 0, local_max_send_chunk = 0,
+           max_intra_recv_chunk = 0, max_inter_recv_chunk = 0;
+    // size_t max_intra_send_chunk = 0, max_inter_send_chunk = 0, local_max_send_chunk = 0;
 
     // Prepare the buffers required within the data exchange
     int intra_node_item_count[NUM_CHUNKS];
@@ -481,7 +477,7 @@ pdc_region_dl_data_exchange(pdcid_t *global_prefetch_list, int obj_prefetch_list
 
     memset(intra_node_item_count, 0, sizeof(intra_node_item_count));
     memset(inter_node_item_count, 0, sizeof(inter_node_item_count));
-    
+
     int intra_node_send_counts[NUM_CHUNKS][client_info.node_size];
     int inter_node_send_counts[NUM_CHUNKS][client_info.world_size];
     int intra_node_recv_counts[NUM_CHUNKS][client_info.node_size];
@@ -496,7 +492,7 @@ pdc_region_dl_data_exchange(pdcid_t *global_prefetch_list, int obj_prefetch_list
     int *rdispls_intra = (int *)PDC_malloc(client_info.node_size * sizeof(int));
     int *sdispls_inter = (int *)PDC_malloc(client_info.world_size * sizeof(int));
     int *rdispls_inter = (int *)PDC_malloc(client_info.world_size * sizeof(int));
-    
+
     MPI_Datatype mpi_intra_transfer_unit;
     MPI_Type_contiguous(INTRA_TRANSFER_UNIT_SIZE, MPI_BYTE, &mpi_intra_transfer_unit);
     MPI_Type_commit(&mpi_intra_transfer_unit);
@@ -566,7 +562,7 @@ pdc_region_dl_data_exchange(pdcid_t *global_prefetch_list, int obj_prefetch_list
     inter_node_send_buf = (char *)PDC_malloc(global_max_chunk_size * INTER_TRANSFER_UNIT_SIZE + 1);
     temp_intra_recv_buf = (char *)PDC_malloc(max_intra_recv_chunk * INTRA_TRANSFER_UNIT_SIZE + 1);
     temp_inter_recv_buf = (char *)PDC_malloc(max_inter_recv_chunk * INTER_TRANSFER_UNIT_SIZE + 1);
-    
+
     memset(intra_node_send_buf, 0, global_max_chunk_size * INTRA_TRANSFER_UNIT_SIZE + 1);
     memset(inter_node_send_buf, 0, global_max_chunk_size * INTER_TRANSFER_UNIT_SIZE + 1);
     memset(temp_intra_recv_buf, 0, max_intra_recv_chunk * INTRA_TRANSFER_UNIT_SIZE + 1);
@@ -575,7 +571,8 @@ pdc_region_dl_data_exchange(pdcid_t *global_prefetch_list, int obj_prefetch_list
     MPI_Barrier(client_cache_world_comm);
 
     // if (client_info.world_rank == 0)
-    //     printf("[RANK %d] Before data exchange total cached item num %d %d\n", client_info.world_rank, old_cached_item_num, client_info.cached_item_num);
+    //     printf("[RANK %d] Before data exchange total cached item num %d %d\n", client_info.world_rank,
+    //     old_cached_item_num, client_info.cached_item_num);
 
     pdc_region_cache_timelog(tmp_timer, "pdc_region_dl_data_exchange - Step 1");
 
@@ -594,13 +591,13 @@ pdc_region_dl_data_exchange(pdcid_t *global_prefetch_list, int obj_prefetch_list
         }
 
         // Step 2-1: Intra-node shuffle for current chunk
-        int  i                   = 0;
-        int  current_sdisp_items = 0;
-        int  current_rdisp_items = 0;
+        int    i                            = 0;
+        int    current_sdisp_items          = 0;
+        int    current_rdisp_items          = 0;
         size_t total_intra_recv_items_chunk = 0;
 
         tmp_timer2 = MPI_Wtime();
-        
+
         for (i = 0; i < client_info.node_size; i++) {
             // printf("[RANK %d] data_Exchange - intra_node_send_counts %d intra_node_recv_counts %d\n",
             // pdc_client_mpi_rank_g, intra_node_send_counts[i], intra_node_recv_counts[i], i);
@@ -697,8 +694,8 @@ pdc_region_dl_data_exchange(pdcid_t *global_prefetch_list, int obj_prefetch_list
                     current_offset += (sizeof(uint64_t) * 3);
                     memcpy(&obj_cache_item->reg_buf_size, recv_ptr + current_offset, sizeof(uint64_t));
 
-                    obj_cache_item->target_rank = -1;
-                    obj_cache_item->data_exchange_type = 0; 
+                    obj_cache_item->target_rank        = -1;
+                    obj_cache_item->data_exchange_type = 0;
 
                     pdc_region_dl_prepend(obj_cache_item);
                 }
@@ -711,9 +708,9 @@ pdc_region_dl_data_exchange(pdcid_t *global_prefetch_list, int obj_prefetch_list
 
         // Stage 3: Inter-node data exchange for current chunk
         size_t total_inter_recv_items_chunk = 0;
-        current_sdisp_items = 0;
-        current_rdisp_items = 0;
-        
+        current_sdisp_items                 = 0;
+        current_rdisp_items                 = 0;
+
         for (i = 0; i < client_info.world_size; i++) {
             total_inter_recv_items_chunk += inter_node_recv_counts[c][i];
 
@@ -757,7 +754,8 @@ pdc_region_dl_data_exchange(pdcid_t *global_prefetch_list, int obj_prefetch_list
 
                         char *data_ptr = get_data_ptr(obj_cache_iter->slot_idx);
 
-                        memcpy(send_ptr + current_offset, data_ptr, obj_cache_iter->reg_buf_size * sizeof(char));
+                        memcpy(send_ptr + current_offset, data_ptr,
+                               obj_cache_iter->reg_buf_size * sizeof(char));
 
                         obj_cache_iter->data_exchange_type = 1; // inter node data exchange
 
@@ -839,7 +837,7 @@ pdc_region_dl_data_exchange(pdcid_t *global_prefetch_list, int obj_prefetch_list
             if (obj_cache_iter->data_exchange_type) {
                 push_free_slot(obj_cache_iter->slot_idx);
             }
-            
+
             pdc_region_dl_delete(obj_cache_iter);
             free(obj_cache_iter);
             i++;
@@ -869,10 +867,10 @@ pdc_region_dl_data_exchange(pdcid_t *global_prefetch_list, int obj_prefetch_list
 
     free(sdispls_intra);
     free(rdispls_intra);
-    
+
     free(sdispls_inter);
     free(rdispls_inter);
-    
+
     free(intra_node_send_buf);
     free(inter_node_send_buf);
     free(temp_intra_recv_buf);
