@@ -124,6 +124,9 @@ pop_free_slot()
 
     MPI_Win_unlock(0, client_info.node_shared_data_win);
 
+    // printf("[RANK %d] pop_free_slot index: %d\n", client_info.world_rank, current_head);
+    // fflush(stdout);
+
     return current_head;
 }
 
@@ -384,6 +387,11 @@ pdc_region_dl_local_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *of
         obj_cache_iter = obj_cache_iter->next;
     }
 
+    if(!is_cached)
+        printf("[RANK %d] cache miss for obj_id: lld\n", client_info.world_rank, obj_id);
+    else
+        printf("[RANK %d] cache hit for obj_id: lld\n", client_info.world_rank, obj_id);
+
     pdc_region_cache_timelog(total_start, "pdc_region_dl_local_search search time");
 
 done:
@@ -442,6 +450,16 @@ pdc_region_dl_prepare_data_exchange(pdcid_t *global_prefetch_list, uint64_t *off
         obj_cache_iter    = obj_cache_iter->next;
         prefetch_list_idx = 0;
     }
+
+    // For debugging purpose
+    // obj_cache_iter = client_info.local_cache_list_head;
+    // while (obj_cache_iter != NULL) {
+    //     printf("[RANK %d] prepare_data_exchange: object_id %lld , target_rank: %d\n", client_info.world_rank, obj_cache_iter->obj_id, obj_cache_iter->target_rank);
+
+    //     fflush(stdout);
+
+    //     obj_cache_iter = obj_cache_iter->next;
+    // }
 
     pdc_region_cache_timelog(start, "pdc_region_dl_prepare_data_exchange - global prefetch list preparation");
 
@@ -563,6 +581,8 @@ pdc_region_dl_data_exchange(pdcid_t *global_prefetch_list, int obj_prefetch_list
     temp_intra_recv_buf = (char *)PDC_malloc(max_intra_recv_chunk * INTRA_TRANSFER_UNIT_SIZE + 1);
     temp_inter_recv_buf = (char *)PDC_malloc(max_inter_recv_chunk * INTER_TRANSFER_UNIT_SIZE + 1);
 
+    printf("[RANK %d] global_max_chunk_size: %d, max_intra_recv_chunk: %d, max_inter_recv_chunk: %d\n", client_info.world_rank, global_max_chunk_size, max_intra_recv_chunk, max_inter_recv_chunk);
+    
     memset(intra_node_send_buf, 0, global_max_chunk_size * INTRA_TRANSFER_UNIT_SIZE + 1);
     memset(inter_node_send_buf, 0, global_max_chunk_size * INTER_TRANSFER_UNIT_SIZE + 1);
     memset(temp_intra_recv_buf, 0, max_intra_recv_chunk * INTRA_TRANSFER_UNIT_SIZE + 1);
@@ -828,20 +848,20 @@ pdc_region_dl_data_exchange(pdcid_t *global_prefetch_list, int obj_prefetch_list
 
         MPI_Barrier(client_cache_world_comm);
 
-        i = 0;
-        while (i >= start_idx && i < end_idx && exchange_head != NULL) {
-            obj_cache_iter = exchange_head;
-            exchange_head  = obj_cache_iter->next;
+        // i = 0;
+        // while (i >= start_idx && i < end_idx && exchange_head != NULL) {
+        //     obj_cache_iter = exchange_head;
+        //     exchange_head  = obj_cache_iter->next;
 
-            // Delete if the item was exchanged during inter-node shuffle only
-            if (obj_cache_iter->data_exchange_type) {
-                push_free_slot(obj_cache_iter->slot_idx);
-            }
+        //     // Delete if the item was exchanged during inter-node shuffle only
+        //     if (obj_cache_iter->data_exchange_type) {
+        //         push_free_slot(obj_cache_iter->slot_idx);
+        //     }
 
-            pdc_region_dl_delete(obj_cache_iter);
-            free(obj_cache_iter);
-            i++;
-        }
+        //     pdc_region_dl_delete(obj_cache_iter);
+        //     free(obj_cache_iter);
+        //     i++;
+        // }
 
         pdc_region_cache_timelog(tmp_timer2, "pdc_region_dl_data_exchange - delete item");
 
