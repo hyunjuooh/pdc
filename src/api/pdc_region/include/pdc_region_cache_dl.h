@@ -37,7 +37,7 @@
 // 1GB data generation for bdcats
 // #define MAX_ITEM_SIZE 33554432
 #define MAX_ITEM_SIZE      67108864
-#define MAX_SLOTS_PER_NODE 600
+#define MAX_SLOTS_PER_NODE 234
 
 // #define MAX_ITEM_SIZE      134217728
 
