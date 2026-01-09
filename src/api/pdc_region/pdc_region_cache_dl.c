@@ -387,10 +387,10 @@ pdc_region_dl_local_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *of
         obj_cache_iter = obj_cache_iter->next;
     }
 
-    if(!is_cached)
-        printf("[RANK %d] cache miss for obj_id: lld\n", client_info.world_rank, obj_id);
-    else
-        printf("[RANK %d] cache hit for obj_id: lld\n", client_info.world_rank, obj_id);
+    // if(!is_cached)
+    //     printf("[RANK %d] cache miss for obj_id: %lld\n", client_info.world_rank, obj_id);
+    // else
+    //     printf("[RANK %d] cache hit for obj_id: %lld\n", client_info.world_rank, obj_id);
 
     pdc_region_cache_timelog(total_start, "pdc_region_dl_local_search search time");
 
@@ -848,20 +848,20 @@ pdc_region_dl_data_exchange(pdcid_t *global_prefetch_list, int obj_prefetch_list
 
         MPI_Barrier(client_cache_world_comm);
 
-        // i = 0;
-        // while (i >= start_idx && i < end_idx && exchange_head != NULL) {
-        //     obj_cache_iter = exchange_head;
-        //     exchange_head  = obj_cache_iter->next;
+        i = 0;
+        while (i >= start_idx && i < end_idx && exchange_head != NULL) {
+            obj_cache_iter = exchange_head;
+            exchange_head  = obj_cache_iter->next;
 
-        //     // Delete if the item was exchanged during inter-node shuffle only
-        //     if (obj_cache_iter->data_exchange_type) {
-        //         push_free_slot(obj_cache_iter->slot_idx);
-        //     }
+            // Delete if the item was exchanged during inter-node shuffle only
+            if (obj_cache_iter->data_exchange_type) {
+                push_free_slot(obj_cache_iter->slot_idx);
+            }
 
-        //     pdc_region_dl_delete(obj_cache_iter);
-        //     free(obj_cache_iter);
-        //     i++;
-        // }
+            pdc_region_dl_delete(obj_cache_iter);
+            free(obj_cache_iter);
+            i++;
+        }
 
         pdc_region_cache_timelog(tmp_timer2, "pdc_region_dl_data_exchange - delete item");
 
