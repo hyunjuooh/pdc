@@ -44,7 +44,7 @@
 
 // #define MAX_ITEM_SIZE      157286400
 // // #define MAX_SLOTS_PER_NODE 950
-// #define MAX_SLOTS_PER_NODE 475
+// #define MAX_SLOTS_PER_NODE 712
 #define SLOT_INVALID -1
 
 /**************************/
