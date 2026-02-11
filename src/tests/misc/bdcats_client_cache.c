@@ -401,15 +401,6 @@ main(int argc, char *argv[])
         }
     }
 
-    free(x);
-    free(y);
-    free(z);
-    free(px);
-    free(py);
-    free(pz);
-    free(id1);
-    free(id2);
-
 #ifdef ENABLE_MPI
     MPI_Reduce(&transfer_create, &max_time, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
     MPI_Reduce(&transfer_create, &avg_time, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
@@ -442,6 +433,15 @@ main(int argc, char *argv[])
         LOG_INFO("total: %lf - %lf - %lf\n", min_time, avg_time / size, max_time);
     }
 #endif
+
+    if (access_pattern == 1 || access_pattern == 3) {
+        for (j = 0; j < numparticles; ++j) {
+            if (rank == 0 && j == 100) {
+                printf("[Rank %d] id1 value %d and %d @ line %d pointer %p\n", rank, id1[j], j, __LINE__, id1);
+                printf("[Rank %d] id2 value %d and %d @ line %d pointer %p\n", rank, id2[j], j * 2, __LINE__, id2);
+            }
+        }
+    }
 
     mysize[0] = numparticles / num_transfer_request;
 
@@ -628,11 +628,11 @@ main(int argc, char *argv[])
 
     // Check if data written previously has been correctly read.
     // For pattern 1 and 3
-    if (access_pattern == 1 || access_pattern == 3) {
+    if (access_pattern == 1 || access_pattern == 3 || rank == 0) {
         for (j = 0; j < numparticles; ++j) {
             if (rank == 0 && j == 100) {
-                printf("[Rank %d] id1 value %d and %d @ line %d\n", rank, id1[j], j, __LINE__);
-                printf("[Rank %d] id2 value %d and %d @ line %d\n", rank, id2[j], j * 2, __LINE__);
+                printf("[Rank %d] id1 value %d and %d @ line %d pointer %p\n", rank, id1[j], j, __LINE__, id1);
+                printf("[Rank %d] id2 value %d and %d @ line %d pointer %p\n", rank, id2[j], j * 2, __LINE__, id2);
             }
             if (id1[j] != j) {
                 printf("[Rank %d] id1 wrong value %d!=%d @ line %d\n", rank, id1[j], j, __LINE__);
@@ -771,14 +771,14 @@ main(int argc, char *argv[])
     if (PDCclose(pdc_id) < 0)
         printf("fail to close PDC\n");
 
-    // free(x);
-    // free(y);
-    // free(z);
-    // free(px);
-    // free(py);
-    // free(pz);
-    // free(id1);
-    // free(id2);
+    free(x);
+    free(y);
+    free(z);
+    free(px);
+    free(py);
+    free(pz);
+    free(id1);
+    free(id2);
     free(offset);
     free(offset_remote);
     free(mysize);
