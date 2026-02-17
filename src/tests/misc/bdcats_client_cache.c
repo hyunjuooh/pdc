@@ -443,6 +443,9 @@ main(int argc, char *argv[])
         }
     }
 
+    memset(id1, 0, sizeof(id1));
+    memset(id2, 0, sizeof(id2));
+
     mysize[0] = numparticles / num_transfer_request;
 
     if (access_pattern == 1) {
