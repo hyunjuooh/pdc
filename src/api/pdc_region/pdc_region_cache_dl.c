@@ -453,7 +453,8 @@ pdc_region_dl_prepare_data_exchange(pdcid_t *global_prefetch_list, uint64_t *off
     // For debugging purpose
     // obj_cache_iter = client_info.local_cache_list_head;
     // while (obj_cache_iter != NULL) {
-    //     printf("[RANK %d] prepare_data_exchange: object_id %lld , target_rank: %d\n", client_info.world_rank, obj_cache_iter->obj_id, obj_cache_iter->target_rank);
+    //     printf("[RANK %d] prepare_data_exchange: object_id %lld , target_rank: %d\n",
+    //     client_info.world_rank, obj_cache_iter->obj_id, obj_cache_iter->target_rank);
 
     //     fflush(stdout);
 
@@ -580,8 +581,9 @@ pdc_region_dl_data_exchange(pdcid_t *global_prefetch_list, int obj_prefetch_list
     temp_intra_recv_buf = (char *)PDC_malloc(max_intra_recv_chunk * INTRA_TRANSFER_UNIT_SIZE + 1);
     temp_inter_recv_buf = (char *)PDC_malloc(max_inter_recv_chunk * INTER_TRANSFER_UNIT_SIZE + 1);
 
-    printf("[RANK %d] global_max_chunk_size: %d, max_intra_recv_chunk: %d, max_inter_recv_chunk: %d\n", client_info.world_rank, global_max_chunk_size, max_intra_recv_chunk, max_inter_recv_chunk);
-    
+    printf("[RANK %d] global_max_chunk_size: %d, max_intra_recv_chunk: %d, max_inter_recv_chunk: %d\n",
+           client_info.world_rank, global_max_chunk_size, max_intra_recv_chunk, max_inter_recv_chunk);
+
     memset(intra_node_send_buf, 0, global_max_chunk_size * INTRA_TRANSFER_UNIT_SIZE + 1);
     memset(inter_node_send_buf, 0, global_max_chunk_size * INTER_TRANSFER_UNIT_SIZE + 1);
     memset(temp_intra_recv_buf, 0, max_intra_recv_chunk * INTRA_TRANSFER_UNIT_SIZE + 1);
