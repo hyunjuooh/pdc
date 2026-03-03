@@ -2165,7 +2165,18 @@ server_run(int argc, char *argv[])
     // Get environmental variables
     PDC_Server_get_env();
 
-    port      = pdc_server_rank_g % 32 + 7000;
+    // port      = pdc_server_rank_g % 32 + 7000;
+    // cxi implement
+    char *hg_transport_cxi = getenv("HG_TRANSPORT");
+    if (hg_transport_cxi && strstr(hg_transport_cxi, "cxi")) {
+    /* CXI uses PIDs (0-510), not TCP ports.
+     * Use rank directly as PID, offset by 4 to avoid reserved PIDs 0-3 */
+        port = pdc_server_rank_g + 4;
+    }
+    else {
+        port = pdc_server_rank_g % 32 + 7000;
+    }
+    
     ret_value = PDC_Server_init(port, &hg_class_g, &hg_context_g);
     if (ret_value != SUCCEED)
         PGOTO_ERROR(FAIL, "Error with PDC_Server_init");

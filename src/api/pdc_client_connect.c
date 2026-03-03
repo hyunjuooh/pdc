@@ -1530,7 +1530,16 @@ PDC_Client_init()
         LOG_ERROR("Server number not properly initialized\n");
 
     // Cori KNL has 68 cores per node, Haswell 32
-    port = pdc_client_mpi_rank_g % PDC_MAX_CORE_PER_NODE + 8000;
+    // port = pdc_client_mpi_rank_g % PDC_MAX_CORE_PER_NODE + 8000;
+
+    char *hg_transport_client = getenv("HG_TRANSPORT");
+    if (hg_transport_client && strstr(hg_transport_client, "cxi")) {
+        port = pdc_client_mpi_rank_g % PDC_MAX_CORE_PER_NODE + 100;
+    }
+    else {
+        port = pdc_client_mpi_rank_g % PDC_MAX_CORE_PER_NODE + 8000;
+    }
+    
     if (mercury_has_init_g == 0) {
         // Init Mercury network connection
         ret_value = PDC_Client_mercury_init(&send_class_g, &send_context_g, port);
