@@ -54,12 +54,17 @@ pdc_region_cache_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offse
     start = MPI_Wtime();
 
     // Calculation of read size
-    if (ndim >= 1)
-        read_size = unit * size[0];
-    if (ndim >= 2)
-        read_size *= size[1];
-    if (ndim >= 3)
-        read_size *= size[2];
+    // if (ndim >= 1)
+    //     read_size = unit * size[0];
+    // if (ndim >= 2)
+    //     read_size *= size[1];
+    // if (ndim >= 3)
+    //     read_size *= size[2];
+
+    read_size = unit;
+    for (int i = 0; i < ndim; ++i) {
+        read_size *= size[i];
+    }
 
     // Search on doubly linked list
     region_contained = pdc_region_dl_local_search(obj_id, ndim, unit, offset, size, buf, read_size);
