@@ -80,6 +80,7 @@ set(PROGRAMS
   misc/vpicio
   misc/bdcats
   misc/vpicio_client_cache
+  misc/bdcats_client_cache
   tags/kvtag_add_get
   tags/kvtag_query
   region/region_transfer_query
