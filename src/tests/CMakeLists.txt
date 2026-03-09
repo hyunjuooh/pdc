@@ -79,6 +79,7 @@ set(PROGRAMS
   obj/delete_obj
   misc/vpicio
   misc/bdcats
+  misc/vpicio_client_cache
   tags/kvtag_add_get
   tags/kvtag_query
   region/region_transfer_query
