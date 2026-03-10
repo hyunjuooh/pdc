@@ -78,16 +78,9 @@ set(PROGRAMS
   obj/obj_round_robin_io_all
   obj/delete_obj
   misc/vpicio
-  misc/vpicio_mts
-  misc/vpicio_client_cache
   misc/bdcats
   misc/vpicio_client_cache
   misc/bdcats_client_cache
-  misc/bdcats_mts
-  misc/bdcats_client_cache
-  misc/bdcats_client_cache_all
-  deprecated/vpicio_old
-  deprecated/bdcats_old
   tags/kvtag_add_get
   tags/kvtag_query
   region/region_transfer_query
