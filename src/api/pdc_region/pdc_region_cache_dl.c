@@ -378,11 +378,13 @@ pdc_region_dl_local_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *of
                 if (region_copy) {
                     memcpy(buf, data_ptr, obj_cache_iter->reg_buf_size);
                     if (client_info.world_rank == 0)
-                        printf("[RANK %d] Read entire region for obj_id: %lld\n", client_info.world_rank, obj_id);
-                } else {
-                    memcpy_overlap_subregion(obj_cache_iter->reg_ndim, unit, data_ptr, obj_cache_iter->reg_offset,
-                                         obj_cache_iter->reg_size, buf, offset, size, overlap_offset,
-                                         overlap_size);
+                        printf("[RANK %d] Read entire region for obj_id: %lld\n", client_info.world_rank,
+                               obj_id);
+                }
+                else {
+                    memcpy_overlap_subregion(obj_cache_iter->reg_ndim, unit, data_ptr,
+                                             obj_cache_iter->reg_offset, obj_cache_iter->reg_size, buf,
+                                             offset, size, overlap_offset, overlap_size);
                 }
 
                 pdc_region_cache_timelog(tmp_start, "pdc_region_dl_local_search - memcpy data to buf");
