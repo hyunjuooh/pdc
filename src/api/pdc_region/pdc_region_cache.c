@@ -31,9 +31,10 @@ pdc_region_cache_init(pdcid_t pdcid)
     pdc_id = pdcid;
 
     ret_value = pdc_region_dl_init();
+    pdc_region_cache_timelog(start, "pdc_region_dl_init - total time");
+    
     ret_value = pdc_region_prefetch_init();
-
-    pdc_region_cache_timelog(start, "pdc_region_cache_init - total time");
+    pdc_region_cache_timelog(start, "pdc_region_prefetch_init - total time");
 
 done:
     fflush(stdout);
