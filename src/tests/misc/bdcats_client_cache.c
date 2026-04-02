@@ -434,6 +434,20 @@ main(int argc, char *argv[])
     }
 #endif
 
+    if (access_pattern == 1 || access_pattern == 3) {
+        for (j = 0; j < numparticles; ++j) {
+            if (rank == 0 && j == 100) {
+                printf("[Rank %d] id1 value %d and %d @ line %d pointer %p\n", rank, id1[j], j, __LINE__,
+                       id1);
+                printf("[Rank %d] id2 value %d and %d @ line %d pointer %p\n", rank, id2[j], j * 2, __LINE__,
+                       id2);
+            }
+        }
+    }
+
+    memset(id1, 0, sizeof(id1));
+    memset(id2, 0, sizeof(id2));
+
     mysize[0] = numparticles / num_transfer_request;
 
     if (access_pattern == 1) {
@@ -453,9 +467,10 @@ main(int argc, char *argv[])
 
         // random_offset = rank_arr[rank];
         offset_remote[0] = random_offset * numparticles;
-        // if (rank == 0)
-        //     printf("[RANK %d] Random offset %lld\n", rank, offset_remote[0]);
+        if (rank == 0)
+            printf("[RANK %d] Random offset %lld\n", rank, offset_remote[0]);
     }
+
     // create a region
     region_x   = PDCregion_create(ndim, offset, mysize);
     region_y   = PDCregion_create(ndim, offset, mysize);
@@ -616,8 +631,14 @@ main(int argc, char *argv[])
 
     // Check if data written previously has been correctly read.
     // For pattern 1 and 3
-    if (access_pattern == 1 || access_pattern == 3) {
+    if (access_pattern == 1 || access_pattern == 3 || rank == 0) {
         for (j = 0; j < numparticles; ++j) {
+            if (rank == 0 && j == 100) {
+                printf("[Rank %d] id1 value %d and %d @ line %d pointer %p\n", rank, id1[j], j, __LINE__,
+                       id1);
+                printf("[Rank %d] id2 value %d and %d @ line %d pointer %p\n", rank, id2[j], j * 2, __LINE__,
+                       id2);
+            }
             if (id1[j] != j) {
                 printf("[Rank %d] id1 wrong value %d!=%d @ line %d\n", rank, id1[j], j, __LINE__);
                 break;

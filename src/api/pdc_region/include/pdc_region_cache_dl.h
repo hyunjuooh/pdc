@@ -32,9 +32,6 @@
 #define NUM_CHUNKS         21
 // #define NUM_CHUNKS               4
 
-#define INTRA_TRANSFER_UNIT_SIZE (sizeof(pdcid_t) + sizeof(int) * 2 + sizeof(uint64_t) * 8)
-#define INTER_TRANSFER_UNIT_SIZE (sizeof(pdcid_t) + sizeof(int) + sizeof(uint64_t) * 8 + MAX_ITEM_SIZE)
-
 // 1GB data generation for bdcats
 // #define MAX_ITEM_SIZE 33554432
 
@@ -46,6 +43,11 @@
 #define MAX_ITEM_SIZE      157286400
 #define MAX_SLOTS_PER_NODE 950
 // #define MAX_SLOTS_PER_NODE 712
+
+#define INTRA_TRANSFER_UNIT_SIZE (sizeof(pdcid_t) + sizeof(int) * 2 + sizeof(uint64_t) * 8)
+#define INTER_TRANSFER_UNIT_SIZE (sizeof(pdcid_t) + sizeof(int) + sizeof(uint64_t) * 8 + MAX_ITEM_SIZE)
+
+
 #define SLOT_INVALID -1
 
 /**************************/

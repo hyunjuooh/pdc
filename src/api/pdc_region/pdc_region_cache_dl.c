@@ -206,8 +206,8 @@ pdc_region_dl_init()
     MPI_Allgather(&client_info.node_manager_rank, 1, MPI_INT, client_info.rank_to_node_id_map, 1, MPI_INT,
                   client_cache_world_comm);
 
-    // printf("pdc_region_dl_init - step 3: rank_to_node_id_map\n");
-    // fflush(stdout);
+    printf("[RANK %d] pdc_region_dl_init - step 3: rank_to_node_id_map\n", client_info.world_rank);
+    fflush(stdout);
 
     // 4. Create local node map
     node_world_ranks = (int *)PDC_malloc(client_info.node_size * sizeof(int));
@@ -223,10 +223,10 @@ pdc_region_dl_init()
         client_info.world_to_node_rank_map[node_world_ranks[i]] = i;
     }
 
-    free(node_world_ranks);
+    PDC_free(node_world_ranks);
 
-    // printf("pdc_region_dl_init - step 4: world_to_node_rank_map memory allocation\n");
-    // fflush(stdout);
+    printf("[RANK %d] pdc_region_dl_init - step 4: world_to_node_rank_map memory allocation\n", client_info.world_rank);
+    fflush(stdout);
 
     // 5. Create shared memory window for node shared data
     MPI_Aint total_bytes =
@@ -237,8 +237,8 @@ pdc_region_dl_init()
         MPI_Win_allocate_shared(local_alloc_size, 1, MPI_INFO_NULL, client_cache_node_comm,
                                 &client_info.node_shared_base, &client_info.node_shared_data_win);
 
-    // printf("pdc_region_dl_init - step 5: Create shared memory window\n");
-    // fflush(stdout);
+    printf("[RANK %d] pdc_region_dl_init - step 5: Create shared memory window\n", client_info.world_rank);
+    fflush(stdout);
 
     if (mpi_alloc_error != MPI_SUCCESS)
         MPI_Abort(client_cache_world_comm, 1);
@@ -251,22 +251,23 @@ pdc_region_dl_init()
                              &client_info.node_shared_base);
     }
 
-    // printf("pdc_region_dl_init - step 6: Query shared memory window\n");
-    // fflush(stdout);
+    printf("[RANK %d] pdc_region_dl_init - step 6: Query shared memory window\n", client_info.world_rank);
+    fflush(stdout);
 
     client_info.header                = (SharedMemoryHeader *)client_info.node_shared_base;
     client_info.node_shared_data_base = (char *)client_info.node_shared_base + sizeof(SharedMemoryHeader);
 
     if (client_info.node_rank == 0) {
         init_free_stack();
-        printf("pdc_region_dl_init - step 7 -1 : Init the node shared memory\n");
-        fflush(stdout);
+        // printf("pdc_region_dl_init - step 7 -1 : Init the node shared memory\n", client_info.world_rank);
+        // fflush(stdout);
         // memset(client_info.node_shared_data_base, 0, (size_t)MAX_SLOTS_PER_NODE * (size_t)MAX_ITEM_SIZE);
     }
 
-    // printf("pdc_region_dl_init - step 7: Init the node shared memory\n");
-    // fflush(stdout);
+    printf("[RANK %d] pdc_region_dl_init - step 7: Init the node shared memory\n", client_info.world_rank);
+    fflush(stdout);
 
+    MPI_Barrier(client_cache_node_comm); 
     MPI_Barrier(client_cache_world_comm);
 
     client_info.local_cache_list_head = NULL;
