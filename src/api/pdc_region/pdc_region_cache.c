@@ -31,10 +31,9 @@ pdc_region_cache_init(pdcid_t pdcid)
     pdc_id = pdcid;
 
     ret_value = pdc_region_dl_init();
-    pdc_region_cache_timelog(start, "pdc_region_dl_init - total time");
-    
     ret_value = pdc_region_prefetch_init();
-    pdc_region_cache_timelog(start, "pdc_region_prefetch_init - total time");
+
+    pdc_region_cache_timelog(start, "pdc_region_cache_init - total time");
 
 done:
     fflush(stdout);
@@ -55,17 +54,12 @@ pdc_region_cache_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offse
     start = MPI_Wtime();
 
     // Calculation of read size
-    // if (ndim >= 1)
-    //     read_size = unit * size[0];
-    // if (ndim >= 2)
-    //     read_size *= size[1];
-    // if (ndim >= 3)
-    //     read_size *= size[2];
-
-    read_size = unit;
-    for (int i = 0; i < ndim; ++i) {
-        read_size *= size[i];
-    }
+    if (ndim >= 1)
+        read_size = unit * size[0];
+    if (ndim >= 2)
+        read_size *= size[1];
+    if (ndim >= 3)
+        read_size *= size[2];
 
     // Search on doubly linked list
     region_contained = pdc_region_dl_local_search(obj_id, ndim, unit, offset, size, buf, read_size);
@@ -176,13 +170,13 @@ done:
 void
 pdc_region_cache_timelog(double start_time, const char *message)
 {
-    int        rank_limit = 5;
+    int        rank_limit = 0;
     double     end_time;
     time_t     cur_time = time(NULL);
     struct tm *log_time = localtime(&cur_time);
 
     end_time = MPI_Wtime();
-    if (pdc_client_mpi_rank_g < rank_limit) {
+    if (pdc_client_mpi_rank_g <= rank_limit) {
         cur_time = time(NULL);
         log_time = localtime(&cur_time);
         printf("[CACHE_LOG] [%02d:%02d:%02d] [RANK %d] [TOTAL_RANK %d] | %s : %f\n", log_time->tm_hour,
