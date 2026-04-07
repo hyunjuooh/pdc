@@ -16,8 +16,8 @@
 #include "pdc_region_prefetch.h"
 #include "pdc_client_connect.h"
 
-// #define MAX_CACHE_SIZE 4294967296
-#define MAX_CACHE_SIZE 268435456
+#define MAX_CACHE_SIZE 4294967296
+// #define MAX_CACHE_SIZE 268435456
 //#define MAX_CACHE_SIZE 34359738368
 #define MAX_ITEM_NUM 1000
 
@@ -508,9 +508,7 @@ pdc_region_dl_global_search(pdcid_t obj_id, uint64_t *offset, uint64_t *size)
                     pdc_region_cache_timelog(start, "pdc_region_dl_search - global cache hit time");
 
                     break;
-                } else {
-                    printf("[RANK %d] obj_id %lld region offset %lld not included\n ", pdc_client_mpi_rank_g, obj_id, offset[0]);
-                }
+                } 
             }
 
             item_idx = current_cache_list[item_idx].next;

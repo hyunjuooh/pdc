@@ -49,7 +49,8 @@ PDCregion_print_prefetch_list()
 
     FUNC_ENTER(NULL);
 
-    printf("[RANK %d] Prefetch list item number %d\n ", pdc_client_mpi_rank_g, obj_prefetch_list_len);
+    if (pdc_client_mpi_rank_g == 0)
+        printf("[RANK %d] Prefetch list item number %d\n ", pdc_client_mpi_rank_g, obj_prefetch_list_len);
 
 done:
     fflush(stdout);
