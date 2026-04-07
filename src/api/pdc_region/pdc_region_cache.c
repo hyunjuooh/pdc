@@ -15,6 +15,13 @@
 #include "pdc_region_prefetch.h"
 #include "pdc_client_connect.h"
 
+#define MAX_CACHE_SIZE 268435456
+// #define MAX_CACHE_SIZE 34359738368
+#define MAX_ITEM_NUM 1000
+
+size_t total_buf_size = 0;
+int    total_item_num = 0;
+
 pdcid_t pdc_id;
 
 // Initialization of global variables
@@ -28,13 +35,13 @@ pdc_region_cache_init(pdcid_t pdcid)
 
     start = MPI_Wtime();
 
-    pdc_id = pdcid;
+    total_buf_size = 0;
+    pdc_id         = pdcid;
 
     ret_value = pdc_region_dl_init();
-    pdc_region_cache_timelog(start, "pdc_region_dl_init - total time");
-    
     ret_value = pdc_region_prefetch_init();
-    pdc_region_cache_timelog(start, "pdc_region_prefetch_init - total time");
+
+    pdc_region_cache_timelog(start, "pdc_region_cache_init - total time");
 
 done:
     fflush(stdout);
@@ -55,26 +62,22 @@ pdc_region_cache_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offse
     start = MPI_Wtime();
 
     // Calculation of read size
-    // if (ndim >= 1)
-    //     read_size = unit * size[0];
-    // if (ndim >= 2)
-    //     read_size *= size[1];
-    // if (ndim >= 3)
-    //     read_size *= size[2];
-
-    read_size = unit;
-    for (int i = 0; i < ndim; ++i) {
-        read_size *= size[i];
-    }
+    if (ndim >= 1)
+        read_size = unit * size[0];
+    if (ndim >= 2)
+        read_size *= size[1];
+    if (ndim >= 3)
+        read_size *= size[2];
 
     // Search on doubly linked list
-    region_contained = pdc_region_dl_local_search(obj_id, ndim, unit, offset, size, buf, read_size);
+    region_contained = pdc_region_dl_search(obj_id, ndim, unit, offset, size, buf, read_size);
 
-    // if (!region_contained)
-    //    region_contained = pdc_region_dl_node_search(obj_id, ndim, unit, offset, size, buf, read_size);
+    // PDCregion_print_prefetch_list();
 
-    // printf("[RANK %d] pdc_region_cache_search: region contained: %d\n", pdc_client_mpi_rank_g,
-    // region_contained);
+    // printf(
+    //     "[RANK %d] pdc_region_cache_search: pid=%d, var_a=%d, &var_a=%p,
+    //     PDCregion_print_prefetch_list=%p\n", pdc_client_mpi_rank_g, getpid(), obj_prefetch_list_len, (void
+    //     *)&obj_prefetch_list_len, (void *)PDCregion_print_prefetch_list);
 
     pdc_region_cache_timelog(start, "pdc_region_cache_search - total time");
 
@@ -103,7 +106,29 @@ pdc_region_cache_insert(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offse
     if (ndim >= 3)
         read_size *= size[2];
 
+    // Check if there is remaining buffer size to insert region
+    // If there is no remaining capacity, free the buffer according to LRU policy
+    if (total_buf_size + read_size > MAX_CACHE_SIZE) {
+        by_size = 1;
+        pdc_region_cache_evict(total_buf_size + read_size, by_size);
+    }
+
+    // If the number of items cached exceeds the MAX_ITEM_NUM, evict one item
+    if (total_item_num + 1 > MAX_ITEM_NUM) {
+        by_size = 0;
+        pdc_region_cache_evict(0, by_size);
+    }
+
+    pdc_region_cache_timelog(start, "pdc_region_cache_insert - pdc_region_cache_evict time");
+
     ret_value = pdc_region_dl_insert(obj_id, ndim, unit, offset, size, buf, read_size);
+
+    if (ret_value == SUCCEED) {
+        total_buf_size += read_size;
+        total_item_num += 1;
+    }
+
+    // PDCregion_print_prefetch_list();
 
     // printf(
     //     "[RANK %d] pdc_region_cache_insert: pid=%d, var_a=%d, &var_a=%p,
@@ -125,13 +150,22 @@ perr_t
 pdc_region_cache_update(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size, void *buf)
 {
     perr_t ret_value = SUCCEED;
-    double start     = MPI_Wtime();
+
+    item_delete_info update_result;
+    double           start;
 
     FUNC_ENTER(NULL);
 
-    ret_value = pdc_region_dl_update(obj_id, ndim, unit, offset, size, buf);
-
+    start         = MPI_Wtime();
+    update_result = pdc_region_dl_update(obj_id, ndim, unit, offset, size, buf);
     pdc_region_cache_timelog(start, "pdc_region_cache_update - update time");
+
+    total_buf_size -= update_result.deleted_size;
+    total_item_num -= update_result.deleted_item_num;
+
+    start     = MPI_Wtime();
+    ret_value = pdc_region_dl_clean_list();
+    pdc_region_cache_timelog(start, "pdc_region_cache_update - pdc_region_dl_clean_list time");
 
 done:
     fflush(stdout);
@@ -140,17 +174,26 @@ done:
 
 // Evict the region cache and object cache according to LRU policy
 perr_t
-pdc_region_cache_evict()
+pdc_region_cache_evict(size_t required_size, int by_size)
 {
     perr_t ret_value = SUCCEED;
 
-    double start;
+    item_delete_info eviction_result;
+    double           start;
 
     start = MPI_Wtime();
 
     FUNC_ENTER(NULL);
 
-    ret_value = pdc_region_dl_evict();
+    if (by_size) {
+        eviction_result = pdc_region_dl_evict_by_size(required_size);
+    }
+    else {
+        eviction_result = pdc_region_dl_evict_by_num();
+    }
+
+    total_buf_size -= eviction_result.deleted_size;
+    total_item_num -= eviction_result.deleted_item_num;
 
     pdc_region_cache_timelog(start, "pdc_region_cache_evict - pdc_region_dl_evict time");
 
@@ -176,13 +219,13 @@ done:
 void
 pdc_region_cache_timelog(double start_time, const char *message)
 {
-    int        rank_limit = 5;
+    int        rank_limit = 0;
     double     end_time;
     time_t     cur_time = time(NULL);
     struct tm *log_time = localtime(&cur_time);
 
     end_time = MPI_Wtime();
-    if (pdc_client_mpi_rank_g < rank_limit) {
+    if (pdc_client_mpi_rank_g <= rank_limit) {
         cur_time = time(NULL);
         log_time = localtime(&cur_time);
         printf("[CACHE_LOG] [%02d:%02d:%02d] [RANK %d] [TOTAL_RANK %d] | %s : %f\n", log_time->tm_hour,

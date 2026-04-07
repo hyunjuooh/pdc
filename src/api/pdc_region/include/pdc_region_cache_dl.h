@@ -25,90 +25,46 @@
 #ifndef PDC_REGION_CACHE_DL_H
 #define PDC_REGION_CACHE_DL_H
 
-#include <mpi.h>
 #include "pdc_public.h"
 #include "pdc_obj.h"
 
-#define NUM_CHUNKS         21
-// #define NUM_CHUNKS               4
-
-// 1GB data generation for bdcats
-// #define MAX_ITEM_SIZE 33554432
-
-// #define MAX_ITEM_SIZE      67108864
-// #define MAX_SLOTS_PER_NODE 400
-
-// #define MAX_ITEM_SIZE      134217728
-
-#define MAX_ITEM_SIZE      157286400
-#define MAX_SLOTS_PER_NODE 950
-// #define MAX_SLOTS_PER_NODE 712
-
-#define INTRA_TRANSFER_UNIT_SIZE (sizeof(pdcid_t) + sizeof(int) * 2 + sizeof(uint64_t) * 8)
-#define INTER_TRANSFER_UNIT_SIZE (sizeof(pdcid_t) + sizeof(int) + sizeof(uint64_t) * 8 + MAX_ITEM_SIZE)
-
-
-#define SLOT_INVALID -1
+#define MAX_NAME_LEN 100
 
 /**************************/
 /* Library Private Struct */
 /**************************/
-typedef struct {
-    int  free_stack_head;
-    int  free_list[MAX_SLOTS_PER_NODE];
-    char padding[64 - sizeof(int)];
-} SharedMemoryHeader;
 
-typedef struct pdc_object_data {
+typedef struct pdc_object_cache {
     // PDC Object information
     pdcid_t  obj_id;
+    // char     obj_name[MAX_NAME_LEN];
     uint64_t unit;
 
     // Remote region information
-    int reg_ndim;
-
+    int      reg_ndim;
     uint64_t reg_offset[3];
     uint64_t reg_size[3];
-    uint64_t reg_buf_size;
 
-    // Region data
-    int slot_idx;
-    // char reg_buf[MAX_ITEM_SIZE];
+    // Region data information
+    uint64_t buf_offset;
+    uint64_t buf_size;
 
-    // Index info
-    int target_rank;
-    int data_exchange_type; // 0 is intra, 1 is inter
+    // Double linked list for cached object list
+    int next;
+    int prev;
+} pdc_object_cache;
 
-    struct pdc_object_data *prev;
-    struct pdc_object_data *next;
-} pdc_object_data;
-
-// Specifies client specific information
-typedef struct pdc_client_info {
-    // Global and local rank info
-    int world_rank;
-    int world_size;
-
-    int node_rank;
-    int node_size;
-    int node_manager_rank;
-
+typedef struct pdc_object_list_metadata {
+    int head_idx;
+    int tail_idx;
+    int free_idx;
     int cached_item_num;
+} pdc_object_list_metadata;
 
-    pdc_object_data *local_cache_list_head;
-    pdc_object_data *local_cache_list_tail;
-
-    MPI_Win             node_shared_data_win;
-    SharedMemoryHeader *header;
-    void *              node_shared_base;
-    char *              node_shared_data_base;
-
-    int *rank_to_node_id_map;
-    int *world_to_node_rank_map;
-    int *target_ranks;
-
-    int client_cache_init;
-} pdc_client_info;
+typedef struct item_delete_info {
+    size_t deleted_size;
+    int    deleted_item_num;
+} item_delete_info;
 
 /**************************************************************************/
 /* Private Functions for Linked List Structure Client-side Region Caching */
@@ -116,21 +72,28 @@ typedef struct pdc_client_info {
 
 perr_t pdc_region_dl_init();
 
-int pdc_region_dl_local_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size,
-                               void *buf, uint64_t read_size);
+perr_t pdc_region_dl_list_init();
+
+int pdc_region_dl_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size, void *buf,
+                         uint64_t read_size);
+
+perr_t pdc_region_dl_collect_global_metadata();
+
+perr_t pdc_region_global_metadata_free();
+
+int pdc_region_dl_global_search(pdcid_t obj_id, uint64_t *offset, uint64_t *size);
 
 perr_t pdc_region_dl_insert(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size,
                             void *buf, uint64_t read_size);
 
-perr_t pdc_region_dl_update(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size,
-                            void *buf);
+item_delete_info pdc_region_dl_update(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset,
+                                      uint64_t *size, void *buf);
 
-perr_t pdc_region_dl_evict();
+item_delete_info pdc_region_dl_evict_by_size(size_t required_size);
 
-perr_t pdc_region_dl_prepare_data_exchange(pdcid_t *global_prefetch_list, uint64_t *offset, uint64_t *size,
-                                           int obj_prefetch_list_len);
+item_delete_info pdc_region_dl_evict_by_num();
 
-perr_t pdc_region_dl_data_exchange(pdcid_t *global_prefetch_list, int obj_prefetch_list_len);
+perr_t pdc_region_dl_clean_list();
 
 perr_t pdc_region_dl_finalize();
 
