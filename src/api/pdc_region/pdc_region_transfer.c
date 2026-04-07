@@ -2098,7 +2098,7 @@ PDCregion_transfer_wait_all(pdcid_t *transfer_request_id, int size)
         // Insert the recently requested region into cache
         if (transfer_request->access_type == PDC_READ) {
             ret_value_region_cache =
-                pdc_region_cache_insert(transfer_request->obj_id, transfer_request->remote_region_ndim,
+                pdc_region_cache_insert(0, transfer_request->obj_id, transfer_request->remote_region_ndim,
                                         transfer_request->unit, transfer_request->remote_region_offset,
                                         transfer_request->remote_region_size, transfer_request->buf);
             if (ret_value_region_cache != SUCCEED)
@@ -2213,7 +2213,7 @@ PDCregion_transfer_wait(pdcid_t transfer_request_id)
         // Insert the recently requested region into cache
         if (transfer_request->access_type == PDC_READ) {
             ret_value_region_cache =
-                pdc_region_cache_insert(transfer_request->obj_id, transfer_request->remote_region_ndim,
+                pdc_region_cache_insert(0, transfer_request->obj_id, transfer_request->remote_region_ndim,
                                         transfer_request->unit, transfer_request->remote_region_offset,
                                         transfer_request->remote_region_size, transfer_request->buf);
             if (ret_value_region_cache != SUCCEED)
