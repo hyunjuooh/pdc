@@ -225,7 +225,8 @@ pdc_region_dl_init()
 
     PDC_free(node_world_ranks);
 
-    printf("[RANK %d] pdc_region_dl_init - step 4: world_to_node_rank_map memory allocation\n", client_info.world_rank);
+    printf("[RANK %d] pdc_region_dl_init - step 4: world_to_node_rank_map memory allocation\n",
+           client_info.world_rank);
     fflush(stdout);
 
     // 5. Create shared memory window for node shared data
@@ -267,7 +268,7 @@ pdc_region_dl_init()
     printf("[RANK %d] pdc_region_dl_init - step 7: Init the node shared memory\n", client_info.world_rank);
     fflush(stdout);
 
-    MPI_Barrier(client_cache_node_comm); 
+    MPI_Barrier(client_cache_node_comm);
     MPI_Barrier(client_cache_world_comm);
 
     client_info.local_cache_list_head = NULL;
@@ -396,11 +397,13 @@ pdc_region_dl_local_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *of
                 if (region_copy) {
                     memcpy(buf, data_ptr, obj_cache_iter->reg_buf_size);
                     if (client_info.world_rank == 0)
-                        printf("[RANK %d] Read entire region for obj_id: %lld\n", client_info.world_rank, obj_id);
-                } else {
-                    memcpy_overlap_subregion(obj_cache_iter->reg_ndim, unit, data_ptr, obj_cache_iter->reg_offset,
-                                         obj_cache_iter->reg_size, buf, offset, size, overlap_offset,
-                                         overlap_size);
+                        printf("[RANK %d] Read entire region for obj_id: %lld\n", client_info.world_rank,
+                               obj_id);
+                }
+                else {
+                    memcpy_overlap_subregion(obj_cache_iter->reg_ndim, unit, data_ptr,
+                                             obj_cache_iter->reg_offset, obj_cache_iter->reg_size, buf,
+                                             offset, size, overlap_offset, overlap_size);
                 }
 
                 pdc_region_cache_timelog(tmp_start, "pdc_region_dl_local_search - memcpy data to buf");

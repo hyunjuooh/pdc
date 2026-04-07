@@ -32,7 +32,7 @@ pdc_region_cache_init(pdcid_t pdcid)
 
     ret_value = pdc_region_dl_init();
     pdc_region_cache_timelog(start, "pdc_region_dl_init - total time");
-    
+
     ret_value = pdc_region_prefetch_init();
     pdc_region_cache_timelog(start, "pdc_region_prefetch_init - total time");
 

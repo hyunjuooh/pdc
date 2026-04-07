@@ -29,7 +29,7 @@
 #include "pdc_public.h"
 #include "pdc_obj.h"
 
-#define NUM_CHUNKS         21
+#define NUM_CHUNKS 21
 // #define NUM_CHUNKS               4
 
 // 1GB data generation for bdcats
@@ -46,7 +46,6 @@
 
 #define INTRA_TRANSFER_UNIT_SIZE (sizeof(pdcid_t) + sizeof(int) * 2 + sizeof(uint64_t) * 8)
 #define INTER_TRANSFER_UNIT_SIZE (sizeof(pdcid_t) + sizeof(int) + sizeof(uint64_t) * 8 + MAX_ITEM_SIZE)
-
 
 #define SLOT_INVALID -1
 
