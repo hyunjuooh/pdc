@@ -423,10 +423,10 @@ pdc_region_dl_local_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *of
         obj_cache_iter = obj_cache_iter->next;
     }
 
-    // if(!is_cached)
-    //     printf("[RANK %d] cache miss for obj_id: %lld\n", client_info.world_rank, obj_id);
-    // else
-    //     printf("[RANK %d] cache hit for obj_id: %lld\n", client_info.world_rank, obj_id);
+    if(!is_cached)
+        printf("[RANK %d] cache miss for obj_id: %lld\n", client_info.world_rank, obj_id);
+    else
+        printf("[RANK %d] cache hit for obj_id: %lld\n", client_info.world_rank, obj_id);
 
     pdc_region_cache_timelog(total_start, "pdc_region_dl_local_search search time");
 
@@ -865,17 +865,21 @@ pdc_region_dl_data_exchange(pdcid_t *global_prefetch_list, int obj_prefetch_list
                     obj_cache_item->data_exchange_type = 0;
 
                     obj_cache_item->slot_idx = pop_free_slot();
-                    while (obj_cache_item->slot_idx == SLOT_INVALID) {
-                        pdc_region_cache_evict();
-                        obj_cache_item->slot_idx = pop_free_slot();
+                    // while (obj_cache_item->slot_idx == SLOT_INVALID) {
+                    //     pdc_region_cache_evict();
+                    //     obj_cache_item->slot_idx = pop_free_slot();
+                    // }
+
+                    if (obj_cache_item->slot_idx != SLOT_INVALID) {
+                        char *data_ptr = get_data_ptr(obj_cache_item->slot_idx);
+
+                        // memcpy(data_ptr, recv_ptr + current_offset, MAX_ITEM_SIZE);
+                        memcpy(data_ptr, recv_ptr + current_offset, obj_cache_item->reg_buf_size * sizeof(char));
+    
+                        pdc_region_dl_prepend(obj_cache_item);
+                    } else {
+                        free(obj_cache_item);
                     }
-
-                    char *data_ptr = get_data_ptr(obj_cache_item->slot_idx);
-
-                    // memcpy(data_ptr, recv_ptr + current_offset, MAX_ITEM_SIZE);
-                    memcpy(data_ptr, recv_ptr + current_offset, obj_cache_item->reg_buf_size * sizeof(char));
-
-                    pdc_region_dl_prepend(obj_cache_item);
                 }
             }
         }
