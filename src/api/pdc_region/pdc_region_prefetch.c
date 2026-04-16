@@ -99,7 +99,6 @@ PDCregion_receive_prefetch_hint(pdcid_t *obj_arr, pdcid_t *arr2, int obj_array_l
 
         obj2                 = (struct _pdc_obj_info *)(objinfo2->obj_ptr);
         obj_prefetch_list[i] = obj2->obj_info_pub->meta_id;
-        
 
         if (arr2 != NULL) {
             reginfo2 = PDC_find_id(arr2[i]);

@@ -19,7 +19,7 @@
 // #define MAX_CACHE_SIZE 4294967296
 // #define MAX_CACHE_SIZE 268435456
 #define MAX_CACHE_SIZE 34359738368
-#define MAX_ITEM_NUM 1000
+#define MAX_ITEM_NUM   1000
 
 MPI_Comm client_cache_comm;
 
@@ -235,7 +235,7 @@ pdc_region_dl_insert(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, 
         PGOTO_ERROR(FAIL, "pdc_region_dl_insert - new item index not found");
 
     // Create obj_cache_list item
-    obj_cache_list[new_item_idx].obj_id   = obj_id;
+    obj_cache_list[new_item_idx].obj_id = obj_id;
     // snprintf(obj_cache_list[new_item_idx].obj_name, sizeof(obj_cache_list[new_item_idx].obj_name), "%s",
     //          obj_name);
 
@@ -292,7 +292,7 @@ pdc_region_dl_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, 
     int       i, item_idx, mpi_alloc_error;
     int       is_cached = 0;
 
-    int              region_copy = 1;
+    int region_copy = 1;
 
     double start = MPI_Wtime();
 
@@ -307,7 +307,7 @@ pdc_region_dl_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, 
 
     while (item_idx != -1) {
         if (obj_cache_list[item_idx].obj_id == obj_id) {
-        // if (strcmp(obj_cache_list[item_idx].obj_name, obj_name) == 0) {
+            // if (strcmp(obj_cache_list[item_idx].obj_name, obj_name) == 0) {
             is_cached = detect_region_contained(offset, size, obj_cache_list[item_idx].reg_offset,
                                                 obj_cache_list[item_idx].reg_size, ndim);
 
@@ -330,16 +330,18 @@ pdc_region_dl_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, 
                 }
 
                 if (region_copy) {
-                    memcpy(buf, region_buf + obj_cache_list[item_idx].buf_offset, obj_cache_list[item_idx].buf_size);
+                    memcpy(buf, region_buf + obj_cache_list[item_idx].buf_offset,
+                           obj_cache_list[item_idx].buf_size);
                     // if (client_info.world_rank == 0)
                     //     printf("[RANK %d] Read entire region for obj_id: %lld\n", client_info.world_rank,
                     //            obj_id);
-                } else {
+                }
+                else {
                     // memcpy the overlapped region
                     memcpy_overlap_subregion(
-                        obj_cache_list[item_idx].reg_ndim, unit, region_buf + obj_cache_list[item_idx].buf_offset,
-                        obj_cache_list[item_idx].reg_offset, obj_cache_list[item_idx].reg_size, buf, offset, size,
-                        overlap_offset, overlap_size);
+                        obj_cache_list[item_idx].reg_ndim, unit,
+                        region_buf + obj_cache_list[item_idx].buf_offset, obj_cache_list[item_idx].reg_offset,
+                        obj_cache_list[item_idx].reg_size, buf, offset, size, overlap_offset, overlap_size);
                 }
 
                 // Follow the LRU policy
@@ -474,7 +476,7 @@ pdc_region_dl_global_search(pdcid_t obj_id, uint64_t *offset, uint64_t *size)
 
         while (item_idx != -1) {
             if (current_cache_list[item_idx].obj_id == obj_id) {
-            // if (strcmp(current_cache_list[item_idx].obj_name, obj_name) == 0) {
+                // if (strcmp(current_cache_list[item_idx].obj_name, obj_name) == 0) {
                 if (offset != NULL) {
                     is_contained = detect_region_contained(
                         offset, size, current_cache_list[item_idx].reg_offset,
@@ -508,7 +510,7 @@ pdc_region_dl_global_search(pdcid_t obj_id, uint64_t *offset, uint64_t *size)
                     pdc_region_cache_timelog(start, "pdc_region_dl_search - global cache hit time");
 
                     break;
-                } 
+                }
             }
 
             item_idx = current_cache_list[item_idx].next;
@@ -548,7 +550,7 @@ pdc_region_dl_update(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, 
     while (item_idx != -1) {
         tmp_item_idx = obj_cache_list[item_idx].next;
         if (obj_cache_list[item_idx].obj_id == obj_id) {
-        // if (strcmp(obj_cache_list[item_idx].obj_name, obj_name) == 0) {
+            // if (strcmp(obj_cache_list[item_idx].obj_name, obj_name) == 0) {
             // Compare offset and offset + size and see if there is an overlap
             is_overlapped = check_overlap(ndim, offset, size, obj_cache_list[item_idx].reg_offset,
                                           obj_cache_list[item_idx].reg_size);

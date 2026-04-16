@@ -36,7 +36,7 @@
 
 typedef struct pdc_object_cache {
     // PDC Object information
-    pdcid_t  obj_id;
+    pdcid_t obj_id;
     // char     obj_name[MAX_NAME_LEN];
     uint64_t unit;
 
