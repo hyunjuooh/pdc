@@ -147,7 +147,7 @@ pdc_region_dl_insert(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, 
         PGOTO_ERROR(FAIL, "PDC region cache - obj_cache_item memory allocation failed");
 
     // Create obj_cache_list item
-    obj_cache_item->obj_id   = obj_id;
+    obj_cache_item->obj_id = obj_id;
 
     obj_cache_item->unit     = unit;
     obj_cache_item->reg_ndim = ndim;
@@ -242,13 +242,13 @@ pdc_region_dl_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, 
 
                 if (region_copy) {
                     memcpy(buf, obj_cache_iter->buf, obj_cache_iter->buf_size);
-                } else {
+                }
+                else {
                     // memcpy the overlapped region
                     memcpy_overlap_subregion(obj_cache_iter->reg_ndim, unit, obj_cache_iter->buf,
-                                             obj_cache_iter->reg_offset, obj_cache_iter->reg_size, buf, offset,
-                                             size, overlap_offset, overlap_size);
+                                             obj_cache_iter->reg_offset, obj_cache_iter->reg_size, buf,
+                                             offset, size, overlap_offset, overlap_size);
                 }
-
 
                 // Follow the LRU policy
                 ret_value = pdc_region_dl_delete(obj_cache_iter);
@@ -336,7 +336,8 @@ pdc_region_dl_prepare_data_exchange(pdcid_t *global_prefetch_list, uint64_t *off
     // for debugging purpose
     // obj_cache_iter = obj_cache_list;
     // while (obj_cache_iter != NULL) {
-    //     printf("rank: %d, obj_name: %s, target_rank: %d\n", pdc_client_mpi_rank_g, obj_cache_iter->obj_name,
+    //     printf("rank: %d, obj_name: %s, target_rank: %d\n", pdc_client_mpi_rank_g,
+    //     obj_cache_iter->obj_name,
     //            obj_cache_iter->target_rank);
     //     obj_cache_iter = obj_cache_iter->next;
     // }
@@ -421,7 +422,8 @@ pdc_region_dl_data_unpack(char *recv_buf, struct pdc_object_cache *obj_cache_ite
 
     FUNC_ENTER(NULL);
 
-    MPI_Unpack(recv_buf, total_size, &position, &(obj_cache_item->obj_id), 1, MPI_UINT64_T, client_cache_comm);
+    MPI_Unpack(recv_buf, total_size, &position, &(obj_cache_item->obj_id), 1, MPI_UINT64_T,
+               client_cache_comm);
     MPI_Unpack(recv_buf, total_size, &position, &(obj_cache_item->unit), 1, MPI_UINT64_T, client_cache_comm);
 
     MPI_Unpack(recv_buf, total_size, &position, &(obj_cache_item->reg_ndim), 1, MPI_INT, client_cache_comm);
