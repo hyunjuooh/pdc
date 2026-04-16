@@ -38,7 +38,7 @@
 #define MAX_ITEM_NUM  256
 
 // #define NUM_CHUNKS         32
-#define NUM_CHUNKS         21
+#define NUM_CHUNKS 21
 // #define NUM_CHUNKS         4
 #define TRANSFER_UNIT_SIZE (sizeof(pdcid_t) + sizeof(int) + sizeof(uint64_t) * 8 + MAX_ITEM_SIZE)
 

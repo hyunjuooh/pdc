@@ -1627,7 +1627,7 @@ PDC_Client_init()
 
     // Cori KNL has 68 cores per node, Haswell 32
     port = pdc_client_mpi_rank_g % PDC_MAX_CORE_PER_NODE + 8000;
-    
+
     if (mercury_has_init_g == 0) {
         // Init Mercury network connection
         ret_value = PDC_Client_mercury_init(&send_class_g, &send_context_g, port);

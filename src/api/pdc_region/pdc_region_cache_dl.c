@@ -203,7 +203,7 @@ pdc_region_dl_local_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *of
     perr_t ret_value = SUCCEED;
 
     uint64_t *       overlap_offset, *overlap_size;
-    int              is_cached = 0;
+    int              is_cached   = 0;
     int              region_copy = 1;
     pdc_object_data *obj_cache_iter;
     double           start, total_start = MPI_Wtime(), tmp_start;
@@ -228,7 +228,6 @@ pdc_region_dl_local_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *of
                 PDC_region_overlap_detect(ndim, offset, size, obj_cache_iter->reg_offset,
                                           obj_cache_iter->reg_size, &overlap_offset, &overlap_size);
 
-
                 tmp_start = MPI_Wtime();
 
                 for (int i = 0; i < ndim; ++i) {
@@ -244,17 +243,17 @@ pdc_region_dl_local_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *of
 
                 if (region_copy) {
                     memcpy(buf, obj_cache_iter->reg_buf, obj_cache_iter->reg_buf_size);
-                } else {
+                }
+                else {
                     // memcpy the overlapped region
                     memcpy_overlap_subregion(obj_cache_iter->reg_ndim, unit, obj_cache_iter->reg_buf,
-                                             obj_cache_iter->reg_offset, obj_cache_iter->reg_size, buf, offset,
-                                             size, overlap_offset, overlap_size);
+                                             obj_cache_iter->reg_offset, obj_cache_iter->reg_size, buf,
+                                             offset, size, overlap_offset, overlap_size);
                 }
 
-                
-
-                pdc_region_cache_timelog(tmp_start, "pdc_region_dl_local_search - application buffer memcpy_overlap_subregion time");
-
+                pdc_region_cache_timelog(
+                    tmp_start,
+                    "pdc_region_dl_local_search - application buffer memcpy_overlap_subregion time");
 
                 // buf = obj_cache_iter->reg_buf;
 
@@ -412,8 +411,6 @@ pdc_region_dl_data_exchange(pdcid_t *global_prefetch_list, int obj_prefetch_list
     int    old_cached_item_num  = client_info.cached_item_num;
     int    chunk_size           = old_cached_item_num / NUM_CHUNKS;
     size_t max_intra_send_chunk = 0, max_inter_send_chunk = 0, local_max_send_chunk = 0;
-
-    
 
     MPI_Datatype mpi_transfer_unit;
     MPI_Type_contiguous(TRANSFER_UNIT_SIZE, MPI_BYTE, &mpi_transfer_unit);
@@ -782,7 +779,6 @@ done:
     fflush(stdout);
     FUNC_LEAVE(ret_value);
 }
-
 
 perr_t
 pdc_region_dl_update(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size, void *buf)
