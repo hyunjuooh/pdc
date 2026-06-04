@@ -501,6 +501,14 @@ if(PDC_ENABLE_ZFP)
     set(ENABLE_ZFP 1)
 endif()
 
+#-----------------------------------------------------------------------------
+# Client-side cache option
+#-----------------------------------------------------------------------------
+option(PDC_CLIENT_CACHE "Enable client-side cache." OFF)
+if(PDC_CLIENT_CACHE)
+    set(ENALBE_CLIENT_CACHE 1)
+endif()
+
 # Check availability of symbols
 #-----------------------------------------------------------------------------
 check_symbol_exists(malloc_usable_size "malloc.h" HAVE_MALLOC_USABLE_SIZE)

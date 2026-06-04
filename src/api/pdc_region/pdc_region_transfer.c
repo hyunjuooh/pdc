@@ -417,7 +417,9 @@ PDCregion_transfer_close(pdcid_t transfer_request_id)
 done:
     PDC_Client_transfer_pthread_cnt_add(-1);
     PDC_Client_transfer_pthread_terminate();
+#ifdef ENALBE_CLIENT_CACHE
     pdc_region_cache_timelog(start, "PDCregion_transfer_close - total time");
+#endif
     FUNC_LEAVE(ret_value);
 }
 
@@ -1016,6 +1018,7 @@ prepare_start_all_requests(pdcid_t *transfer_request_id, int size,
             posix_size_ptr[0]++;
         }
 
+#ifdef ENALBE_CLIENT_CACHE
         // Check if the requested region is within the client-side region cache list
         if (transfer_request->access_type == PDC_WRITE) {
             pdc_region_cache_update(transfer_request->obj_id, transfer_request->remote_region_ndim,
@@ -1037,6 +1040,7 @@ prepare_start_all_requests(pdcid_t *transfer_request_id, int size,
                 continue;
             }
         }
+#endif
 
         attach_local_transfer_request(transfer_request->obj_pointer, transfer_request_id[i]);
         unit = transfer_request->unit;
@@ -1606,6 +1610,7 @@ PDCregion_transfer_start_common(pdcid_t transfer_request_id,
     if (transfer_request->metadata_id != NULL)
         PGOTO_ERROR(FAIL, "PDC_Client attempted to start existing transfer request");
 
+#ifdef ENALBE_CLIENT_CACHE
     // Check if the requested region is within the client-side region cache list
     if (transfer_request->access_type == PDC_WRITE) {
         pdc_region_cache_update(transfer_request->obj_id, transfer_request->remote_region_ndim,
@@ -1627,6 +1632,7 @@ PDCregion_transfer_start_common(pdcid_t transfer_request_id,
             goto done;
         }
     }
+#endif
 
     // Dynamic case is implemented within the the aggregated version. The main reason is that the target data
     // server may not be unique, so we may end up sending multiple requests to the same data server.
@@ -1727,7 +1733,9 @@ PDCregion_transfer_start(pdcid_t transfer_request_id)
     perr_t ret_value = SUCCEED;
     ret_value        = PDCregion_transfer_start_common(transfer_request_id, 0);
 
+#ifdef ENALBE_CLIENT_CACHE
     pdc_region_cache_timelog(start, "PDCregion_transfer_start - total time");
+#endif
 
     FUNC_LEAVE(ret_value);
 }
@@ -2094,7 +2102,8 @@ PDCregion_transfer_wait_all(pdcid_t *transfer_request_id, int size)
             transfer_request->local_region_offset, transfer_request->local_region_size, unit,
             transfer_request->access_type, transfer_request->n_obj_servers, transfer_request->new_buf,
             transfer_request->bulk_buf, transfer_request->bulk_buf_ref, transfer_request->read_bulk_buf);
-
+        
+#ifdef ENALBE_CLIENT_CACHE
         // Insert the recently requested region into cache
         if (transfer_request->access_type == PDC_READ) {
             ret_value_region_cache =
@@ -2104,6 +2113,7 @@ PDCregion_transfer_wait_all(pdcid_t *transfer_request_id, int size)
             if (ret_value_region_cache != SUCCEED)
                 printf("Failed to insert region_cache\n");
         }
+#endif
 
         if (transfer_request->region_partition == PDC_REGION_STATIC ||
             transfer_request->region_partition == PDC_REGION_DYNAMIC ||
@@ -2210,6 +2220,7 @@ PDCregion_transfer_wait(pdcid_t transfer_request_id)
 
         transfer_request->metadata_id = (uint64_t *)PDC_free(transfer_request->metadata_id);
 
+#ifdef ENALBE_CLIENT_CACHE
         // Insert the recently requested region into cache
         if (transfer_request->access_type == PDC_READ) {
             ret_value_region_cache =
@@ -2219,6 +2230,7 @@ PDCregion_transfer_wait(pdcid_t transfer_request_id)
             if (ret_value_region_cache != SUCCEED)
                 printf("Failed to insert region_cache\n");
         }
+#endif
         transfer_request->metadata_id = NULL;
 
         transfer_request->is_done = 1;
@@ -2230,7 +2242,9 @@ PDCregion_transfer_wait(pdcid_t transfer_request_id)
     }
 
 done:
+#ifdef ENALBE_CLIENT_CACHE
     pdc_region_cache_timelog(start, "PDCregion_transfer_wait - total time");
+#endif
     fflush(stdout);
     FUNC_LEAVE(ret_value);
 }

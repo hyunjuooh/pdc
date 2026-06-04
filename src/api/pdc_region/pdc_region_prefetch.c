@@ -71,6 +71,7 @@ PDCregion_receive_prefetch_hint(pdcid_t *obj_arr, pdcid_t *reg_arr, int obj_arra
 
     perr_t ret_value = SUCCEED;
 
+#ifdef ENALBE_CLIENT_CACHE
     struct _pdc_id_info *   objinfo2, *reginfo2;
     struct pdc_region_info *reg2;
     struct _pdc_obj_info *  obj2;
@@ -126,6 +127,10 @@ PDCregion_receive_prefetch_hint(pdcid_t *obj_arr, pdcid_t *reg_arr, int obj_arra
     }
 
     pdc_region_cache_timelog(start, "PDCregion_receive_prefetch_hint - Total time");
+#else
+    if (pdc_client_mpi_rank_g == 0)
+        printf("[RANK %d] Client cache disabled.\n", pdc_client_mpi_rank_g);
+#endif
 
 done:
     fflush(stdout);
@@ -200,6 +205,7 @@ PDCregion_prefetch_by_objid()
 
     perr_t ret_value = SUCCEED;
 
+#ifdef ENALBE_CLIENT_CACHE
     int    i, is_cached;
     double start = MPI_Wtime();
 
@@ -236,6 +242,10 @@ PDCregion_prefetch_by_objid()
     reg_size_list            = NULL;
 
     pdc_region_cache_timelog(start, "PDCregion_prefetch_by_objid - Total time");
+#else
+    if (pdc_client_mpi_rank_g == 0)
+        printf("[RANK %d] Client cache disabled.\n", pdc_client_mpi_rank_g);
+#endif
 
 done:
     fflush(stdout);
