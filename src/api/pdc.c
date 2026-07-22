@@ -109,7 +109,7 @@ PDCinit(const char *pdc_name)
     // PDC Client Server connection init
     if (PDC_Client_init() < 0)
         PGOTO_ERROR(0, "PDC client init error");
-    
+
 #ifdef ENALBE_CLIENT_CACHE
     // PDC Client Cache init
     pdc_region_cache_init(pdcid);

@@ -2102,7 +2102,7 @@ PDCregion_transfer_wait_all(pdcid_t *transfer_request_id, int size)
             transfer_request->local_region_offset, transfer_request->local_region_size, unit,
             transfer_request->access_type, transfer_request->n_obj_servers, transfer_request->new_buf,
             transfer_request->bulk_buf, transfer_request->bulk_buf_ref, transfer_request->read_bulk_buf);
-        
+
 #ifdef ENALBE_CLIENT_CACHE
         // Insert the recently requested region into cache
         if (transfer_request->access_type == PDC_READ) {
