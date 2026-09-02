@@ -22,34 +22,27 @@
  * perform publicly and display publicly, and to permit other to do so.
  */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include "pdc.h"
-#include "test_helper.h"
+#ifndef PDC_REGION_PREFETCH_H
+#define PDC_REGION_PREFETCH_H
 
-int
-main(int argc, char **argv)
-{
-    pdcid_t pdc;
-    int     rank = 0, size = 1;
-    int     ret_value = TSUCCEED;
+#include "pdc_public.h"
+#include "pdc_obj.h"
 
-    // create a pdc
-#ifdef ENABLE_MPI
-    MPI_Init(&argc, &argv);
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    MPI_Comm_size(MPI_COMM_WORLD, &size);
-#endif
+/*******************************************************/
+/* Public Functions for Client-side Region Prefetching */
+/*******************************************************/
+extern int obj_prefetch_list_len;
 
-    // create pdc
-    TASSERT((pdc = PDCinit("pdc")) != 0, "Call to PDCinit succeeded", "Call to PDCinit failed");
-    // close pdc
-    TASSERT(PDCclose(pdc) >= 0, "Call to PDCclose succeeded", "Call to PDCclose failed");
+// perr_t PDCregion_receive_prefetch_hint(const char** arr, int obj_array_len);
+// perr_t PDCregion_receive_prefetch_hint(const pdcid_t *arr, const pdcid_t *arr2, int obj_array_len);
+perr_t PDCregion_receive_prefetch_hint(pdcid_t *obj_arr, pdcid_t *reg_arr, int obj_array_len);
+perr_t PDCregion_prefetch_by_objid();
+perr_t PDCregion_print_prefetch_list();
 
-done:
-#ifdef ENABLE_MPI
-    MPI_Finalize();
-#endif
-    return ret_value;
-}
+/*******************************************************/
+/* Private Functions for Client-side Region Prefetching */
+/*******************************************************/
+
+perr_t pdc_region_prefetch_init();
+
+#endif /* PDC_REGION_PREFETCH_H */

@@ -22,34 +22,37 @@
  * perform publicly and display publicly, and to permit other to do so.
  */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include "pdc.h"
-#include "test_helper.h"
+#ifndef PDC_REGION_CACHE_H
+#define PDC_REGION_CACHE_H
 
-int
-main(int argc, char **argv)
-{
-    pdcid_t pdc;
-    int     rank = 0, size = 1;
-    int     ret_value = TSUCCEED;
+#include "pdc_public.h"
+#include "pdc_obj.h"
+#include "pdc_region_cache_dl.h"
+#include "pdc_region_prefetch.h"
 
-    // create a pdc
-#ifdef ENABLE_MPI
-    MPI_Init(&argc, &argv);
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    MPI_Comm_size(MPI_COMM_WORLD, &size);
-#endif
+extern pdcid_t pdc_id;
+extern size_t  total_buf_size;
+extern int     total_item_num;
 
-    // create pdc
-    TASSERT((pdc = PDCinit("pdc")) != 0, "Call to PDCinit succeeded", "Call to PDCinit failed");
-    // close pdc
-    TASSERT(PDCclose(pdc) >= 0, "Call to PDCclose succeeded", "Call to PDCclose failed");
+/****************************************************/
+/* Private Functions for Client-side Region Caching */
+/****************************************************/
 
-done:
-#ifdef ENABLE_MPI
-    MPI_Finalize();
-#endif
-    return ret_value;
-}
+perr_t pdc_region_cache_init(pdcid_t pdcid);
+
+int pdc_region_cache_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size,
+                            void *buf);
+
+perr_t pdc_region_cache_insert(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size,
+                               void *buf);
+
+perr_t pdc_region_cache_update(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size,
+                               void *buf);
+
+perr_t pdc_region_cache_evict();
+
+void pdc_region_cache_timelog(double start_time, const char *message);
+
+perr_t pdc_region_cache_finalize();
+
+#endif /* PDC_REGION_CACHE_H */
