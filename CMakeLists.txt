@@ -506,7 +506,7 @@ endif()
 #-----------------------------------------------------------------------------
 option(PDC_CLIENT_CACHE "Enable client-side cache." OFF)
 if(PDC_CLIENT_CACHE)
-    set(ENALBE_CLIENT_CACHE 1)
+    set(ENABLE_CLIENT_CACHE 1)
 endif()
 
 # Check availability of symbols

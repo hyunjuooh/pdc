@@ -22,8 +22,8 @@
  * perform publicly and display publicly, and to permit other to do so.
  */
 
-#ifndef PDC_REGION_CACHE_DL_H
-#define PDC_REGION_CACHE_DL_H
+#ifndef PDC_CLIENT_CACHE_DL_H
+#define PDC_CLIENT_CACHE_DL_H
 
 #include <mpi.h>
 #include "pdc_public.h"
@@ -134,4 +134,4 @@ perr_t pdc_region_dl_data_exchange(pdcid_t *global_prefetch_list, int obj_prefet
 
 perr_t pdc_region_dl_finalize();
 
-#endif /* PDC_REGION_CACHE_DL_H */
+#endif /* PDC_CLIENT_CACHE_DL_H */

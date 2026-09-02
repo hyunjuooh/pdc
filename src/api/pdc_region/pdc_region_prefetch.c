@@ -12,9 +12,9 @@
 #include "pdc_interface.h"
 #include "pdc_region.h"
 #include "pdc_region_pkg.h"
-#include "pdc_region_cache.h"
+#include "pdc_client_cache.h"
 #include "pdc_region_prefetch.h"
-#include "pdc_region_cache_dl.h"
+#include "pdc_client_cache_dl.h"
 #include "pdc_client_connect.h"
 
 pdcid_t * obj_prefetch_list;
@@ -71,7 +71,7 @@ PDCregion_receive_prefetch_hint(pdcid_t *obj_arr, pdcid_t *reg_arr, int obj_arra
 
     perr_t ret_value = SUCCEED;
 
-#ifdef ENALBE_CLIENT_CACHE
+#ifdef ENABLE_CLIENT_CACHE
     struct _pdc_id_info *   objinfo2, *reginfo2;
     struct pdc_region_info *reg2;
     struct _pdc_obj_info *  obj2;
@@ -126,7 +126,7 @@ PDCregion_receive_prefetch_hint(pdcid_t *obj_arr, pdcid_t *reg_arr, int obj_arra
         }
     }
 
-    pdc_region_cache_timelog(start, "PDCregion_receive_prefetch_hint - Total time");
+    pdc_client_cache_timelog(start, "PDCregion_receive_prefetch_hint - Total time");
 #else
     if (pdc_client_mpi_rank_g == 0)
         printf("[RANK %d] Client cache disabled.\n", pdc_client_mpi_rank_g);
@@ -171,7 +171,7 @@ pdc_region_prepare_global_prefetch_list()
         global_size_list   = NULL;
     }
 
-    pdc_region_cache_timelog(start, "pdc_region_prepare_global_prefetch_list - Total time");
+    pdc_client_cache_timelog(start, "pdc_region_prepare_global_prefetch_list - Total time");
 
     // if (pdc_client_mpi_rank_g == 0) {
     //     printf("Rank %d received:\n", pdc_client_mpi_rank_g);
@@ -205,7 +205,7 @@ PDCregion_prefetch_by_objid()
 
     perr_t ret_value = SUCCEED;
 
-#ifdef ENALBE_CLIENT_CACHE
+#ifdef ENABLE_CLIENT_CACHE
     int    i, is_cached;
     double start = MPI_Wtime();
 
@@ -241,7 +241,7 @@ PDCregion_prefetch_by_objid()
     reg_offset_list          = NULL;
     reg_size_list            = NULL;
 
-    pdc_region_cache_timelog(start, "PDCregion_prefetch_by_objid - Total time");
+    pdc_client_cache_timelog(start, "PDCregion_prefetch_by_objid - Total time");
 #else
     if (pdc_client_mpi_rank_g == 0)
         printf("[RANK %d] Client cache disabled.\n", pdc_client_mpi_rank_g);

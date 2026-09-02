@@ -22,12 +22,12 @@
  * perform publicly and display publicly, and to permit other to do so.
  */
 
-#ifndef PDC_REGION_CACHE_H
-#define PDC_REGION_CACHE_H
+#ifndef PDC_CLIENT_CACHE_H
+#define PDC_CLIENT_CACHE_H
 
 #include "pdc_public.h"
 #include "pdc_obj.h"
-#include "pdc_region_cache_dl.h"
+#include "pdc_client_cache_dl.h"
 #include "pdc_region_prefetch.h"
 
 extern pdcid_t pdc_id;
@@ -38,21 +38,21 @@ extern int     total_item_num;
 /* Private Functions for Client-side Region Caching */
 /****************************************************/
 
-perr_t pdc_region_cache_init(pdcid_t pdcid);
+perr_t pdc_client_cache_init(pdcid_t pdcid);
 
-int pdc_region_cache_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size,
+int pdc_client_cache_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size,
                             void *buf);
 
-perr_t pdc_region_cache_insert(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size,
+perr_t pdc_client_cache_insert(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size,
                                void *buf);
 
-perr_t pdc_region_cache_update(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size,
+perr_t pdc_client_cache_update(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size,
                                void *buf);
 
-perr_t pdc_region_cache_evict();
+perr_t pdc_client_cache_evict();
 
-void pdc_region_cache_timelog(double start_time, const char *message);
+void pdc_client_cache_timelog(double start_time, const char *message);
 
-perr_t pdc_region_cache_finalize();
+perr_t pdc_client_cache_finalize();
 
-#endif /* PDC_REGION_CACHE_H */
+#endif /* PDC_CLIENT_CACHE_H */
