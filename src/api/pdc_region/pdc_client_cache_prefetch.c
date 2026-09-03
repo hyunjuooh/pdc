@@ -219,7 +219,7 @@ PDCregion_prefetch_by_objid()
 
     ret_value = pdc_region_prepare_global_prefetch_list();
     ret_value = PDC_client_cache_dl_prepare_data_exchange(global_obj_prefetch_list, global_offset_list,
-                                                    global_size_list, obj_prefetch_list_len);
+                                                          global_size_list, obj_prefetch_list_len);
 
     ret_value = PDC_client_cache_dl_data_exchange(global_obj_prefetch_list, obj_prefetch_list_len);
 

@@ -238,7 +238,8 @@ PDC_client_cache_dl_init()
         MPI_Win_allocate_shared(local_alloc_size, 1, MPI_INFO_NULL, client_cache_node_comm,
                                 &client_info.node_shared_base, &client_info.node_shared_data_win);
 
-    printf("[RANK %d] PDC_client_cache_dl_init - step 5: Create shared memory window\n", client_info.world_rank);
+    printf("[RANK %d] PDC_client_cache_dl_init - step 5: Create shared memory window\n",
+           client_info.world_rank);
     fflush(stdout);
 
     if (mpi_alloc_error != MPI_SUCCESS)
@@ -252,7 +253,8 @@ PDC_client_cache_dl_init()
                              &client_info.node_shared_base);
     }
 
-    printf("[RANK %d] PDC_client_cache_dl_init - step 6: Query shared memory window\n", client_info.world_rank);
+    printf("[RANK %d] PDC_client_cache_dl_init - step 6: Query shared memory window\n",
+           client_info.world_rank);
     fflush(stdout);
 
     client_info.header                = (SharedMemoryHeader *)client_info.node_shared_base;
@@ -260,12 +262,13 @@ PDC_client_cache_dl_init()
 
     if (client_info.node_rank == 0) {
         init_free_stack();
-        // printf("PDC_client_cache_dl_init - step 7 -1 : Init the node shared memory\n", client_info.world_rank);
-        // fflush(stdout);
-        // memset(client_info.node_shared_data_base, 0, (size_t)MAX_SLOTS_PER_NODE * (size_t)MAX_ITEM_SIZE);
+        // printf("PDC_client_cache_dl_init - step 7 -1 : Init the node shared memory\n",
+        // client_info.world_rank); fflush(stdout); memset(client_info.node_shared_data_base, 0,
+        // (size_t)MAX_SLOTS_PER_NODE * (size_t)MAX_ITEM_SIZE);
     }
 
-    printf("[RANK %d] PDC_client_cache_dl_init - step 7: Init the node shared memory\n", client_info.world_rank);
+    printf("[RANK %d] PDC_client_cache_dl_init - step 7: Init the node shared memory\n",
+           client_info.world_rank);
     fflush(stdout);
 
     MPI_Barrier(client_cache_node_comm);
@@ -283,8 +286,8 @@ done:
 // TODO:
 // Management of overalapping regions
 perr_t
-PDC_client_cache_dl_insert(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size, void *buf,
-                     uint64_t read_size)
+PDC_client_cache_dl_insert(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size,
+                           void *buf, uint64_t read_size)
 {
     FUNC_ENTER(NULL);
 
@@ -345,7 +348,7 @@ done:
 // Need to manage when partial region is contained within
 int
 PDC_client_cache_dl_local_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size,
-                           void *buf, uint64_t read_size)
+                                 void *buf, uint64_t read_size)
 {
     FUNC_ENTER(NULL);
 
@@ -436,7 +439,7 @@ done:
 
 perr_t
 PDC_client_cache_dl_prepare_data_exchange(pdcid_t *global_prefetch_list, uint64_t *offset, uint64_t *size,
-                                    int obj_prefetch_list_len)
+                                          int obj_prefetch_list_len)
 {
     FUNC_ENTER(NULL);
 
@@ -498,7 +501,8 @@ PDC_client_cache_dl_prepare_data_exchange(pdcid_t *global_prefetch_list, uint64_
     //     obj_cache_iter = obj_cache_iter->next;
     // }
 
-    PDC_client_cache_timelog(start, "PDC_client_cache_dl_prepare_data_exchange - global prefetch list preparation");
+    PDC_client_cache_timelog(start,
+                             "PDC_client_cache_dl_prepare_data_exchange - global prefetch list preparation");
 
 done:
     fflush(stdout);
@@ -668,7 +672,8 @@ PDC_client_cache_dl_data_exchange(pdcid_t *global_prefetch_list, int obj_prefetc
             current_rdisp_items += intra_node_recv_counts[c][i];
         }
 
-        PDC_client_cache_timelog(tmp_timer2, "PDC_client_cache_dl_data_exchange - intra-node shuffle preparation");
+        PDC_client_cache_timelog(tmp_timer2,
+                                 "PDC_client_cache_dl_data_exchange - intra-node shuffle preparation");
         tmp_timer2 = MPI_Wtime();
 
         // Packing intra-node send buffer
@@ -723,7 +728,8 @@ PDC_client_cache_dl_data_exchange(pdcid_t *global_prefetch_list, int obj_prefetc
                       temp_intra_recv_buf, intra_node_recv_counts[c], rdispls_intra, mpi_intra_transfer_unit,
                       client_cache_node_comm);
 
-        PDC_client_cache_timelog(tmp_timer2, "PDC_client_cache_dl_data_exchange - intra-node shuffle alltoall");
+        PDC_client_cache_timelog(tmp_timer2,
+                                 "PDC_client_cache_dl_data_exchange - intra-node shuffle alltoall");
         tmp_timer2 = MPI_Wtime();
 
         // Unpacking intra-node recv buffer
@@ -779,7 +785,8 @@ PDC_client_cache_dl_data_exchange(pdcid_t *global_prefetch_list, int obj_prefetc
             current_rdisp_items += inter_node_recv_counts[c][i];
         }
 
-        PDC_client_cache_timelog(tmp_timer2, "PDC_client_cache_dl_data_exchange - inter-node shuffle preparation");
+        PDC_client_cache_timelog(tmp_timer2,
+                                 "PDC_client_cache_dl_data_exchange - inter-node shuffle preparation");
         tmp_timer2 = MPI_Wtime();
 
         // Packing inter node send buffer
@@ -833,7 +840,8 @@ PDC_client_cache_dl_data_exchange(pdcid_t *global_prefetch_list, int obj_prefetc
                       temp_inter_recv_buf, inter_node_recv_counts[c], rdispls_inter, mpi_inter_transfer_unit,
                       client_cache_world_comm);
 
-        PDC_client_cache_timelog(tmp_timer2, "PDC_client_cache_dl_data_exchange - inter-node shuffle alltoall");
+        PDC_client_cache_timelog(tmp_timer2,
+                                 "PDC_client_cache_dl_data_exchange - inter-node shuffle alltoall");
         tmp_timer2 = MPI_Wtime();
 
         // Unpack inter-node exchange
@@ -947,7 +955,8 @@ done:
 }
 
 perr_t
-PDC_client_cache_dl_update(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size, void *buf)
+PDC_client_cache_dl_update(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size,
+                           void *buf)
 {
     FUNC_ENTER(NULL);
 

@@ -71,7 +71,8 @@ PDC_client_cache_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offse
     region_contained = PDC_client_cache_dl_local_search(obj_id, ndim, unit, offset, size, buf, read_size);
 
     // if (!region_contained)
-    //    region_contained = PDC_client_cache_dl_node_search(obj_id, ndim, unit, offset, size, buf, read_size);
+    //    region_contained = PDC_client_cache_dl_node_search(obj_id, ndim, unit, offset, size, buf,
+    //    read_size);
 
     // printf("[RANK %d] PDC_client_cache_search: region contained: %d\n", pdc_client_mpi_rank_g,
     // region_contained);

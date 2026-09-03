@@ -990,7 +990,7 @@ prepare_start_all_requests(pdcid_t *transfer_request_id, int size,
     int                   ret_value      = SUCCEED;
 
 #ifdef ENABLE_CLIENT_CACHE
-    int                   region_in_cache = 0; // Indicating requested region is within client-side cache
+    int region_in_cache = 0; // Indicating requested region is within client-side cache
 #endif
 
     write_request_pkgs             = NULL;
@@ -1595,7 +1595,7 @@ PDCregion_transfer_start_common(pdcid_t transfer_request_id,
     hg_bulk_t             bulk_handle;
 
 #ifdef ENABLE_CLIENT_CACHE
-    int                   region_in_cache = 0;
+    int region_in_cache = 0;
 #endif
 
     if ((transferinfo = PDC_find_id(transfer_request_id)) == NULL)
@@ -1893,7 +1893,7 @@ PDCregion_transfer_wait_all(pdcid_t *transfer_request_id, int size)
     double t0, t1;
 
 #ifdef ENABLE_CLIENT_CACHE
-    perr_t                              ret_value_region_cache = SUCCEED;
+    perr_t ret_value_region_cache = SUCCEED;
 #endif
 
     if (!size)
@@ -2147,7 +2147,7 @@ PDCregion_transfer_wait(pdcid_t transfer_request_id)
     int                   i;
 
 #ifdef ENABLE_CLIENT_CACHE
-    perr_t                ret_value_region_cache = SUCCEED;
+    perr_t ret_value_region_cache = SUCCEED;
 #endif
 
     if ((transferinfo = PDC_find_id(transfer_request_id)) == NULL)
@@ -2227,7 +2227,7 @@ PDCregion_transfer_wait(pdcid_t transfer_request_id)
         }
 #endif
 
-        transfer_request->is_done = 1;
+        transfer_request->is_done     = 1;
         transfer_request->metadata_id = NULL;
 
         remove_local_transfer_request(transfer_request->obj_pointer, transfer_request_id);

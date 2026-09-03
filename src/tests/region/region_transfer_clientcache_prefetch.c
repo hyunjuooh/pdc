@@ -152,9 +152,9 @@ main(int argc, char **argv)
                 "Call to PDCregion_create succeeded", "Call to PDCregion_create failed");
 
         memset(data_read, 0, sizeof(int) * BUF_LEN);
-        TASSERT((transfer_request = PDCregion_transfer_create(data_read, PDC_READ, obj[o], reg,
-                                                              reg_global)) != 0,
-                "Call to PDCregion_transfer_create succeeded", "Call to PDCregion_transfer_create failed");
+        TASSERT(
+            (transfer_request = PDCregion_transfer_create(data_read, PDC_READ, obj[o], reg, reg_global)) != 0,
+            "Call to PDCregion_transfer_create succeeded", "Call to PDCregion_transfer_create failed");
         TASSERT(PDCregion_transfer_start(transfer_request) >= 0, "Call to PDCregion_transfer_start succeeded",
                 "Call to PDCregion_transfer_start failed");
         TASSERT(PDCregion_transfer_wait(transfer_request) >= 0, "Call to PDCregion_transfer_wait succeeded",

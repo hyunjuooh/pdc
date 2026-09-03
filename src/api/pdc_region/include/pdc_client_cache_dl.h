@@ -109,19 +109,19 @@ typedef struct pdc_client_info {
 
 perr_t PDC_client_cache_dl_init();
 
-int PDC_client_cache_dl_local_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size,
-                               void *buf, uint64_t read_size);
+int PDC_client_cache_dl_local_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset,
+                                     uint64_t *size, void *buf, uint64_t read_size);
 
 perr_t PDC_client_cache_dl_insert(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size,
-                            void *buf, uint64_t read_size);
+                                  void *buf, uint64_t read_size);
 
 perr_t PDC_client_cache_dl_update(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size,
-                            void *buf);
+                                  void *buf);
 
 perr_t PDC_client_cache_dl_evict();
 
-perr_t PDC_client_cache_dl_prepare_data_exchange(pdcid_t *global_prefetch_list, uint64_t *offset, uint64_t *size,
-                                           int obj_prefetch_list_len);
+perr_t PDC_client_cache_dl_prepare_data_exchange(pdcid_t *global_prefetch_list, uint64_t *offset,
+                                                 uint64_t *size, int obj_prefetch_list_len);
 
 perr_t PDC_client_cache_dl_data_exchange(pdcid_t *global_prefetch_list, int obj_prefetch_list_len);
 
