@@ -112,7 +112,7 @@ PDCinit(const char *pdc_name)
 
 #ifdef ENABLE_CLIENT_CACHE
     // PDC Client Cache init
-    pdc_client_cache_init(pdcid);
+    PDC_client_cache_init(pdcid);
 #endif
 
 #ifdef PDC_TIMING
@@ -179,7 +179,7 @@ PDCclose(pdcid_t pdcid)
 
 #ifdef ENABLE_CLIENT_CACHE
     // PDC Client Cache finalize
-    pdc_client_cache_finalize();
+    PDC_client_cache_finalize();
 #endif
 
 #ifdef ENABLE_APP_CLOSE_SERVER

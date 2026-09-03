@@ -28,7 +28,7 @@
 #include "pdc_public.h"
 #include "pdc_obj.h"
 #include "pdc_client_cache_dl.h"
-#include "pdc_region_prefetch.h"
+#include "pdc_client_cache_prefetch.h"
 
 extern pdcid_t pdc_id;
 extern size_t  total_buf_size;
@@ -38,21 +38,21 @@ extern int     total_item_num;
 /* Private Functions for Client-side Region Caching */
 /****************************************************/
 
-perr_t pdc_client_cache_init(pdcid_t pdcid);
+perr_t PDC_client_cache_init(pdcid_t pdcid);
 
-int pdc_client_cache_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size,
+int PDC_client_cache_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size,
                             void *buf);
 
-perr_t pdc_client_cache_insert(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size,
+perr_t PDC_client_cache_insert(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size,
                                void *buf);
 
-perr_t pdc_client_cache_update(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size,
+perr_t PDC_client_cache_update(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size,
                                void *buf);
 
-perr_t pdc_client_cache_evict();
+perr_t PDC_client_cache_evict();
 
-void pdc_client_cache_timelog(double start_time, const char *message);
+void PDC_client_cache_timelog(double start_time, const char *message);
 
-perr_t pdc_client_cache_finalize();
+perr_t PDC_client_cache_finalize();
 
 #endif /* PDC_CLIENT_CACHE_H */

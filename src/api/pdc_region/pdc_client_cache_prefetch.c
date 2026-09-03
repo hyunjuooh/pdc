@@ -13,7 +13,7 @@
 #include "pdc_region.h"
 #include "pdc_region_pkg.h"
 #include "pdc_client_cache.h"
-#include "pdc_region_prefetch.h"
+#include "pdc_client_cache_prefetch.h"
 #include "pdc_client_cache_dl.h"
 #include "pdc_client_connect.h"
 
@@ -31,7 +31,7 @@ int reg_dim;
 int obj_prefetch_list_len;
 
 perr_t
-pdc_region_prefetch_init()
+PDC_client_cache_prefetch_init()
 {
     perr_t ret_value = SUCCEED;
 
@@ -126,7 +126,7 @@ PDCregion_receive_prefetch_hint(pdcid_t *obj_arr, pdcid_t *reg_arr, int obj_arra
         }
     }
 
-    pdc_client_cache_timelog(start, "PDCregion_receive_prefetch_hint - Total time");
+    PDC_client_cache_timelog(start, "PDCregion_receive_prefetch_hint - Total time");
 #else
     if (pdc_client_mpi_rank_g == 0)
         printf("[RANK %d] Client cache disabled.\n", pdc_client_mpi_rank_g);
@@ -171,7 +171,7 @@ pdc_region_prepare_global_prefetch_list()
         global_size_list   = NULL;
     }
 
-    pdc_client_cache_timelog(start, "pdc_region_prepare_global_prefetch_list - Total time");
+    PDC_client_cache_timelog(start, "pdc_region_prepare_global_prefetch_list - Total time");
 
     // if (pdc_client_mpi_rank_g == 0) {
     //     printf("Rank %d received:\n", pdc_client_mpi_rank_g);
@@ -211,17 +211,17 @@ PDCregion_prefetch_by_objid()
 
     if (obj_prefetch_list == NULL) {
         if (pdc_client_mpi_rank_g == 0)
-            printf("[RANK %d] pdc_region_prefetch_by_objid - object list not created\n",
+            printf("[RANK %d] PDC_client_cache_prefetch_by_objid - object list not created\n",
                    pdc_client_mpi_rank_g);
 
         goto done;
     }
 
     ret_value = pdc_region_prepare_global_prefetch_list();
-    ret_value = pdc_region_dl_prepare_data_exchange(global_obj_prefetch_list, global_offset_list,
+    ret_value = PDC_client_cache_dl_prepare_data_exchange(global_obj_prefetch_list, global_offset_list,
                                                     global_size_list, obj_prefetch_list_len);
 
-    ret_value = pdc_region_dl_data_exchange(global_obj_prefetch_list, obj_prefetch_list_len);
+    ret_value = PDC_client_cache_dl_data_exchange(global_obj_prefetch_list, obj_prefetch_list_len);
 
     free(global_obj_prefetch_list);
     free(global_offset_list);
@@ -241,7 +241,7 @@ PDCregion_prefetch_by_objid()
     reg_offset_list          = NULL;
     reg_size_list            = NULL;
 
-    pdc_client_cache_timelog(start, "PDCregion_prefetch_by_objid - Total time");
+    PDC_client_cache_timelog(start, "PDCregion_prefetch_by_objid - Total time");
 #else
     if (pdc_client_mpi_rank_g == 0)
         printf("[RANK %d] Client cache disabled.\n", pdc_client_mpi_rank_g);

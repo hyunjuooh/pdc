@@ -29,21 +29,15 @@
 #include "pdc_public.h"
 #include "pdc_obj.h"
 
-#define NUM_CHUNKS 21
-// #define NUM_CHUNKS               4
-
-// 1GB data generation for bdcats
-// #define MAX_ITEM_SIZE 33554432
-
-// #define MAX_ITEM_SIZE      67108864
-// #define MAX_SLOTS_PER_NODE 234
-
-// #define MAX_ITEM_SIZE      134217728
-
-#define MAX_ITEM_SIZE 157286400
-// #define MAX_SLOTS_PER_NODE 950
-#define MAX_SLOTS_PER_NODE 712
-// #define MAX_SLOTS_PER_NODE 475
+#ifndef NUM_CHUNKS
+#define NUM_CHUNKS 4
+#endif
+#ifndef MAX_ITEM_SIZE
+#define MAX_ITEM_SIZE 67108864
+#endif
+#ifndef MAX_SLOTS_PER_NODE
+#define MAX_SLOTS_PER_NODE 340
+#endif
 
 #define INTRA_TRANSFER_UNIT_SIZE (sizeof(pdcid_t) + sizeof(int) * 2 + sizeof(uint64_t) * 8)
 #define INTER_TRANSFER_UNIT_SIZE (sizeof(pdcid_t) + sizeof(int) + sizeof(uint64_t) * 8 + MAX_ITEM_SIZE)
@@ -73,7 +67,6 @@ typedef struct pdc_object_data {
 
     // Region data
     int slot_idx;
-    // char reg_buf[MAX_ITEM_SIZE];
 
     // Index info
     int target_rank;
@@ -114,24 +107,24 @@ typedef struct pdc_client_info {
 /* Private Functions for Linked List Structure Client-side Region Caching */
 /**************************************************************************/
 
-perr_t pdc_region_dl_init();
+perr_t PDC_client_cache_dl_init();
 
-int pdc_region_dl_local_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size,
+int PDC_client_cache_dl_local_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size,
                                void *buf, uint64_t read_size);
 
-perr_t pdc_region_dl_insert(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size,
+perr_t PDC_client_cache_dl_insert(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size,
                             void *buf, uint64_t read_size);
 
-perr_t pdc_region_dl_update(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size,
+perr_t PDC_client_cache_dl_update(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, uint64_t *size,
                             void *buf);
 
-perr_t pdc_region_dl_evict();
+perr_t PDC_client_cache_dl_evict();
 
-perr_t pdc_region_dl_prepare_data_exchange(pdcid_t *global_prefetch_list, uint64_t *offset, uint64_t *size,
+perr_t PDC_client_cache_dl_prepare_data_exchange(pdcid_t *global_prefetch_list, uint64_t *offset, uint64_t *size,
                                            int obj_prefetch_list_len);
 
-perr_t pdc_region_dl_data_exchange(pdcid_t *global_prefetch_list, int obj_prefetch_list_len);
+perr_t PDC_client_cache_dl_data_exchange(pdcid_t *global_prefetch_list, int obj_prefetch_list_len);
 
-perr_t pdc_region_dl_finalize();
+perr_t PDC_client_cache_dl_finalize();
 
 #endif /* PDC_CLIENT_CACHE_DL_H */
