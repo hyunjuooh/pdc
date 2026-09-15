@@ -177,18 +177,69 @@ done:
 void
 PDC_client_cache_timelog(double start_time, const char *message)
 {
+#ifdef ENABLE_CLIENT_CACHE_DEBUG
     int        rank_limit = 5;
     double     end_time;
     time_t     cur_time = time(NULL);
-    struct tm *log_time = localtime(&cur_time);
+    struct tm  log_time_buf;
+    struct tm *log_time = localtime_r(&cur_time, &log_time_buf);
 
     end_time = MPI_Wtime();
     if (pdc_client_mpi_rank_g < rank_limit) {
         cur_time = time(NULL);
-        log_time = localtime(&cur_time);
+        log_time = localtime_r(&cur_time, &log_time_buf);
         printf("[CACHE_LOG] [%02d:%02d:%02d] [RANK %d] [TOTAL_RANK %d] | %s : %f\n", log_time->tm_hour,
                log_time->tm_min, log_time->tm_sec, pdc_client_mpi_rank_g, pdc_client_mpi_size_g, message,
                end_time - start_time);
         fflush(stdout);
     }
+#else
+    (void)start_time; 
+    (void)message;
+#endif
+}
+
+perr_t
+PDCcache_get_stats(pdc_cache_stats_t *out_stats)
+{
+    perr_t ret_value = SUCCEED;
+    FUNC_ENTER(NULL);
+
+    if (out_stats == NULL)
+        PGOTO_ERROR(FAIL, "PDCcache_get_stats: out_stats is NULL");
+
+#ifdef ENABLE_CLIENT_CACHE
+    out_stats->world_rank         = client_info.world_rank;
+    out_stats->cache_enabled      = client_info.client_cache_init;
+    out_stats->cached_item_num    = client_info.cached_item_num;
+    out_stats->cache_hits         = client_info.cache_hits;
+    out_stats->cache_misses       = client_info.cache_misses;
+    out_stats->total_cached_bytes = 0;
+    {
+        pdc_object_data *iter = client_info.local_cache_list_head;
+        while (iter != NULL) {
+            out_stats->total_cached_bytes += iter->reg_buf_size;
+            iter = iter->next;
+        }
+    }
+#else
+    out_stats->world_rank         = 0;
+    out_stats->cache_enabled      = 0;
+    out_stats->cached_item_num    = 0;
+    out_stats->total_cached_bytes = 0;
+    out_stats->cache_hits         = 0;
+    out_stats->cache_misses       = 0;
+#endif
+
+done:
+    FUNC_LEAVE(ret_value);
+}
+
+void
+PDCcache_reset_stats(void)
+{
+#ifdef ENABLE_CLIENT_CACHE
+    client_info.cache_hits   = 0;
+    client_info.cache_misses = 0;
+#endif
 }

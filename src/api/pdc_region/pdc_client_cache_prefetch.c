@@ -57,7 +57,7 @@ PDCregion_print_prefetch_list()
 
     FUNC_ENTER(NULL);
 
-    printf("[RANK %d] Prefetch list item number %d\n ", pdc_client_mpi_rank_g, obj_prefetch_list_len);
+    CACHE_DEBUG_PRINT("[RANK %d] Prefetch list item number %d\n ", pdc_client_mpi_rank_g, obj_prefetch_list_len);
 
 done:
     fflush(stdout);
@@ -129,7 +129,7 @@ PDCregion_receive_prefetch_hint(pdcid_t *obj_arr, pdcid_t *reg_arr, int obj_arra
     PDC_client_cache_timelog(start, "PDCregion_receive_prefetch_hint - Total time");
 #else
     if (pdc_client_mpi_rank_g == 0)
-        printf("[RANK %d] Client cache disabled.\n", pdc_client_mpi_rank_g);
+        CACHE_DEBUG_PRINT("[RANK %d] Client cache disabled.\n", pdc_client_mpi_rank_g);
 #endif
 
 done:
@@ -174,23 +174,23 @@ pdc_region_prepare_global_prefetch_list()
     PDC_client_cache_timelog(start, "pdc_region_prepare_global_prefetch_list - Total time");
 
     // if (pdc_client_mpi_rank_g == 0) {
-    //     printf("Rank %d received:\n", pdc_client_mpi_rank_g);
+    //     CACHE_DEBUG_PRINT("Rank %d received:\n", pdc_client_mpi_rank_g);
     //     for (int i = 0; i < obj_prefetch_list_len * pdc_client_mpi_size_g; i++) {
-    //         printf("  [%d] %d\n", i, global_obj_prefetch_list[i]);
+    //         CACHE_DEBUG_PRINT("  [%d] %d\n", i, global_obj_prefetch_list[i]);
     //         fflush(stdout);
     //     }
 
-    //     // printf("  From rank %d: list1 =", pdc_client_mpi_rank_g);
+    //     // CACHE_DEBUG_PRINT("  From rank %d: list1 =", pdc_client_mpi_rank_g);
     //     // for (int i = 0; i < obj_prefetch_list_len; i++) {
-    //     //     printf(" %" PRIu64, global_offset_list[pdc_client_mpi_rank_g * obj_prefetch_list_len + i]);
+    //     //     CACHE_DEBUG_PRINT(" %" PRIu64, global_offset_list[pdc_client_mpi_rank_g * obj_prefetch_list_len + i]);
     //     //     fflush(stdout);
     //     // }
-    //     // printf(" | list2 =");
+    //     // CACHE_DEBUG_PRINT(" | list2 =");
     //     // for (int i = 0; i < obj_prefetch_list_len; i++) {
-    //     //     printf(" %" PRIu64, global_size_list[pdc_client_mpi_rank_g * obj_prefetch_list_len + i]);
+    //     //     CACHE_DEBUG_PRINT(" %" PRIu64, global_size_list[pdc_client_mpi_rank_g * obj_prefetch_list_len + i]);
     //     //     fflush(stdout);
     //     // }
-    //     printf("\n");
+    //     CACHE_DEBUG_PRINT("\n");
     // }
 
 done:
@@ -211,7 +211,7 @@ PDCregion_prefetch_by_objid()
 
     if (obj_prefetch_list == NULL) {
         if (pdc_client_mpi_rank_g == 0)
-            printf("[RANK %d] PDC_client_cache_prefetch_by_objid - object list not created\n",
+            CACHE_DEBUG_PRINT("[RANK %d] PDC_client_cache_prefetch_by_objid - object list not created\n",
                    pdc_client_mpi_rank_g);
 
         goto done;
@@ -244,7 +244,7 @@ PDCregion_prefetch_by_objid()
     PDC_client_cache_timelog(start, "PDCregion_prefetch_by_objid - Total time");
 #else
     if (pdc_client_mpi_rank_g == 0)
-        printf("[RANK %d] Client cache disabled.\n", pdc_client_mpi_rank_g);
+        CACHE_DEBUG_PRINT("[RANK %d] Client cache disabled.\n", pdc_client_mpi_rank_g);
 #endif
 
 done:

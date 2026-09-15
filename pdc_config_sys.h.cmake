@@ -18,6 +18,9 @@
 /* Define if you want to enable client-side cache */
 #cmakedefine ENABLE_CLIENT_CACHE
 
+/* Define to enable client cache debug logging */
+#cmakedefine ENABLE_CLIENT_CACHE_DEBUG
+
 /* Define region cache flush time interval */
 #cmakedefine PDC_SERVER_CACHE_FLUSH_TIME @PDC_SERVER_CACHE_FLUSH_TIME@
 

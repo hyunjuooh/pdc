@@ -517,6 +517,11 @@ if(PDC_CLIENT_CACHE)
     )
 endif()
 
+option(PDC_CLIENT_CACHE_DEBUG "Enable client cache debug logging." OFF)
+if(PDC_CLIENT_CACHE_DEBUG)
+    set(ENABLE_CLIENT_CACHE_DEBUG 1)
+endif()
+
 # Check availability of symbols
 #-----------------------------------------------------------------------------
 check_symbol_exists(malloc_usable_size "malloc.h" HAVE_MALLOC_USABLE_SIZE)

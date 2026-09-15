@@ -34,6 +34,21 @@ extern pdcid_t pdc_id;
 extern size_t  total_buf_size;
 extern int     total_item_num;
 
+typedef struct {
+    int      world_rank;
+    int      cache_enabled;
+    int      cached_item_num;
+    uint64_t total_cached_bytes;
+    uint64_t cache_hits;
+    uint64_t cache_misses;
+} pdc_cache_stats_t;
+
+/****************************************************/
+/* Public Functions for Client-side Region Caching */
+/****************************************************/
+perr_t PDCcache_get_stats(pdc_cache_stats_t *out_stats);
+void   PDCcache_reset_stats(void);
+
 /****************************************************/
 /* Private Functions for Client-side Region Caching */
 /****************************************************/

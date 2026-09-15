@@ -53,6 +53,8 @@ main(int argc, char **argv)
     char    cont_name[128], obj_name1[128];
     pdcid_t transfer_request;
 
+    pdc_cache_stats_t stats;
+
     int rank = 0, size = 1, i;
     int ret_value = TSUCCEED;
 
@@ -97,6 +99,8 @@ main(int argc, char **argv)
             "Call to PDCprop_set_obj_app_name succeeded", "Call to PDCprop_set_obj_app_name failed");
     TASSERT(PDCprop_set_obj_tags(obj_prop, "tag0=1") >= 0, "Call to PDCprop_set_obj_tags succeeded",
             "Call to PDCprop_set_obj_tags failed");
+
+    PDCcache_reset_stats();
 
     // create the object
     sprintf(obj_name1, "o1_%d", rank);
@@ -170,6 +174,15 @@ main(int argc, char **argv)
         if (data_read[i] != i)
             PGOTO_ERROR(FAIL, "read #2 (cache hit) wrong value at %d: %d != %d", i, data_read[i], i);
     }
+
+    TASSERT(PDCcache_get_stats(&stats) >= 0, "Call to PDCcache_get_stats succeeded",
+            "Call to PDCcache_get_stats failed");
+    if (rank == 0)
+        printf("[CACHE STATS] rank=%d enabled=%d items=%d bytes=%llu hits=%llu misses=%llu\n",
+               stats.world_rank, stats.cache_enabled, stats.cached_item_num,
+               (unsigned long long)stats.total_cached_bytes,
+               (unsigned long long)stats.cache_hits, (unsigned long long)stats.cache_misses);
+    TASSERT(stats.cache_hits > 0, "cache served at least one read", "cache was never hit");
 
     if (rank == 0)
         printf("[PASS] client cache read-back verified for %d elements over 2 reads\n", BUF_LEN);

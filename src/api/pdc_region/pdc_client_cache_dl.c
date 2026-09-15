@@ -124,8 +124,7 @@ pop_free_slot()
 
     MPI_Win_unlock(0, client_info.node_shared_data_win);
 
-    // printf("[RANK %d] pop_free_slot index: %d\n", client_info.world_rank, current_head);
-    // fflush(stdout);
+    // CACHE_DEBUG_PRINT("[RANK %d] pop_free_slot index: %d\n", client_info.world_rank, current_head);
 
     return current_head;
 }
@@ -206,8 +205,7 @@ PDC_client_cache_dl_init()
     MPI_Allgather(&client_info.node_manager_rank, 1, MPI_INT, client_info.rank_to_node_id_map, 1, MPI_INT,
                   client_cache_world_comm);
 
-    printf("[RANK %d] PDC_client_cache_dl_init - step 3: rank_to_node_id_map\n", client_info.world_rank);
-    fflush(stdout);
+    CACHE_DEBUG_PRINT("[RANK %d] PDC_client_cache_dl_init - step 3: rank_to_node_id_map\n", client_info.world_rank);
 
     // Step 4. Create local node map
     node_world_ranks = (int *)PDC_malloc(client_info.node_size * sizeof(int));
@@ -225,9 +223,8 @@ PDC_client_cache_dl_init()
 
     PDC_free(node_world_ranks);
 
-    printf("[RANK %d] PDC_client_cache_dl_init - step 4: world_to_node_rank_map memory allocation\n",
+    CACHE_DEBUG_PRINT("[RANK %d] PDC_client_cache_dl_init - step 4: world_to_node_rank_map memory allocation\n",
            client_info.world_rank);
-    fflush(stdout);
 
     // Step 5. Create shared memory window for node shared data
     MPI_Aint total_bytes =
@@ -238,9 +235,8 @@ PDC_client_cache_dl_init()
         MPI_Win_allocate_shared(local_alloc_size, 1, MPI_INFO_NULL, client_cache_node_comm,
                                 &client_info.node_shared_base, &client_info.node_shared_data_win);
 
-    printf("[RANK %d] PDC_client_cache_dl_init - step 5: Create shared memory window\n",
+    CACHE_DEBUG_PRINT("[RANK %d] PDC_client_cache_dl_init - step 5: Create shared memory window\n",
            client_info.world_rank);
-    fflush(stdout);
 
     if (mpi_alloc_error != MPI_SUCCESS)
         MPI_Abort(client_cache_world_comm, 1);
@@ -253,21 +249,20 @@ PDC_client_cache_dl_init()
                              &client_info.node_shared_base);
     }
 
-    printf("[RANK %d] PDC_client_cache_dl_init - step 6: Query shared memory window\n",
+    CACHE_DEBUG_PRINT("[RANK %d] PDC_client_cache_dl_init - step 6: Query shared memory window\n",
            client_info.world_rank);
-    fflush(stdout);
 
     client_info.header                = (SharedMemoryHeader *)client_info.node_shared_base;
     client_info.node_shared_data_base = (char *)client_info.node_shared_base + sizeof(SharedMemoryHeader);
 
     if (client_info.node_rank == 0) {
         init_free_stack();
-        // printf("PDC_client_cache_dl_init - step 7 -1 : Init the node shared memory\n",
-        // client_info.world_rank); fflush(stdout); memset(client_info.node_shared_data_base, 0,
-        // (size_t)MAX_SLOTS_PER_NODE * (size_t)MAX_ITEM_SIZE);
+        CACHE_DEBUG_PRINT("PDC_client_cache_dl_init - step 7 -1 : Init the node shared memory\n", 
+            client_info.world_rank); 
+        // memset(client_info.node_shared_data_base, 0, (size_t)MAX_SLOTS_PER_NODE * (size_t)MAX_ITEM_SIZE);
     }
 
-    printf("[RANK %d] PDC_client_cache_dl_init - step 7: Init the node shared memory\n",
+    CACHE_DEBUG_PRINT("[RANK %d] PDC_client_cache_dl_init - step 7: Init the node shared memory\n",
            client_info.world_rank);
     fflush(stdout);
 
@@ -277,6 +272,9 @@ PDC_client_cache_dl_init()
     client_info.local_cache_list_head = NULL;
     client_info.local_cache_list_tail = NULL;
     client_info.cached_item_num       = 0;
+    client_info.cache_hits      = 0;
+    client_info.cache_misses    = 0;
+    
     client_info.client_cache_init     = 1;
 
 done:
@@ -400,7 +398,7 @@ PDC_client_cache_dl_local_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64
                 if (region_copy) {
                     memcpy(buf, data_ptr, obj_cache_iter->reg_buf_size);
                     if (client_info.world_rank == 0)
-                        printf("[RANK %d] Read entire region for obj_id: %lld\n", client_info.world_rank,
+                        CACHE_DEBUG_PRINT("[RANK %d] Read entire region for obj_id: %lld\n", client_info.world_rank,
                                obj_id);
                 }
                 else {
@@ -426,10 +424,14 @@ PDC_client_cache_dl_local_search(pdcid_t obj_id, int ndim, uint64_t unit, uint64
         obj_cache_iter = obj_cache_iter->next;
     }
 
-    if (!is_cached)
-        printf("[RANK %d] cache miss for obj_id: %lld\n", client_info.world_rank, obj_id);
-    else
-        printf("[RANK %d] cache hit for obj_id: %lld\n", client_info.world_rank, obj_id);
+    if (!is_cached) {
+        client_info.cache_misses++;
+        CACHE_DEBUG_PRINT("[RANK %d] cache miss for obj_id: %lld\n", client_info.world_rank, obj_id);
+    }
+    else {
+        client_info.cache_hits++;
+        CACHE_DEBUG_PRINT("[RANK %d] cache hit for obj_id: %lld\n", client_info.world_rank, obj_id);
+    }
 
     PDC_client_cache_timelog(total_start, "PDC_client_cache_dl_local_search search time");
 
@@ -491,15 +493,15 @@ PDC_client_cache_dl_prepare_data_exchange(pdcid_t *global_prefetch_list, uint64_
     }
 
     // For debugging purpose
-    // obj_cache_iter = client_info.local_cache_list_head;
-    // while (obj_cache_iter != NULL) {
-    //     printf("[RANK %d] prepare_data_exchange: object_id %lld , target_rank: %d\n",
-    //     client_info.world_rank, obj_cache_iter->obj_id, obj_cache_iter->target_rank);
+#ifdef ENABLE_CLIENT_CACHE_DEBUG
+    obj_cache_iter = client_info.local_cache_list_head;
+    while (obj_cache_iter != NULL) {
+        CACHE_DEBUG_PRINT("[RANK %d] prepare_data_exchange: object_id %lld , target_rank: %d\n",
+            client_info.world_rank, obj_cache_iter->obj_id, obj_cache_iter->target_rank);
 
-    //     fflush(stdout);
-
-    //     obj_cache_iter = obj_cache_iter->next;
-    // }
+        obj_cache_iter = obj_cache_iter->next;
+    }
+#endif
 
     PDC_client_cache_timelog(start,
                              "PDC_client_cache_dl_prepare_data_exchange - global prefetch list preparation");
@@ -622,7 +624,7 @@ PDC_client_cache_dl_data_exchange(pdcid_t *global_prefetch_list, int obj_prefetc
     temp_intra_recv_buf = (char *)PDC_malloc(max_intra_recv_chunk * INTRA_TRANSFER_UNIT_SIZE + 1);
     temp_inter_recv_buf = (char *)PDC_malloc(max_inter_recv_chunk * INTER_TRANSFER_UNIT_SIZE + 1);
 
-    printf("[RANK %d] global_max_chunk_size: %d, max_intra_recv_chunk: %d, max_inter_recv_chunk: %d\n",
+    CACHE_DEBUG_PRINT("[RANK %d] global_max_chunk_size: %d, max_intra_recv_chunk: %d, max_inter_recv_chunk: %d\n",
            client_info.world_rank, global_max_chunk_size, max_intra_recv_chunk, max_inter_recv_chunk);
 
     memset(intra_node_send_buf, 0, global_max_chunk_size * INTRA_TRANSFER_UNIT_SIZE + 1);
@@ -632,9 +634,8 @@ PDC_client_cache_dl_data_exchange(pdcid_t *global_prefetch_list, int obj_prefetc
 
     MPI_Barrier(client_cache_world_comm);
 
-    // if (client_info.world_rank == 0)
-    //     printf("[RANK %d] Before data exchange total cached item num %d %d\n", client_info.world_rank,
-    //     old_cached_item_num, client_info.cached_item_num);
+    CACHE_DEBUG_PRINT("[RANK %d] Before data exchange total cached item num %d %d\n", client_info.world_rank,
+        old_cached_item_num, client_info.cached_item_num);
 
     PDC_client_cache_timelog(tmp_timer, "PDC_client_cache_dl_data_exchange - Step 1");
 
@@ -661,7 +662,7 @@ PDC_client_cache_dl_data_exchange(pdcid_t *global_prefetch_list, int obj_prefetc
         tmp_timer2 = MPI_Wtime();
 
         for (i = 0; i < client_info.node_size; i++) {
-            // printf("[RANK %d] data_Exchange - intra_node_send_counts %d intra_node_recv_counts %d\n",
+            // CACHE_DEBUG_PRINT("[RANK %d] data_Exchange - intra_node_send_counts %d intra_node_recv_counts %d\n",
             // pdc_client_mpi_rank_g, intra_node_send_counts[i], intra_node_recv_counts[i], i);
             total_intra_recv_items_chunk += (size_t)intra_node_recv_counts[c][i];
 
@@ -924,18 +925,17 @@ PDC_client_cache_dl_data_exchange(pdcid_t *global_prefetch_list, int obj_prefetc
 
     MPI_Barrier(client_cache_world_comm);
 
-    // For debugging purpose
-    // obj_cache_iter = client_info.local_cache_list_head;
-    // while (obj_cache_iter != NULL) {
-    //     if (client_info.world_rank == 0) {
-    //         printf("[RANK %d] object_id %lld offset %lld, num_item %d\n", client_info.world_rank,
-    //         obj_cache_iter->obj_id, obj_cache_iter->reg_offset[0], client_info.cached_item_num);
-    //     }
+#ifdef ENABLE_CLIENT_CACHE_DEBUG
+    obj_cache_iter = client_info.local_cache_list_head;
+    while (obj_cache_iter != NULL) {
+        if (client_info.world_rank == 0) {
+            CACHE_DEBUG_PRINT("[RANK %d] object_id %lld offset %lld, num_item %d\n", client_info.world_rank,
+                obj_cache_iter->obj_id, obj_cache_iter->reg_offset[0], client_info.cached_item_num);
+        }
 
-    //     fflush(stdout);
-
-    //     obj_cache_iter = obj_cache_iter->next;
-    // }
+        obj_cache_iter = obj_cache_iter->next;
+    }
+#endif
 
     free(sdispls_intra);
     free(rdispls_intra);

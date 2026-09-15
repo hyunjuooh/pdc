@@ -28,6 +28,17 @@
 #include <mpi.h>
 #include "pdc_public.h"
 #include "pdc_obj.h"
+#include "pdc_config.h"
+
+#ifdef ENABLE_CLIENT_CACHE_DEBUG
+#define CACHE_DEBUG_PRINT(...)                                                                              \
+    do {                                                                                                   \
+        printf(__VA_ARGS__);                                                                               \
+        fflush(stdout);                                                                                    \
+    } while (0)
+#else
+#define CACHE_DEBUG_PRINT(...) do {} while (0)
+#endif
 
 #ifndef NUM_CHUNKS
 #define NUM_CHUNKS 4
@@ -88,6 +99,9 @@ typedef struct pdc_client_info {
 
     int cached_item_num;
 
+    uint64_t cache_hits;
+    uint64_t cache_misses;
+
     pdc_object_data *local_cache_list_head;
     pdc_object_data *local_cache_list_tail;
 
@@ -102,6 +116,9 @@ typedef struct pdc_client_info {
 
     int client_cache_init;
 } pdc_client_info;
+
+// For stat API to be visible
+extern pdc_client_info client_info;
 
 /**************************************************************************/
 /* Private Functions for Linked List Structure Client-side Region Caching */
