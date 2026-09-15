@@ -180,8 +180,8 @@ main(int argc, char **argv)
     if (rank == 0)
         printf("[CACHE STATS] rank=%d enabled=%d items=%d bytes=%llu hits=%llu misses=%llu\n",
                stats.world_rank, stats.cache_enabled, stats.cached_item_num,
-               (unsigned long long)stats.total_cached_bytes,
-               (unsigned long long)stats.cache_hits, (unsigned long long)stats.cache_misses);
+               (unsigned long long)stats.total_cached_bytes, (unsigned long long)stats.cache_hits,
+               (unsigned long long)stats.cache_misses);
     TASSERT(stats.cache_hits > 0, "cache served at least one read", "cache was never hit");
 
     if (rank == 0)

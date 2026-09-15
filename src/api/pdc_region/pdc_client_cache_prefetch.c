@@ -57,7 +57,8 @@ PDCregion_print_prefetch_list()
 
     FUNC_ENTER(NULL);
 
-    CACHE_DEBUG_PRINT("[RANK %d] Prefetch list item number %d\n ", pdc_client_mpi_rank_g, obj_prefetch_list_len);
+    CACHE_DEBUG_PRINT("[RANK %d] Prefetch list item number %d\n ", pdc_client_mpi_rank_g,
+                      obj_prefetch_list_len);
 
 done:
     fflush(stdout);
@@ -182,12 +183,14 @@ pdc_region_prepare_global_prefetch_list()
 
     //     // CACHE_DEBUG_PRINT("  From rank %d: list1 =", pdc_client_mpi_rank_g);
     //     // for (int i = 0; i < obj_prefetch_list_len; i++) {
-    //     //     CACHE_DEBUG_PRINT(" %" PRIu64, global_offset_list[pdc_client_mpi_rank_g * obj_prefetch_list_len + i]);
+    //     //     CACHE_DEBUG_PRINT(" %" PRIu64, global_offset_list[pdc_client_mpi_rank_g *
+    //     obj_prefetch_list_len + i]);
     //     //     fflush(stdout);
     //     // }
     //     // CACHE_DEBUG_PRINT(" | list2 =");
     //     // for (int i = 0; i < obj_prefetch_list_len; i++) {
-    //     //     CACHE_DEBUG_PRINT(" %" PRIu64, global_size_list[pdc_client_mpi_rank_g * obj_prefetch_list_len + i]);
+    //     //     CACHE_DEBUG_PRINT(" %" PRIu64, global_size_list[pdc_client_mpi_rank_g *
+    //     obj_prefetch_list_len + i]);
     //     //     fflush(stdout);
     //     // }
     //     CACHE_DEBUG_PRINT("\n");
@@ -212,7 +215,7 @@ PDCregion_prefetch_by_objid()
     if (obj_prefetch_list == NULL) {
         if (pdc_client_mpi_rank_g == 0)
             CACHE_DEBUG_PRINT("[RANK %d] PDC_client_cache_prefetch_by_objid - object list not created\n",
-                   pdc_client_mpi_rank_g);
+                              pdc_client_mpi_rank_g);
 
         goto done;
     }

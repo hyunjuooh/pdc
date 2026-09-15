@@ -31,13 +31,15 @@
 #include "pdc_config.h"
 
 #ifdef ENABLE_CLIENT_CACHE_DEBUG
-#define CACHE_DEBUG_PRINT(...)                                                                              \
-    do {                                                                                                   \
-        printf(__VA_ARGS__);                                                                               \
-        fflush(stdout);                                                                                    \
+#define CACHE_DEBUG_PRINT(...)                                                                               \
+    do {                                                                                                     \
+        printf(__VA_ARGS__);                                                                                 \
+        fflush(stdout);                                                                                      \
     } while (0)
 #else
-#define CACHE_DEBUG_PRINT(...) do {} while (0)
+#define CACHE_DEBUG_PRINT(...)                                                                               \
+    do {                                                                                                     \
+    } while (0)
 #endif
 
 #ifndef NUM_CHUNKS

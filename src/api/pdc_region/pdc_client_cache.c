@@ -194,7 +194,7 @@ PDC_client_cache_timelog(double start_time, const char *message)
         fflush(stdout);
     }
 #else
-    (void)start_time; 
+    (void)start_time;
     (void)message;
 #endif
 }
