@@ -54,6 +54,7 @@ PDC_discover_perlmutter_cxi_auth(unsigned int *svc_id, unsigned int *vni)
 {
     perr_t ret_value = FAIL;
     FILE * fp        = NULL;
+    char * vni_field = NULL;
     char   line[256];
     char   uid_pattern[64];
 
@@ -99,7 +100,10 @@ PDC_discover_perlmutter_cxi_auth(unsigned int *svc_id, unsigned int *vni)
             continue;
         }
 
-        if (sscanf(line, "   ---> Valid VNIs    : %u", &parsed_value) == 1) {
+        vni_field = strstr(line, "VNIs");
+        if (vni_field != NULL)
+            vni_field = strchr(vni_field, ':');
+        if (vni_field != NULL && sscanf(vni_field + 1, " %u", &parsed_value) == 1) {
             current_vni = parsed_value;
             if (enabled == TRUE && system_service == FALSE && member_match == TRUE) {
                 *svc_id   = current_svc_id;
