@@ -83,3 +83,4 @@
 
 /* Define size of uint64_t int type */
 #cmakedefine VAR_SIZE_U64INT @VAR_SIZE_U64INT@
+#cmakedefine ENALBE_CLIENT_CACHE

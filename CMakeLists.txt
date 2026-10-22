@@ -404,7 +404,7 @@ endif()
 #-----------------------------------------------------------------------------
 # CHECKPOINT option
 #-----------------------------------------------------------------------------
-option(PDC_ENABLE_CHECKPOINT "Enable checkpointing." OFF)
+option(PDC_ENABLE_CHECKPOINT "Enable checkpointing." ON)
 if(PDC_ENABLE_CHECKPOINT)
   set(PDC_ENABLE_CHECKPOINT 1)
 endif()
@@ -504,7 +504,7 @@ endif()
 #-----------------------------------------------------------------------------
 # Client-side cache option
 #-----------------------------------------------------------------------------
-option(PDC_CLIENT_CACHE "Enable client-side cache." OFF)
+option(PDC_CLIENT_CACHE "Enable client-side cache." ON)
 if(PDC_CLIENT_CACHE)
     set(ENALBE_CLIENT_CACHE 1)
 endif()
