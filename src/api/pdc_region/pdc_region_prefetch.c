@@ -251,3 +251,90 @@ done:
     fflush(stdout);
     FUNC_LEAVE(ret_value);
 }
+
+#ifdef ENALBE_CLIENT_CACHE
+// Object handles (from PDCobj_open) -> metadata ids, which the cache uses
+static perr_t
+prefetch_metadata_ids(pdcid_t *obj_arr, int len, pdcid_t **meta_ids)
+{
+    perr_t ret_value = SUCCEED;
+
+    FUNC_ENTER(NULL);
+
+    *meta_ids = (pdcid_t *)PDC_malloc((len + 1) * sizeof(pdcid_t));
+    for (int i = 0; i < len; i++) {
+        struct _pdc_id_info *objinfo = PDC_find_id(obj_arr[i]);
+        if (objinfo == NULL)
+            PGOTO_ERROR(FAIL, "prefetch_metadata_ids - cannot locate object ID");
+        (*meta_ids)[i] = ((struct _pdc_obj_info *)(objinfo->obj_ptr))->obj_info_pub->meta_id;
+    }
+
+done:
+    FUNC_LEAVE(ret_value);
+}
+#endif
+
+perr_t
+PDCregion_prefetch_begin(pdcid_t *cur_obj_arr, int cur_len, pdcid_t *next_obj_arr, int next_len)
+{
+    FUNC_ENTER(NULL);
+
+    perr_t ret_value = SUCCEED;
+
+#ifdef ENALBE_CLIENT_CACHE
+    pdcid_t *cur_ids = NULL, *next_ids = NULL;
+    double   start   = MPI_Wtime();
+
+    if (prefetch_metadata_ids(cur_obj_arr, cur_len, &cur_ids) != SUCCEED ||
+        prefetch_metadata_ids(next_obj_arr, next_len, &next_ids) != SUCCEED)
+        PGOTO_ERROR(FAIL, "PDCregion_prefetch_begin - object ID conversion failed");
+
+    ret_value = pdc_region_dl_overlap_begin(cur_ids, cur_len, next_ids, next_len);
+
+    pdc_region_cache_timelog(start, "PDCregion_prefetch_begin - Total time");
+#else
+    if (pdc_client_mpi_rank_g == 0)
+        printf("[RANK %d] Client cache disabled.\n", pdc_client_mpi_rank_g);
+#endif
+
+done:
+#ifdef ENALBE_CLIENT_CACHE
+    free(cur_ids);
+    free(next_ids);
+#endif
+    fflush(stdout);
+    FUNC_LEAVE(ret_value);
+}
+
+perr_t
+PDCregion_prefetch_progress()
+{
+    FUNC_ENTER(NULL);
+
+    perr_t ret_value = SUCCEED;
+
+#ifdef ENALBE_CLIENT_CACHE
+    ret_value = pdc_region_dl_overlap_progress();
+#endif
+
+    FUNC_LEAVE(ret_value);
+}
+
+perr_t
+PDCregion_prefetch_end()
+{
+    FUNC_ENTER(NULL);
+
+    perr_t ret_value = SUCCEED;
+
+#ifdef ENALBE_CLIENT_CACHE
+    double start = MPI_Wtime();
+
+    ret_value = pdc_region_dl_overlap_end();
+
+    pdc_region_cache_timelog(start, "PDCregion_prefetch_end - Total time");
+#endif
+
+    fflush(stdout);
+    FUNC_LEAVE(ret_value);
+}

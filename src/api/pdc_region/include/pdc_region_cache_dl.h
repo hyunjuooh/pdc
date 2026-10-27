@@ -55,6 +55,9 @@
 /**************************/
 typedef struct {
     int  free_stack_head;
+    // Server reads still to come on this node in the current epoch while an
+    // overlapped exchange runs; next-epoch receives must leave this many slots free.
+    int  pending_inserts;
     int  free_list[MAX_SLOTS_PER_NODE];
     char padding[64 - sizeof(int)];
 } SharedMemoryHeader;
@@ -78,6 +81,10 @@ typedef struct pdc_object_data {
     // Index info
     int target_rank;
     int data_exchange_type; // 0 is intra, 1 is inter
+
+    // Overlapped data exchange state
+    int consumed;       // read in the current epoch (server read or cache hit)
+    int transfer_state; // 0 idle, 1 being sent, 2 received for the next epoch
 
     struct pdc_object_data *prev;
     struct pdc_object_data *next;
@@ -131,6 +138,13 @@ perr_t pdc_region_dl_prepare_data_exchange(pdcid_t *global_prefetch_list, uint64
                                            int obj_prefetch_list_len);
 
 perr_t pdc_region_dl_data_exchange(pdcid_t *global_prefetch_list, int obj_prefetch_list_len);
+
+// Exchange that overlaps with computation: begin at the start of an epoch with
+// this epoch's and next epoch's object lists (metadata ids, in read order),
+// progress after every step, end before the next epoch starts.
+perr_t pdc_region_dl_overlap_begin(pdcid_t *cur_ids, int cur_len, pdcid_t *next_ids, int next_len);
+perr_t pdc_region_dl_overlap_progress(void);
+perr_t pdc_region_dl_overlap_end(void);
 
 perr_t pdc_region_dl_finalize();
 

@@ -37,6 +37,13 @@ extern int obj_prefetch_list_len;
 // perr_t PDCregion_receive_prefetch_hint(const pdcid_t *arr, const pdcid_t *arr2, int obj_array_len);
 perr_t PDCregion_receive_prefetch_hint(pdcid_t *obj_arr, pdcid_t *reg_arr, int obj_array_len);
 perr_t PDCregion_prefetch_by_objid();
+
+// Data exchange overlapped with computation. Call begin at the start of an
+// epoch with the objects this rank reads in this epoch and in the next one,
+// progress after every training step, and end before the next epoch starts.
+perr_t PDCregion_prefetch_begin(pdcid_t *cur_obj_arr, int cur_len, pdcid_t *next_obj_arr, int next_len);
+perr_t PDCregion_prefetch_progress();
+perr_t PDCregion_prefetch_end();
 perr_t PDCregion_print_prefetch_list();
 
 /*******************************************************/
