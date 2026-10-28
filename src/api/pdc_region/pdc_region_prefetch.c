@@ -173,26 +173,6 @@ pdc_region_prepare_global_prefetch_list()
 
     pdc_region_cache_timelog(start, "pdc_region_prepare_global_prefetch_list - Total time");
 
-    // if (pdc_client_mpi_rank_g == 0) {
-    //     printf("Rank %d received:\n", pdc_client_mpi_rank_g);
-    //     for (int i = 0; i < obj_prefetch_list_len * pdc_client_mpi_size_g; i++) {
-    //         printf("  [%d] %d\n", i, global_obj_prefetch_list[i]);
-    //         fflush(stdout);
-    //     }
-
-    //     // printf("  From rank %d: list1 =", pdc_client_mpi_rank_g);
-    //     // for (int i = 0; i < obj_prefetch_list_len; i++) {
-    //     //     printf(" %" PRIu64, global_offset_list[pdc_client_mpi_rank_g * obj_prefetch_list_len + i]);
-    //     //     fflush(stdout);
-    //     // }
-    //     // printf(" | list2 =");
-    //     // for (int i = 0; i < obj_prefetch_list_len; i++) {
-    //     //     printf(" %" PRIu64, global_size_list[pdc_client_mpi_rank_g * obj_prefetch_list_len + i]);
-    //     //     fflush(stdout);
-    //     // }
-    //     printf("\n");
-    // }
-
 done:
     fflush(stdout);
     FUNC_LEAVE(ret_value);

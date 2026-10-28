@@ -45,9 +45,6 @@
 // #define MAX_SLOTS_PER_NODE 712
 // #define MAX_SLOTS_PER_NODE 475
 
-#define INTRA_TRANSFER_UNIT_SIZE (sizeof(pdcid_t) + sizeof(int) * 2 + sizeof(uint64_t) * 8)
-#define INTER_TRANSFER_UNIT_SIZE (sizeof(pdcid_t) + sizeof(int) + sizeof(uint64_t) * 8 + MAX_ITEM_SIZE)
-
 #define SLOT_INVALID -1
 
 /**************************/
@@ -134,6 +131,26 @@ perr_t pdc_region_dl_update(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *o
 
 perr_t pdc_region_dl_evict();
 
+perr_t pdc_region_dl_finalize();
+
+// Cache list and the node's slot pool, shared with the data exchange
+extern pdc_client_info client_info;
+extern MPI_Comm        client_cache_world_comm;
+extern MPI_Comm        client_cache_node_comm;
+
+pdc_object_data *pdc_region_dl_new_item(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset,
+                                         uint64_t *size, uint64_t reg_buf_size, int slot_idx);
+perr_t           pdc_region_dl_prepend(pdc_object_data *obj_cache_item);
+perr_t           pdc_region_dl_delete(pdc_object_data *obj_cache_item);
+char *           get_data_ptr(int shared_index);
+int              pop_free_slot();
+void             push_free_slot(int slot_idx);
+int              count_free_slots();
+
+/**************************************************************************/
+/* Data exchange between epochs (pdc_region_dl_exchange.c)                */
+/**************************************************************************/
+
 perr_t pdc_region_dl_prepare_data_exchange(pdcid_t *global_prefetch_list, uint64_t *offset, uint64_t *size,
                                            int obj_prefetch_list_len);
 
@@ -146,6 +163,9 @@ perr_t pdc_region_dl_overlap_begin(pdcid_t *cur_ids, int cur_len, pdcid_t *next_
 perr_t pdc_region_dl_overlap_progress(void);
 perr_t pdc_region_dl_overlap_end(void);
 
-perr_t pdc_region_dl_finalize();
+// Used by pdc_region_dl_insert while an overlapped exchange runs
+int  pdc_region_dl_overlap_active(void);
+void pdc_region_dl_overlap_make_room(void);
+void pdc_region_dl_overlap_record_insert(void);
 
 #endif /* PDC_REGION_CACHE_DL_H */
