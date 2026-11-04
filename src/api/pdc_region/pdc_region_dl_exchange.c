@@ -379,100 +379,35 @@ done:
 }
 
 /**************************************************************************/
-/* Data exchange overlapped with computation                              */
-/*                                                                        */
-/* An item is forwarded to its next-epoch owner as soon as its current    */
-/* owner has read it this epoch (server read in epoch 1, cache hit after  */
-/* that), so the exchange runs while the application computes.           */
+/* Data exchange overlapped with computation: the exchange above in small */
+/* pieces, one batch exchange per training step (per progress call) for   */
+/* the items read in that step's batch. Each batch exchange:              */
+/*   1. the items' metadata, in one fixed-size block per destination,     */
+/*      goes out in one MPI_Ialltoall                                     */
+/*      (MPI_Alltoall with PDC_OVERLAP_METADATA=blocking)                 */
+/*   2. once it has arrived, same-node items hand over their slot and     */
+/*      items for another node are sent slot to slot (Isend / Irecv)      */
+/* and the data moves while the application computes. Batch exchanges are */
+/* collective: every rank calls progress once per step, as often as every */
+/* other rank.                                                            */
 /**************************************************************************/
 
-// Where an object is read this epoch and who reads it next epoch
 typedef struct {
-    pdcid_t obj_id;
-    int     current_owner;
-    int     current_position; // position in the current owner's list, used for message tags
-    int     next_owner;
-} overlap_object_record;
+    int same_node_sent, other_node_sent, same_node_received, other_node_received, missing;
+} overlap_stats;
 
-typedef struct {
-    pdcid_t             obj_id;
-    int                 target_rank;
-    int                 tag;
-    int                 same_node;
-    int                 state; // 0 waiting to be read, 1 being sent, 2 done
-    pdc_object_data *   item;
-    pdc_object_metadata metadata;
-    MPI_Request         requests[2]; // metadata, data
-} overlap_outgoing_item;
+// This rank's share of the node's pending_inserts: this epoch's server reads still
+// to come, for which receives of next-epoch data must leave free slots
+static int overlap_pending_inserts;
 
-typedef struct {
-    pdcid_t             obj_id;
-    int                 source_rank;
-    int                 tag;
-    int                 same_node;
-    int                 state; // 0 metadata posted, 1 waiting for a free slot, 2 data posted, 3 done
-    int                 slot_idx;
-    pdc_object_metadata metadata;
-    MPI_Request         metadata_request;
-    MPI_Request         data_request;
-} overlap_incoming_item;
-
-static struct {
-    int                    active;
-    int                    comm_created;
-    MPI_Comm               comm;
-    overlap_object_record *records;
-    int                    num_records;
-    pdcid_t *              next_ids_sorted; // this rank's next-epoch objects
-    int                    num_next_ids;
-    overlap_outgoing_item *outgoing;
-    int                    num_outgoing;
-    int                    num_outgoing_done;
-    overlap_incoming_item *incoming;
-    int                    num_incoming;
-    int                    num_incoming_done;
-    int                    pending_inserts; // this rank's share of the node's pending_inserts
-    struct {
-        int same_node_sent, other_node_sent, same_node_received, other_node_received, missing;
-    } stats;
-} overlap_exchange;
-
-int
-pdc_region_dl_overlap_active(void)
+static void
+print_overlap_summary(overlap_stats *stats, int open_sends, int open_receives, double end_wait)
 {
-    return overlap_exchange.active;
-}
-
-static int
-compare_object_records(const void *a, const void *b)
-{
-    pdcid_t x = ((const overlap_object_record *)a)->obj_id;
-    pdcid_t y = ((const overlap_object_record *)b)->obj_id;
-    return (x > y) - (x < y);
-}
-
-static int
-compare_object_ids(const void *a, const void *b)
-{
-    pdcid_t x = *(const pdcid_t *)a;
-    pdcid_t y = *(const pdcid_t *)b;
-    return (x > y) - (x < y);
-}
-
-static overlap_object_record *
-find_object_record(pdcid_t obj_id)
-{
-    overlap_object_record key;
-    key.obj_id = obj_id;
-    return (overlap_object_record *)bsearch(&key, overlap_exchange.records, overlap_exchange.num_records,
-                                            sizeof(overlap_object_record), compare_object_records);
-}
-
-static int
-read_next_epoch(pdcid_t obj_id)
-{
-    return bsearch(&obj_id, overlap_exchange.next_ids_sorted, overlap_exchange.num_next_ids, sizeof(pdcid_t),
-                   compare_object_ids) != NULL;
+    printf("[RANK %d] overlapped exchange: sent same-node %d other-node %d, received same-node %d "
+           "other-node %d, missing %d | still open when the epoch ended: %d sends, %d receives, "
+           "end wait %.3fs\n",
+           client_info.world_rank, stats->same_node_sent, stats->other_node_sent, stats->same_node_received,
+           stats->other_node_received, stats->missing, open_sends, open_receives, end_wait);
 }
 
 // This epoch's copy of an object (not one received for the next epoch)
@@ -525,166 +460,93 @@ node_pending_inserts_get(void)
     return value;
 }
 
-// Called by pdc_region_dl_insert: one of this epoch's server reads has its slot now
-void
-pdc_region_dl_overlap_record_insert(void)
+// Every rank's id list, concatenated in rank order: rank r's starts at displs[r]
+static pdcid_t *
+allgather_ids(MPI_Comm comm, pdcid_t *ids, int len, int *counts, int *displs, int *total)
 {
-    if (overlap_exchange.pending_inserts > 0) {
-        overlap_exchange.pending_inserts--;
-        node_pending_inserts_add(-1);
-    }
+    pdcid_t *all_ids;
+
+    MPI_Allgather(&len, 1, MPI_INT, counts, 1, MPI_INT, comm);
+    *total  = counts_to_displs(client_info.world_size, counts, displs);
+    all_ids = (pdcid_t *)PDC_malloc((*total + 1) * sizeof(pdcid_t));
+    MPI_Allgatherv(ids, len, MPI_UINT64_T, all_ids, counts, displs, MPI_UINT64_T, comm);
+    return all_ids;
 }
 
-// item == NULL: this rank does not have the object, the metadata says so (valid = 0)
-static void
-overlap_start_send(overlap_outgoing_item *outgoing_item, pdc_object_data *item)
-{
-    pdc_object_metadata *metadata = &outgoing_item->metadata;
+// A batch exchange's data messages are tagged (id % BATCH_TAG_RANGE) * BATCH_ITEMS_PER_DEST
+// + position in the block, which stays below the MPI minimum tag limit of 32767
+#define BATCH_TAG_RANGE 4000
 
-    if (item != NULL) {
-        metadata_from_item(metadata, item);
-        item->transfer_state = 1;
-    }
-    else {
-        memset(metadata, 0, sizeof(pdc_object_metadata));
-        metadata->obj_id = outgoing_item->obj_id;
-    }
+// The exchange of one batch's items; open until all of its transfers have finished
+typedef struct batch_exchange {
+    int         id;
+    int         metadata_arrived;
+    MPI_Request metadata_request;
+    int         num_open; // sends and receives not finished yet
 
-    MPI_Isend(metadata, sizeof(pdc_object_metadata), MPI_BYTE, outgoing_item->target_rank,
-              2 * outgoing_item->tag, overlap_exchange.comm, &outgoing_item->requests[0]);
-    outgoing_item->requests[1] = MPI_REQUEST_NULL;
-    if (item != NULL && !outgoing_item->same_node)
-        MPI_Isend(get_data_ptr(item->slot_idx), (int)item->reg_buf_size, MPI_BYTE, outgoing_item->target_rank,
-                  2 * outgoing_item->tag + 1, overlap_exchange.comm, &outgoing_item->requests[1]);
+    // world_size blocks of BATCH_ITEMS_PER_DEST entries, block r for rank r. An entry
+    // with valid = 1 is an item; once the metadata has arrived, one still in transfer.
+    pdc_object_metadata *send_metadata;
+    pdc_object_metadata *recv_metadata;
+    pdc_object_data **   send_items;
+    MPI_Request *        send_requests;
+    MPI_Request *        recv_requests;
+    int *                recv_slots; // SLOT_INVALID: waiting for a free slot
 
-    outgoing_item->item  = item;
-    outgoing_item->state = 1;
-}
+    struct batch_exchange *next;
+} batch_exchange;
 
-// Forward every item read since the last call
-static void
-overlap_start_sends_for_read_items(void)
-{
-    for (int i = 0; i < overlap_exchange.num_outgoing; i++) {
-        overlap_outgoing_item *outgoing_item = &overlap_exchange.outgoing[i];
-        if (outgoing_item->state != 0)
-            continue;
-        pdc_object_data *item = find_current_item(outgoing_item->obj_id);
-        if (item != NULL && item->consumed && item->transfer_state == 0)
-            overlap_start_send(outgoing_item, item);
-    }
-}
+// Who reads an object next epoch
+typedef struct {
+    pdcid_t obj_id;
+    int     owner;
+} next_epoch_owner;
 
-// Returns how many sends completed
+static struct {
+    int               active;
+    int               comm_created;
+    MPI_Comm          comm;
+    int               blocking_metadata;
+    next_epoch_owner *owners; // every rank's next-epoch objects, sorted by obj_id
+    int               num_owners;
+    int               num_batches; // batch exchanges started this epoch
+    batch_exchange *  first_batch; // open batch exchanges, oldest first
+    batch_exchange *  last_batch;
+    overlap_stats     stats;
+} overlap_exchange;
+
+// Which items a batch exchange takes
+enum { BATCH_READ_ITEMS, BATCH_ALL_ITEMS, BATCH_NO_ITEMS };
+
 static int
-overlap_test_sends(void)
+compare_owners(const void *a, const void *b)
 {
-    int completed = 0, flag;
-
-    for (int i = 0; i < overlap_exchange.num_outgoing; i++) {
-        overlap_outgoing_item *outgoing_item = &overlap_exchange.outgoing[i];
-        if (outgoing_item->state != 1)
-            continue;
-        MPI_Testall(2, outgoing_item->requests, &flag, MPI_STATUSES_IGNORE);
-        if (!flag)
-            continue;
-
-        if (outgoing_item->item != NULL) {
-            // A same-node receiver now owns the slot; data sent to another node
-            // has its own copy there, so the slot returns to this node's free list.
-            if (outgoing_item->same_node)
-                overlap_exchange.stats.same_node_sent++;
-            else {
-                push_free_slot(outgoing_item->item->slot_idx);
-                overlap_exchange.stats.other_node_sent++;
-            }
-            pdc_region_dl_delete(outgoing_item->item);
-            free(outgoing_item->item);
-            outgoing_item->item = NULL;
-        }
-        outgoing_item->state = 2;
-        overlap_exchange.num_outgoing_done++;
-        completed++;
-    }
-    return completed;
+    pdcid_t x = ((const next_epoch_owner *)a)->obj_id;
+    pdcid_t y = ((const next_epoch_owner *)b)->obj_id;
+    return (x > y) - (x < y);
 }
 
-// Returns how many receives changed state
+// Rank that reads obj_id next epoch, -1 if none
 static int
-overlap_test_receives(void)
+next_owner(pdcid_t obj_id)
 {
-    int changed = 0, flag, available = -1;
+    next_epoch_owner key, *found;
 
-    for (int i = 0; i < overlap_exchange.num_incoming; i++) {
-        overlap_incoming_item *incoming_item = &overlap_exchange.incoming[i];
-
-        if (incoming_item->state == 0) {
-            MPI_Test(&incoming_item->metadata_request, &flag, MPI_STATUS_IGNORE);
-            if (!flag)
-                continue;
-            changed++;
-            if (!incoming_item->metadata.valid) {
-                incoming_item->state = 3; // read from the servers next epoch instead
-                overlap_exchange.num_incoming_done++;
-                overlap_exchange.stats.missing++;
-                continue;
-            }
-            if (incoming_item->same_node) {
-                add_received_item(&incoming_item->metadata, incoming_item->metadata.slot_idx, 2);
-                incoming_item->state = 3;
-                overlap_exchange.num_incoming_done++;
-                overlap_exchange.stats.same_node_received++;
-                continue;
-            }
-            incoming_item->state = 1;
-        }
-
-        if (incoming_item->state == 1) {
-            // Leave enough free slots for this epoch's remaining server reads on the node
-            if (available < 0)
-                available = count_free_slots() - node_pending_inserts_get();
-            if (available <= 0)
-                continue;
-            incoming_item->slot_idx = pop_free_slot();
-            if (incoming_item->slot_idx == SLOT_INVALID) {
-                available = 0;
-                continue;
-            }
-            available--;
-            MPI_Irecv(get_data_ptr(incoming_item->slot_idx), (int)incoming_item->metadata.reg_buf_size,
-                      MPI_BYTE, incoming_item->source_rank, 2 * incoming_item->tag + 1, overlap_exchange.comm,
-                      &incoming_item->data_request);
-            incoming_item->state = 2;
-            changed++;
-        }
-
-        if (incoming_item->state == 2) {
-            MPI_Test(&incoming_item->data_request, &flag, MPI_STATUS_IGNORE);
-            if (!flag)
-                continue;
-            add_received_item(&incoming_item->metadata, incoming_item->slot_idx, 2);
-            incoming_item->state = 3;
-            overlap_exchange.num_incoming_done++;
-            overlap_exchange.stats.other_node_received++;
-            changed++;
-        }
-    }
-    return changed;
+    key.obj_id = obj_id;
+    found      = (next_epoch_owner *)bsearch(&key, overlap_exchange.owners, overlap_exchange.num_owners,
+                                        sizeof(next_epoch_owner), compare_owners);
+    return found != NULL ? found->owner : -1;
 }
 
-// Called by pdc_region_dl_insert when no slot is free: completed sends free
-// slots; otherwise evict (eviction never touches an item that is being sent).
-void
-pdc_region_dl_overlap_make_room(void)
+static int
+read_next_epoch(pdcid_t obj_id)
 {
-    if (overlap_test_sends() > 0)
-        return;
-    pdc_region_cache_evict();
+    return next_owner(obj_id) == client_info.world_rank;
 }
 
 // Drop cached items this rank does not read next epoch and that are not being sent
 static void
-overlap_free_unneeded_items(void)
+free_unneeded_items(void)
 {
     pdc_object_data *obj_cache_iter = client_info.local_cache_list_head, *obj_cache_item;
 
@@ -699,17 +561,239 @@ overlap_free_unneeded_items(void)
     }
 }
 
-// Every rank's id list, concatenated in rank order: rank r's starts at displs[r]
-static pdcid_t *
-allgather_ids(pdcid_t *ids, int len, int *counts, int *displs, int *total)
+static int
+same_node(int rank)
 {
-    pdcid_t *all_ids;
+    return client_info.rank_to_node_id_map[rank] == client_info.node_manager_rank;
+}
 
-    MPI_Allgather(&len, 1, MPI_INT, counts, 1, MPI_INT, overlap_exchange.comm);
-    *total  = counts_to_displs(client_info.world_size, counts, displs);
-    all_ids = (pdcid_t *)PDC_malloc((*total + 1) * sizeof(pdcid_t));
-    MPI_Allgatherv(ids, len, MPI_UINT64_T, all_ids, counts, displs, MPI_UINT64_T, overlap_exchange.comm);
-    return all_ids;
+static int
+batch_exchange_tag(batch_exchange *batch, int k)
+{
+    return (batch->id % BATCH_TAG_RANGE) * BATCH_ITEMS_PER_DEST + k % BATCH_ITEMS_PER_DEST;
+}
+
+// Starts the next batch exchange; returns how many items did not fit (a later one takes them)
+static int
+batch_exchange_start(int which)
+{
+    int            n           = client_info.world_size * BATCH_ITEMS_PER_DEST, left = 0;
+    int            block_bytes = BATCH_ITEMS_PER_DEST * (int)sizeof(pdc_object_metadata);
+    int *          fill        = (int *)PDC_calloc(client_info.world_size, sizeof(int));
+    batch_exchange *batch       = (batch_exchange *)PDC_calloc(1, sizeof(batch_exchange));
+
+    batch->id            = overlap_exchange.num_batches++;
+    batch->send_metadata = (pdc_object_metadata *)PDC_calloc(n, sizeof(pdc_object_metadata));
+    batch->recv_metadata = (pdc_object_metadata *)PDC_calloc(n, sizeof(pdc_object_metadata));
+    batch->send_items    = (pdc_object_data **)PDC_calloc(n, sizeof(pdc_object_data *));
+    batch->send_requests = (MPI_Request *)PDC_malloc(n * sizeof(MPI_Request));
+    batch->recv_requests = (MPI_Request *)PDC_malloc(n * sizeof(MPI_Request));
+    batch->recv_slots    = (int *)PDC_malloc(n * sizeof(int));
+    for (int k = 0; k < n; k++) {
+        batch->send_requests[k] = MPI_REQUEST_NULL;
+        batch->recv_requests[k] = MPI_REQUEST_NULL;
+        batch->recv_slots[k]    = SLOT_INVALID;
+    }
+
+    for (pdc_object_data *item = client_info.local_cache_list_head; item != NULL && which != BATCH_NO_ITEMS;
+         item                  = item->next) {
+        if (item->transfer_state != 0 || (which == BATCH_READ_ITEMS && !item->consumed))
+            continue;
+        int target = next_owner(item->obj_id);
+        if (target < 0 || target == client_info.world_rank)
+            continue;
+        if (fill[target] == BATCH_ITEMS_PER_DEST) {
+            left++;
+            continue;
+        }
+        int k = target * BATCH_ITEMS_PER_DEST + fill[target]++;
+        metadata_from_item(&batch->send_metadata[k], item);
+        batch->send_items[k] = item;
+        item->transfer_state = 1; // being sent: never evicted
+    }
+    free(fill);
+
+    if (overlap_exchange.blocking_metadata) {
+        MPI_Alltoall(batch->send_metadata, block_bytes, MPI_BYTE, batch->recv_metadata, block_bytes, MPI_BYTE,
+                     overlap_exchange.comm);
+        batch->metadata_request = MPI_REQUEST_NULL;
+    }
+    else
+        MPI_Ialltoall(batch->send_metadata, block_bytes, MPI_BYTE, batch->recv_metadata, block_bytes,
+                      MPI_BYTE, overlap_exchange.comm, &batch->metadata_request);
+
+    if (overlap_exchange.last_batch != NULL)
+        overlap_exchange.last_batch->next = batch;
+    else
+        overlap_exchange.first_batch = batch;
+    overlap_exchange.last_batch = batch;
+    return left;
+}
+
+// A batch exchange's metadata has arrived: same-node items hand over their slot, data for
+// other nodes starts moving (its receives are posted once a slot is free)
+static void
+batch_exchange_metadata_arrived(batch_exchange *batch)
+{
+    int n = client_info.world_size * BATCH_ITEMS_PER_DEST;
+
+    batch->metadata_arrived = 1;
+    for (int k = 0; k < n; k++) {
+        int peer = k / BATCH_ITEMS_PER_DEST;
+
+        if (batch->send_metadata[k].valid) {
+            pdc_object_data *item = batch->send_items[k];
+            if (same_node(peer)) {
+                // The receiver now owns the slot
+                pdc_region_dl_delete(item);
+                free(item);
+                batch->send_metadata[k].valid = 0;
+                overlap_exchange.stats.same_node_sent++;
+            }
+            else {
+                MPI_Isend(get_data_ptr(item->slot_idx), (int)item->reg_buf_size, MPI_BYTE, peer,
+                          batch_exchange_tag(batch, k), overlap_exchange.comm, &batch->send_requests[k]);
+                batch->num_open++;
+            }
+        }
+
+        if (batch->recv_metadata[k].valid) {
+            if (same_node(peer)) {
+                add_received_item(&batch->recv_metadata[k], batch->recv_metadata[k].slot_idx, 2);
+                batch->recv_metadata[k].valid = 0;
+                overlap_exchange.stats.same_node_received++;
+            }
+            else
+                batch->num_open++;
+        }
+    }
+}
+
+// Tests a batch exchange's open sends and receives, posts receives that have a slot now;
+// returns how many finished or started
+static int
+batch_exchange_test(batch_exchange *batch, int *available)
+{
+    int n = client_info.world_size * BATCH_ITEMS_PER_DEST, changed = 0, flag;
+
+    for (int k = 0; k < n; k++) {
+        if (batch->send_metadata[k].valid) {
+            MPI_Test(&batch->send_requests[k], &flag, MPI_STATUS_IGNORE);
+            if (flag) {
+                // The data has its own copy on the other node: the slot returns to this node's free list
+                pdc_object_data *item = batch->send_items[k];
+                push_free_slot(item->slot_idx);
+                pdc_region_dl_delete(item);
+                free(item);
+                batch->send_metadata[k].valid = 0;
+                batch->num_open--;
+                overlap_exchange.stats.other_node_sent++;
+                changed++;
+            }
+        }
+
+        pdc_object_metadata *received = &batch->recv_metadata[k];
+        if (!received->valid)
+            continue;
+        if (batch->recv_slots[k] == SLOT_INVALID) {
+            // Leave enough free slots for this epoch's remaining server reads on the node
+            if (*available < 0)
+                *available = count_free_slots() - node_pending_inserts_get();
+            if (*available <= 0)
+                continue;
+            batch->recv_slots[k] = pop_free_slot();
+            if (batch->recv_slots[k] == SLOT_INVALID) {
+                *available = 0;
+                continue;
+            }
+            (*available)--;
+            MPI_Irecv(get_data_ptr(batch->recv_slots[k]), (int)received->reg_buf_size, MPI_BYTE,
+                      k / BATCH_ITEMS_PER_DEST, batch_exchange_tag(batch, k), overlap_exchange.comm,
+                      &batch->recv_requests[k]);
+            changed++;
+        }
+        MPI_Test(&batch->recv_requests[k], &flag, MPI_STATUS_IGNORE);
+        if (flag) {
+            add_received_item(received, batch->recv_slots[k], 2);
+            received->valid = 0;
+            batch->num_open--;
+            overlap_exchange.stats.other_node_received++;
+            changed++;
+        }
+    }
+    return changed;
+}
+
+static void
+batch_exchange_free(batch_exchange *batch)
+{
+    free(batch->send_metadata);
+    free(batch->recv_metadata);
+    free(batch->send_items);
+    free(batch->send_requests);
+    free(batch->recv_requests);
+    free(batch->recv_slots);
+    free(batch);
+}
+
+// Advances every open batch exchange, oldest first, and frees the finished ones;
+// returns how many sends and receives finished or started
+static int
+batch_exchanges_advance(void)
+{
+    int            changed = 0, flag, available = -1;
+    batch_exchange *batch = overlap_exchange.first_batch, *previous = NULL, *next;
+
+    while (batch != NULL) {
+        next = batch->next;
+        if (!batch->metadata_arrived) {
+            MPI_Test(&batch->metadata_request, &flag, MPI_STATUS_IGNORE);
+            if (flag) {
+                batch_exchange_metadata_arrived(batch);
+                changed++;
+            }
+        }
+        if (batch->metadata_arrived) {
+            changed += batch_exchange_test(batch, &available);
+            if (batch->num_open == 0) {
+                if (previous != NULL)
+                    previous->next = next;
+                else
+                    overlap_exchange.first_batch = next;
+                if (overlap_exchange.last_batch == batch)
+                    overlap_exchange.last_batch = previous;
+                batch_exchange_free(batch);
+                batch = next;
+                continue;
+            }
+        }
+        previous = batch;
+        batch    = next;
+    }
+    return changed;
+}
+
+// Sends and receives not finished: items not yet in a batch exchange count as open sends;
+// receives are known once a batch exchange's metadata has arrived
+static void
+batch_exchanges_count_open(int *open_sends, int *open_receives)
+{
+    int n = client_info.world_size * BATCH_ITEMS_PER_DEST;
+
+    *open_sends    = 0;
+    *open_receives = 0;
+    for (pdc_object_data *item = client_info.local_cache_list_head; item != NULL; item = item->next) {
+        int target = next_owner(item->obj_id);
+        if (item->transfer_state == 0 && target >= 0 && target != client_info.world_rank)
+            (*open_sends)++;
+    }
+    for (batch_exchange *batch = overlap_exchange.first_batch; batch != NULL; batch = batch->next) {
+        for (int k = 0; k < n; k++) {
+            *open_sends += batch->send_metadata[k].valid;
+            if (batch->metadata_arrived)
+                *open_receives += batch->recv_metadata[k].valid;
+        }
+    }
 }
 
 perr_t
@@ -718,8 +802,7 @@ pdc_region_dl_overlap_begin(pdcid_t *cur_ids, int cur_len, pdcid_t *next_ids, in
     FUNC_ENTER(NULL);
 
     perr_t ret_value = SUCCEED;
-    int    world_size = client_info.world_size, my_rank = client_info.world_rank;
-    int    total_cur, total_next;
+    int    world_size = client_info.world_size, total_next;
     double start = MPI_Wtime();
 
     if (!client_info.client_cache_init)
@@ -728,106 +811,49 @@ pdc_region_dl_overlap_begin(pdcid_t *cur_ids, int cur_len, pdcid_t *next_ids, in
         PGOTO_ERROR(FAIL, "pdc_region_dl_overlap_begin - previous exchange has not ended");
 
     if (!overlap_exchange.comm_created) {
+        const char *metadata = getenv("PDC_OVERLAP_METADATA");
+
         MPI_Comm_dup(client_cache_world_comm, &overlap_exchange.comm);
-        overlap_exchange.comm_created = 1;
+        overlap_exchange.comm_created      = 1;
+        overlap_exchange.blocking_metadata = metadata != NULL && strcmp(metadata, "blocking") == 0;
+        if (client_info.world_rank == 0)
+            printf("[RANK 0] overlapped exchange mode: batch exchanges, metadata %s\n",
+                   overlap_exchange.blocking_metadata ? "MPI_Alltoall" : "MPI_Ialltoall");
     }
 
-    // Every rank's lists, so each rank knows the current and next owner of every object
-    int *cur_counts  = (int *)PDC_calloc(4 * (size_t)world_size, sizeof(int));
-    int *next_counts = cur_counts + world_size;
-    int *cur_displs  = cur_counts + 2 * world_size;
-    int *next_displs = cur_counts + 3 * world_size;
+    // Who reads every object next epoch
+    int *    counts   = (int *)PDC_calloc(2 * (size_t)world_size, sizeof(int));
+    int *    displs   = counts + world_size;
+    pdcid_t *all_next = allgather_ids(overlap_exchange.comm, next_ids, next_len, counts, displs, &total_next);
 
-    pdcid_t *all_cur  = allgather_ids(cur_ids, cur_len, cur_counts, cur_displs, &total_cur);
-    pdcid_t *all_next = allgather_ids(next_ids, next_len, next_counts, next_displs, &total_next);
-
-    overlap_exchange.records =
-        (overlap_object_record *)PDC_malloc((total_cur + 1) * sizeof(overlap_object_record));
-    overlap_exchange.num_records = total_cur;
+    overlap_exchange.owners     = (next_epoch_owner *)PDC_malloc((total_next + 1) * sizeof(next_epoch_owner));
+    overlap_exchange.num_owners = total_next;
     for (int r = 0; r < world_size; r++) {
-        for (int i = 0; i < cur_counts[r]; i++) {
-            overlap_object_record *record = &overlap_exchange.records[cur_displs[r] + i];
-            record->obj_id                = all_cur[cur_displs[r] + i];
-            record->current_owner         = r;
-            record->current_position      = i;
-            record->next_owner            = -1;
+        for (int i = 0; i < counts[r]; i++) {
+            overlap_exchange.owners[displs[r] + i].obj_id = all_next[displs[r] + i];
+            overlap_exchange.owners[displs[r] + i].owner  = r;
         }
     }
-    qsort(overlap_exchange.records, total_cur, sizeof(overlap_object_record), compare_object_records);
-    for (int r = 0; r < world_size; r++) {
-        for (int i = 0; i < next_counts[r]; i++) {
-            overlap_object_record *record = find_object_record(all_next[next_displs[r] + i]);
-            if (record != NULL)
-                record->next_owner = r;
-        }
-    }
-
-    overlap_exchange.num_next_ids    = next_len;
-    overlap_exchange.next_ids_sorted = (pdcid_t *)PDC_malloc((next_len + 1) * sizeof(pdcid_t));
-    memcpy(overlap_exchange.next_ids_sorted, next_ids, next_len * sizeof(pdcid_t));
-    qsort(overlap_exchange.next_ids_sorted, next_len, sizeof(pdcid_t), compare_object_ids);
+    qsort(overlap_exchange.owners, total_next, sizeof(next_epoch_owner), compare_owners);
+    free(counts);
+    free(all_next);
 
     // Items delivered by the previous exchange are this epoch's data now
     reset_item_states();
 
-    // Outgoing: this rank's objects that another rank reads next epoch
-    overlap_exchange.outgoing =
-        (overlap_outgoing_item *)PDC_calloc(cur_len + 1, sizeof(overlap_outgoing_item));
-    overlap_exchange.num_outgoing = 0;
-    for (int i = 0; i < cur_len; i++) {
-        overlap_object_record *record = find_object_record(cur_ids[i]);
-        if (record == NULL || record->current_owner != my_rank || record->current_position != i ||
-            record->next_owner < 0 || record->next_owner == my_rank)
-            continue;
-        overlap_outgoing_item *outgoing_item = &overlap_exchange.outgoing[overlap_exchange.num_outgoing++];
-        outgoing_item->obj_id                = record->obj_id;
-        outgoing_item->target_rank           = record->next_owner;
-        outgoing_item->tag                   = i;
-        outgoing_item->same_node =
-            client_info.rank_to_node_id_map[record->next_owner] == client_info.node_manager_rank;
-        outgoing_item->requests[0] = MPI_REQUEST_NULL;
-        outgoing_item->requests[1] = MPI_REQUEST_NULL;
-    }
-
-    // Incoming: objects this rank reads next epoch that another rank holds now.
-    // Metadata messages are small, so all their receives are posted right away.
-    overlap_exchange.incoming =
-        (overlap_incoming_item *)PDC_calloc(next_len + 1, sizeof(overlap_incoming_item));
-    overlap_exchange.num_incoming = 0;
-    for (int i = 0; i < next_len; i++) {
-        overlap_object_record *record = find_object_record(next_ids[i]);
-        if (record == NULL || record->next_owner != my_rank || record->current_owner == my_rank)
-            continue;
-        overlap_incoming_item *incoming_item = &overlap_exchange.incoming[overlap_exchange.num_incoming++];
-        incoming_item->obj_id                = record->obj_id;
-        incoming_item->source_rank           = record->current_owner;
-        incoming_item->tag                   = record->current_position;
-        incoming_item->same_node =
-            client_info.rank_to_node_id_map[record->current_owner] == client_info.node_manager_rank;
-        incoming_item->slot_idx     = SLOT_INVALID;
-        incoming_item->data_request = MPI_REQUEST_NULL;
-        MPI_Irecv(&incoming_item->metadata, sizeof(pdc_object_metadata), MPI_BYTE, incoming_item->source_rank,
-                  2 * incoming_item->tag, overlap_exchange.comm, &incoming_item->metadata_request);
-    }
-
     // This epoch's server reads still to come (epoch 1: all of them); receives
     // for next-epoch data must leave this many slots free on the node.
-    overlap_exchange.pending_inserts = 0;
+    overlap_pending_inserts = 0;
     for (int i = 0; i < cur_len; i++) {
         if (find_current_item(cur_ids[i]) == NULL)
-            overlap_exchange.pending_inserts++;
+            overlap_pending_inserts++;
     }
-    if (overlap_exchange.pending_inserts > 0)
-        node_pending_inserts_add(overlap_exchange.pending_inserts);
+    if (overlap_pending_inserts > 0)
+        node_pending_inserts_add(overlap_pending_inserts);
 
-    overlap_exchange.num_outgoing_done = 0;
-    overlap_exchange.num_incoming_done = 0;
+    overlap_exchange.num_batches = 0;
     memset(&overlap_exchange.stats, 0, sizeof(overlap_exchange.stats));
     overlap_exchange.active = 1;
-
-    free(cur_counts);
-    free(all_cur);
-    free(all_next);
 
     pdc_region_cache_timelog(start, "pdc_region_dl_overlap_begin - total time");
 
@@ -846,9 +872,8 @@ pdc_region_dl_overlap_progress(void)
     if (!overlap_exchange.active)
         goto done;
 
-    overlap_start_sends_for_read_items();
-    overlap_test_sends();
-    overlap_test_receives();
+    batch_exchange_start(BATCH_READ_ITEMS);
+    batch_exchanges_advance();
 
 done:
     FUNC_LEAVE(ret_value);
@@ -860,44 +885,47 @@ pdc_region_dl_overlap_end(void)
     FUNC_ENTER(NULL);
 
     perr_t ret_value = SUCCEED;
-    double start     = MPI_Wtime(), last_change = MPI_Wtime();
-    int    warned    = 0, open_outgoing, open_incoming;
+    double start = MPI_Wtime(), last_change = MPI_Wtime();
+    int    warned = 0, open_sends, open_receives, max_batches, left, max_left;
 
     if (!overlap_exchange.active)
         goto done;
 
     // No more server reads this epoch: release this rank's reserved slots
-    if (overlap_exchange.pending_inserts > 0) {
-        node_pending_inserts_add(-overlap_exchange.pending_inserts);
-        overlap_exchange.pending_inserts = 0;
+    if (overlap_pending_inserts > 0) {
+        node_pending_inserts_add(-overlap_pending_inserts);
+        overlap_pending_inserts = 0;
     }
 
-    // Items not read this epoch still go to their next owner; items this rank
-    // never had are reported, so the receiver reads them from the servers.
-    for (int i = 0; i < overlap_exchange.num_outgoing; i++) {
-        overlap_outgoing_item *outgoing_item = &overlap_exchange.outgoing[i];
-        if (outgoing_item->state == 0) {
-            pdc_object_data *item = find_current_item(outgoing_item->obj_id);
-            overlap_start_send(outgoing_item, (item != NULL && item->transfer_state == 0) ? item : NULL);
-        }
-    }
+    batch_exchanges_advance();
+    batch_exchanges_count_open(&open_sends, &open_receives);
 
-    open_outgoing = overlap_exchange.num_outgoing - overlap_exchange.num_outgoing_done;
-    open_incoming = overlap_exchange.num_incoming - overlap_exchange.num_incoming_done;
+    // Batch exchanges pair up across ranks in the order they are started: a rank that
+    // started fewer adds empty ones. (On client_cache_world_comm, so these
+    // collectives never interleave with the batch exchanges' own.)
+    MPI_Allreduce(&overlap_exchange.num_batches, &max_batches, 1, MPI_INT, MPI_MAX, client_cache_world_comm);
+    while (overlap_exchange.num_batches < max_batches)
+        batch_exchange_start(BATCH_NO_ITEMS);
 
-    while (overlap_exchange.num_outgoing_done < overlap_exchange.num_outgoing ||
-           overlap_exchange.num_incoming_done < overlap_exchange.num_incoming) {
-        if (overlap_test_sends() + overlap_test_receives() > 0) {
+    // Items not read this epoch still go to their next owner
+    do {
+        left = batch_exchange_start(BATCH_ALL_ITEMS);
+        MPI_Allreduce(&left, &max_left, 1, MPI_INT, MPI_MAX, client_cache_world_comm);
+    } while (max_left > 0);
+
+    while (overlap_exchange.first_batch != NULL) {
+        if (batch_exchanges_advance() > 0) {
             last_change = MPI_Wtime();
             continue;
         }
         // Receives may be waiting for a slot: free what nobody needs any more
-        overlap_free_unneeded_items();
+        free_unneeded_items();
         if (!warned && MPI_Wtime() - last_change > 60.0) {
+            int s, r;
+            batch_exchanges_count_open(&s, &r);
             printf("[RANK %d] overlapped exchange: no progress for 60 s (%d sends, %d receives open); "
                    "MAX_SLOTS_PER_NODE may be too small for the next epoch's items\n",
-                   client_info.world_rank, overlap_exchange.num_outgoing - overlap_exchange.num_outgoing_done,
-                   overlap_exchange.num_incoming - overlap_exchange.num_incoming_done);
+                   client_info.world_rank, s, r);
             fflush(stdout);
             warned = 1;
         }
@@ -905,30 +933,56 @@ pdc_region_dl_overlap_end(void)
     }
 
     // What is left in the cache is this rank's data for the next epoch
-    overlap_free_unneeded_items();
+    free_unneeded_items();
     reset_item_states();
 
-    printf("[RANK %d] overlapped exchange: sent same-node %d other-node %d, received same-node %d "
-           "other-node %d, missing %d | still open when the epoch ended: %d sends, %d receives, "
-           "end wait %.3fs\n",
-           client_info.world_rank, overlap_exchange.stats.same_node_sent,
-           overlap_exchange.stats.other_node_sent, overlap_exchange.stats.same_node_received,
-           overlap_exchange.stats.other_node_received, overlap_exchange.stats.missing, open_outgoing,
-           open_incoming, MPI_Wtime() - start);
+    // Objects this rank reads next epoch that did not arrive are read from the servers
+    for (int i = 0; i < overlap_exchange.num_owners; i++) {
+        if (overlap_exchange.owners[i].owner == client_info.world_rank &&
+            find_current_item(overlap_exchange.owners[i].obj_id) == NULL)
+            overlap_exchange.stats.missing++;
+    }
 
-    free(overlap_exchange.records);
-    free(overlap_exchange.next_ids_sorted);
-    free(overlap_exchange.outgoing);
-    free(overlap_exchange.incoming);
-    overlap_exchange.records         = NULL;
-    overlap_exchange.next_ids_sorted = NULL;
-    overlap_exchange.outgoing        = NULL;
-    overlap_exchange.incoming        = NULL;
-    overlap_exchange.active          = 0;
+    print_overlap_summary(&overlap_exchange.stats, open_sends, open_receives, MPI_Wtime() - start);
+
+    free(overlap_exchange.owners);
+    overlap_exchange.owners     = NULL;
+    overlap_exchange.num_owners = 0;
+    overlap_exchange.active     = 0;
 
     pdc_region_cache_timelog(start, "pdc_region_dl_overlap_end - wait time");
 
 done:
     fflush(stdout);
     FUNC_LEAVE(ret_value);
+}
+
+/**************************************************************************/
+/* Hooks pdc_region_dl_insert calls while an exchange runs                */
+/**************************************************************************/
+
+int
+pdc_region_dl_overlap_active(void)
+{
+    return overlap_exchange.active;
+}
+
+// No slot is free: finished sends free slots; otherwise evict (eviction never
+// touches an item that is being sent)
+void
+pdc_region_dl_overlap_make_room(void)
+{
+    if (batch_exchanges_advance() > 0)
+        return;
+    pdc_region_cache_evict();
+}
+
+// One of this epoch's server reads has its slot now
+void
+pdc_region_dl_overlap_record_insert(void)
+{
+    if (overlap_pending_inserts > 0) {
+        overlap_pending_inserts--;
+        node_pending_inserts_add(-1);
+    }
 }

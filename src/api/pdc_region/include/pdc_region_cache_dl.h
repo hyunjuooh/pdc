@@ -32,6 +32,11 @@
 #define NUM_CHUNKS 21
 // #define NUM_CHUNKS               4
 
+// Overlapped exchange: most items a rank sends to one other rank in one batch
+// exchange (one per training step, so at least the batch size; more wait for
+// the next one)
+#define BATCH_ITEMS_PER_DEST 8
+
 // 1GB data generation for bdcats
 // #define MAX_ITEM_SIZE 33554432
 
