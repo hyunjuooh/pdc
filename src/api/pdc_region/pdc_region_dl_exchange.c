@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <time.h>
 #include <mpi.h>
 
 #include "pdc_utlist.h"
@@ -400,6 +401,33 @@ typedef struct {
 // to come, for which receives of next-epoch data must leave free slots
 static int overlap_pending_inserts;
 
+// PDC_OVERLAP_TIMELINE=1: the first rank on each node prints one "[TIMELINE]" line per
+// batch exchange when its last transfer has finished, in wall-clock time (lines up with
+// time.time() in DLIO's per-step lines). step=k is the exchange of DLIO step k's batch,
+// started by the progress call at the end of step k (batch id k - 1).
+static int timeline_enabled = -1;
+static int timeline_epoch; // exchanges begun so far: the one during epoch 1 is 1
+
+static int
+timeline_on(void)
+{
+    if (timeline_enabled < 0) {
+        const char *value = getenv("PDC_OVERLAP_TIMELINE");
+        timeline_enabled  = value != NULL && strcmp(value, "1") == 0 &&
+                           client_info.world_rank == client_info.node_manager_rank;
+    }
+    return timeline_enabled;
+}
+
+static double
+wall_now(void)
+{
+    struct timespec ts;
+
+    clock_gettime(CLOCK_REALTIME, &ts);
+    return ts.tv_sec + ts.tv_nsec * 1e-9;
+}
+
 static void
 print_overlap_summary(overlap_stats *stats, int open_sends, int open_receives, double end_wait)
 {
@@ -493,6 +521,9 @@ typedef struct batch_exchange {
     MPI_Request *        recv_requests;
     int *                recv_slots; // SLOT_INVALID: waiting for a free slot
 
+    double t_start;   // timeline: when the batch exchange started
+    int    num_items; // timeline: items sent or received, same node or not
+
     struct batch_exchange *next;
 } batch_exchange;
 
@@ -583,6 +614,7 @@ batch_exchange_start(int which)
     batch_exchange *batch       = (batch_exchange *)PDC_calloc(1, sizeof(batch_exchange));
 
     batch->id            = overlap_exchange.num_batches++;
+    batch->t_start       = timeline_on() ? wall_now() : 0;
     batch->send_metadata = (pdc_object_metadata *)PDC_calloc(n, sizeof(pdc_object_metadata));
     batch->recv_metadata = (pdc_object_metadata *)PDC_calloc(n, sizeof(pdc_object_metadata));
     batch->send_items    = (pdc_object_data **)PDC_calloc(n, sizeof(pdc_object_data *));
@@ -641,6 +673,7 @@ batch_exchange_metadata_arrived(batch_exchange *batch)
     for (int k = 0; k < n; k++) {
         int peer = k / BATCH_ITEMS_PER_DEST;
 
+        batch->num_items += batch->send_metadata[k].valid + batch->recv_metadata[k].valid;
         if (batch->send_metadata[k].valid) {
             pdc_object_data *item = batch->send_items[k];
             if (same_node(peer)) {
@@ -756,6 +789,12 @@ batch_exchanges_advance(void)
         if (batch->metadata_arrived) {
             changed += batch_exchange_test(batch, &available);
             if (batch->num_open == 0) {
+                if (timeline_on() && batch->num_items > 0) {
+                    printf("[TIMELINE] rank=%d epoch=%d step=%d kind=exchange start=%.6f end=%.6f items=%d\n",
+                           client_info.world_rank, timeline_epoch, batch->id + 1, batch->t_start, wall_now(),
+                           batch->num_items);
+                    fflush(stdout);
+                }
                 if (previous != NULL)
                     previous->next = next;
                 else
@@ -837,6 +876,7 @@ pdc_region_dl_overlap_begin(pdcid_t *cur_ids, int cur_len, pdcid_t *next_ids, in
     qsort(overlap_exchange.owners, total_next, sizeof(next_epoch_owner), compare_owners);
     free(counts);
     free(all_next);
+    timeline_epoch++;
 
     // Items delivered by the previous exchange are this epoch's data now
     reset_item_states();

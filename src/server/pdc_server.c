@@ -76,9 +76,9 @@ sqlite3 *sqlite3_db_g;
 #endif
 
 // Check how long PDC has run every OP_INTERVAL operations
-#define PDC_CHECKPOINT_CHK_OP_INTERVAL 2000
+#define PDC_CHECKPOINT_CHK_OP_INTERVAL 200000
 // Checkpoint every INTERVAL_SEC second and at least OP_INTERVAL operations
-#define PDC_CHECKPOINT_MIN_INTERVAL_SEC 1800
+#define PDC_CHECKPOINT_MIN_INTERVAL_SEC 180000
 
 // Global debug variable to control debug printfs
 int is_debug_g       = 0;
