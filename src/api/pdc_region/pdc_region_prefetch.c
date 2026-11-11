@@ -263,7 +263,7 @@ PDCregion_prefetch_begin(pdcid_t *cur_obj_arr, int cur_len, pdcid_t *next_obj_ar
 
 #ifdef ENALBE_CLIENT_CACHE
     pdcid_t *cur_ids = NULL, *next_ids = NULL;
-    double   start   = MPI_Wtime();
+    double   start = MPI_Wtime();
 
     if (prefetch_metadata_ids(cur_obj_arr, cur_len, &cur_ids) != SUCCEED ||
         prefetch_metadata_ids(next_obj_arr, next_len, &next_ids) != SUCCEED)

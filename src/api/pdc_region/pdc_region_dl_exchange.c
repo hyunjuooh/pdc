@@ -57,9 +57,9 @@ metadata_from_item(pdc_object_metadata *metadata, pdc_object_data *item)
 static void
 add_received_item(pdc_object_metadata *metadata, int slot_idx, int transfer_state)
 {
-    pdc_object_data *item = pdc_region_dl_new_item(metadata->obj_id, metadata->reg_ndim, metadata->unit,
-                                                   metadata->reg_offset, metadata->reg_size,
-                                                   metadata->reg_buf_size, slot_idx);
+    pdc_object_data *item =
+        pdc_region_dl_new_item(metadata->obj_id, metadata->reg_ndim, metadata->unit, metadata->reg_offset,
+                               metadata->reg_size, metadata->reg_buf_size, slot_idx);
     item->transfer_state = transfer_state;
     pdc_region_dl_prepend(item);
 }
@@ -145,7 +145,7 @@ done:
 // node), grouped by destination in a fixed order: dest's group starts at displs[dest].
 static void
 pack_metadata(pdc_object_data **items, int n_items, int type, int n_dest, const int *displs, int *fill,
-             pdc_object_metadata *metadata, pdc_object_data **packed_items)
+              pdc_object_metadata *metadata, pdc_object_data **packed_items)
 {
     memset(fill, 0, n_dest * sizeof(int));
     for (int i = 0; i < n_items; i++) {
@@ -164,7 +164,7 @@ pack_metadata(pdc_object_data **items, int n_items, int type, int n_dest, const 
 // metadata, grouped by sender (sender s's group starts at rdispls[s]).
 static pdc_object_metadata *
 exchange_metadata(MPI_Comm comm, int comm_size, MPI_Datatype metadata_type, pdc_object_metadata *send_meta,
-                 int *send_counts, int *sdispls, int *recv_counts, int *rdispls, int *recv_total)
+                  int *send_counts, int *sdispls, int *recv_counts, int *rdispls, int *recv_total)
 {
     pdc_object_metadata *recv_meta;
 
@@ -189,7 +189,7 @@ pdc_region_dl_data_exchange(pdcid_t *global_prefetch_list, int obj_prefetch_list
     perr_t ret_value = SUCCEED;
 
     pdc_object_data *exchange_head;
-    double           start = MPI_Wtime(), tmp_timer;
+    double           start      = MPI_Wtime(), tmp_timer;
     double           intra_time = 0.0, inter_meta_time = 0.0, inter_data_time = 0.0, delete_time = 0.0;
     int              node_size = client_info.node_size, world_size = client_info.world_size;
     int              old_cached_item_num = client_info.cached_item_num;
@@ -204,7 +204,7 @@ pdc_region_dl_data_exchange(pdcid_t *global_prefetch_list, int obj_prefetch_list
     int *intra_sdispls = counts + 2 * world_size, *intra_rdispls = counts + 3 * world_size;
     int *inter_send_counts = counts + 4 * world_size, *inter_recv_counts = counts + 5 * world_size;
     int *inter_sdispls = counts + 6 * world_size, *inter_rdispls = counts + 7 * world_size;
-    int *fill          = counts + 8 * world_size;
+    int *fill = counts + 8 * world_size;
 
     MPI_Datatype metadata_type;
     MPI_Type_contiguous(sizeof(pdc_object_metadata), MPI_BYTE, &metadata_type);
@@ -252,10 +252,9 @@ pdc_region_dl_data_exchange(pdcid_t *global_prefetch_list, int obj_prefetch_list
         counts_to_displs(node_size, intra_send_counts, intra_sdispls);
         pack_metadata(items, n_c, 0, node_size, intra_sdispls, fill, intra_send_meta, NULL);
 
-        pdc_object_metadata *intra_recv_meta =
-            exchange_metadata(client_cache_node_comm, node_size, metadata_type, intra_send_meta,
-                              intra_send_counts, intra_sdispls, intra_recv_counts, intra_rdispls,
-                              &intra_recv_total);
+        pdc_object_metadata *intra_recv_meta = exchange_metadata(
+            client_cache_node_comm, node_size, metadata_type, intra_send_meta, intra_send_counts,
+            intra_sdispls, intra_recv_counts, intra_rdispls, &intra_recv_total);
         for (int k = 0; k < intra_recv_total; k++)
             add_received_item(&intra_recv_meta[k], intra_recv_meta[k].slot_idx, 0);
 
@@ -278,10 +277,9 @@ pdc_region_dl_data_exchange(pdcid_t *global_prefetch_list, int obj_prefetch_list
         counts_to_displs(world_size, inter_send_counts, inter_sdispls);
         pack_metadata(items, n_c, 1, world_size, inter_sdispls, fill, send_meta, send_item);
 
-        pdc_object_metadata *recv_meta =
-            exchange_metadata(client_cache_world_comm, world_size, metadata_type, send_meta,
-                              inter_send_counts, inter_sdispls, inter_recv_counts, inter_rdispls,
-                              &inter_recv_total);
+        pdc_object_metadata *recv_meta = exchange_metadata(
+            client_cache_world_comm, world_size, metadata_type, send_meta, inter_send_counts, inter_sdispls,
+            inter_recv_counts, inter_rdispls, &inter_recv_total);
         inter_meta_time += MPI_Wtime() - tmp_timer;
 
         // ---- Inter-node step 2: data straight from/into shared-window slots ----
@@ -608,9 +606,9 @@ batch_exchange_tag(batch_exchange *batch, int k)
 static int
 batch_exchange_start(int which)
 {
-    int            n           = client_info.world_size * BATCH_ITEMS_PER_DEST, left = 0;
-    int            block_bytes = BATCH_ITEMS_PER_DEST * (int)sizeof(pdc_object_metadata);
-    int *          fill        = (int *)PDC_calloc(client_info.world_size, sizeof(int));
+    int             n = client_info.world_size * BATCH_ITEMS_PER_DEST, left = 0;
+    int             block_bytes = BATCH_ITEMS_PER_DEST * (int)sizeof(pdc_object_metadata);
+    int *           fill        = (int *)PDC_calloc(client_info.world_size, sizeof(int));
     batch_exchange *batch       = (batch_exchange *)PDC_calloc(1, sizeof(batch_exchange));
 
     batch->id            = overlap_exchange.num_batches++;
@@ -774,7 +772,7 @@ batch_exchange_free(batch_exchange *batch)
 static int
 batch_exchanges_advance(void)
 {
-    int            changed = 0, flag, available = -1;
+    int             changed = 0, flag, available = -1;
     batch_exchange *batch = overlap_exchange.first_batch, *previous = NULL, *next;
 
     while (batch != NULL) {
@@ -840,9 +838,9 @@ pdc_region_dl_overlap_begin(pdcid_t *cur_ids, int cur_len, pdcid_t *next_ids, in
 {
     FUNC_ENTER(NULL);
 
-    perr_t ret_value = SUCCEED;
+    perr_t ret_value  = SUCCEED;
     int    world_size = client_info.world_size, total_next;
-    double start = MPI_Wtime();
+    double start      = MPI_Wtime();
 
     if (!client_info.client_cache_init)
         PGOTO_ERROR(FAIL, "pdc_region_dl_overlap_begin - client cache not initialized");

@@ -45,7 +45,7 @@
 
 // #define MAX_ITEM_SIZE      134217728
 
-#define MAX_ITEM_SIZE 157286400
+#define MAX_ITEM_SIZE      157286400
 #define MAX_SLOTS_PER_NODE 950
 // #define MAX_SLOTS_PER_NODE 712
 // #define MAX_SLOTS_PER_NODE 475
@@ -56,7 +56,7 @@
 /* Library Private Struct */
 /**************************/
 typedef struct {
-    int  free_stack_head;
+    int free_stack_head;
     // Server reads still to come on this node in the current epoch while an
     // overlapped exchange runs; next-epoch receives must leave this many slots free.
     int  pending_inserts;
@@ -144,7 +144,7 @@ extern MPI_Comm        client_cache_world_comm;
 extern MPI_Comm        client_cache_node_comm;
 
 pdc_object_data *pdc_region_dl_new_item(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset,
-                                         uint64_t *size, uint64_t reg_buf_size, int slot_idx);
+                                        uint64_t *size, uint64_t reg_buf_size, int slot_idx);
 perr_t           pdc_region_dl_prepend(pdc_object_data *obj_cache_item);
 perr_t           pdc_region_dl_delete(pdc_object_data *obj_cache_item);
 char *           get_data_ptr(int shared_index);

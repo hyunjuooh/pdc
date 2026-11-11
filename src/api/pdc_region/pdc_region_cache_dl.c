@@ -336,8 +336,8 @@ pdc_region_dl_insert(pdcid_t obj_id, int ndim, uint64_t unit, uint64_t *offset, 
     if (pdc_region_dl_overlap_active())
         pdc_region_dl_overlap_record_insert();
 
-    obj_cache_item = pdc_region_dl_new_item(obj_id, ndim, unit, offset, size,
-                                            (read_size > MAX_ITEM_SIZE) ? MAX_ITEM_SIZE : read_size, slot_idx);
+    obj_cache_item = pdc_region_dl_new_item(
+        obj_id, ndim, unit, offset, size, (read_size > MAX_ITEM_SIZE) ? MAX_ITEM_SIZE : read_size, slot_idx);
     if (!obj_cache_item)
         PGOTO_ERROR(FAIL, "PDC region cache - obj_cache_item memory allocation failed");
     obj_cache_item->consumed = 1; // inserted right after being read from the server
